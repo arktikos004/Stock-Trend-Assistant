@@ -1,0 +1,167 @@
+{
+  "model_name": "lstm",
+  "trained_at": "2026-08-13T17:52:08+00:00",
+  "feature_columns": [
+    "ret_1d",
+    "ret_5d",
+    "close_ma5",
+    "close_ma10",
+    "close_ma20",
+    "close_ma60",
+    "rsi14",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "bb_pctb",
+    "bb_width",
+    "kd_k",
+    "kd_d",
+    "vol_ratio",
+    "vol_chg",
+    "hl_range",
+    "mkt_ret_1d",
+    "mkt_ret_5d",
+    "mkt_ma20",
+    "mkt_vol20",
+    "breadth_up",
+    "breadth_ma5",
+    "rel_ret_1d",
+    "rel_ret_5d"
+  ],
+  "window_length_days": 60,
+  "label_classes": [
+    "跌",
+    "觀望",
+    "漲"
+  ],
+  "label_horizon_days": 5,
+  "label_up_threshold": 0.02,
+  "label_down_threshold": -0.02,
+  "auto_adjust": true,
+  "git_commit": "16e27a8",
+  "metrics": {
+    "val": {
+      "n_samples": 5712,
+      "accuracy": 0.47706582633053224,
+      "macro_f1": 0.45477743062988646,
+      "macro_auc": 0.668381832637829,
+      "majority_class": "觀望",
+      "majority_baseline_accuracy": 0.436624649859944,
+      "confusion_matrix": [
+        [
+          482,
+          335,
+          479
+        ],
+        [
+          435,
+          1440,
+          619
+        ],
+        [
+          610,
+          509,
+          803
+        ]
+      ],
+      "label_distribution": {
+        "跌": 1296,
+        "觀望": 2494,
+        "漲": 1922
+      }
+    },
+    "test": {
+      "n_samples": 619,
+      "accuracy": 0.40226171243941844,
+      "macro_f1": 0.37276454781319496,
+      "macro_auc": 0.6268649309725577,
+      "majority_class": "漲",
+      "majority_baseline_accuracy": 0.38287560581583197,
+      "confusion_matrix": [
+        [
+          67,
+          17,
+          91
+        ],
+        [
+          73,
+          37,
+          97
+        ],
+        [
+          69,
+          23,
+          145
+        ]
+      ],
+      "label_distribution": {
+        "跌": 175,
+        "觀望": 207,
+        "漲": 237
+      }
+    },
+    "train_seconds": 7.5
+  },
+  "stride": 2,
+  "n_train": 105596,
+  "tickers": [
+    "1101.TW",
+    "1216.TW",
+    "1301.TW",
+    "1303.TW",
+    "1326.TW",
+    "2002.TW",
+    "2207.TW",
+    "2301.TW",
+    "2303.TW",
+    "2308.TW",
+    "2317.TW",
+    "2327.TW",
+    "2330.TW",
+    "2345.TW",
+    "2357.TW",
+    "2379.TW",
+    "2382.TW",
+    "2395.TW",
+    "2412.TW",
+    "2454.TW",
+    "2603.TW",
+    "2618.TW",
+    "2880.TW",
+    "2881.TW",
+    "2882.TW",
+    "2883.TW",
+    "2884.TW",
+    "2885.TW",
+    "2886.TW",
+    "2887.TW",
+    "2890.TW",
+    "2891.TW",
+    "2892.TW",
+    "2912.TW",
+    "3008.TW",
+    "3017.TW",
+    "3034.TW",
+    "3037.TW",
+    "3045.TW",
+    "3231.TW",
+    "3661.TW",
+    "3711.TW",
+    "4904.TW",
+    "4938.TW",
+    "5871.TW",
+    "5876.TW",
+    "5880.TW",
+    "6505.TW",
+    "6669.TW"
+  ],
+  "hyperparams": {
+    "hidden_size": 64,
+    "num_layers": 1,
+    "dropout": 0.2,
+    "lr": 0.001,
+    "batch_size": 256,
+    "max_epochs": 100,
+    "patience": 5
+  }
+}
