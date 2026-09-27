@@ -164,7 +164,8 @@ jobs:
             cp -r "${prev}/site-data" site-data 2>/dev/null || true
           fi
           ok_for=""
-          if [ "${{ steps.deploy.outcome }}" = "success" ] && [ "${{ steps.record.outputs.incomplete }}" != "true" ]; then
+          # 只有正式站（master）部署成功且資料完整才算「今日完成」；preview 不算，否則當天的補跑會被略過
+          if [ "${{ steps.deploy.outcome }}" = "success" ] && [ "${PAGES_BRANCH}" = "master" ] && [ "${{ steps.record.outputs.incomplete }}" != "true" ]; then
             ok_for=$(TZ=Asia/Taipei date +%F)
           else
             ok_for=$(python3 -c "import json;print(json.load(open('${prev}/STATE.json')).get('last_success_for',''))" 2>/dev/null || true)
