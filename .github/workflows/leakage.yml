@@ -1,0 +1,34 @@
+# 洩漏回歸測試 CI（GitHub Actions；2026-09 推上 GitHub 後開始實際執行）。
+# 本機仍保留 scripts/githooks/pre-push 作為推送前的第一道把關（安裝方式見 scripts/install_hooks.ps1）。
+# 只在 master 的 push 與 PR 觸發：每日排程的機器人只推 state 分支，不會觸發這裡。
+name: leakage
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  leakage:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.10"
+          cache: pip
+          cache-dependency-path: |
+            backend/pyproject.toml
+            backend/requirements-ci.txt
+
+      - name: 安裝相依（版本鎖定；CPU 版 torch，CI 不需要 GPU）
+        run: |
+          pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]" -c requirements-ci.txt
+
+      - name: 打亂標籤測試與無前視偏差測試
+        run: python -m pytest -m leakage -v
