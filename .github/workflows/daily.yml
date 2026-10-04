@@ -40,7 +40,7 @@ env:
 
 jobs:
   daily:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # 固定版本：ubuntu-latest 自 2026-10-19 起改為 Ubuntu 26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +50,12 @@ jobs:
         with:
           ref: state
           path: _state
+
+      - name: 取出證交所盤後資料（網站 K 線的唯一來源）
+        uses: actions/checkout@v4
+        with:
+          ref: twse-data
+          path: _twse
 
       - name: 今日已完成則略過（補跑用）
         id: guard
@@ -113,6 +119,11 @@ jobs:
         run: |
           python -c "import sqlite3,sys; r=sqlite3.connect('backend/predictions.db').execute('PRAGMA integrity_check').fetchone()[0]; print(r); sys.exit(r!='ok')"
 
+      - name: 補抓證交所今日盤後資料（只供本次匯出；累積由 twse.yml 負責 commit）
+        if: steps.guard.outputs.skip != 'true'
+        working-directory: backend
+        run: python -m stockta.data.twse fetch --out ../_twse || echo "證交所資料暫時抓不到，K 線沿用已累積的資料"
+
       - name: 匯出靜態 JSON（含發布關卡）
         if: steps.guard.outputs.skip != 'true'
         working-directory: backend
@@ -164,9 +175,12 @@ jobs:
             cp -r "${prev}/site-data" site-data 2>/dev/null || true
           fi
           ok_for=""
-          # 只有正式站（master）部署成功且資料完整才算「今日完成」；preview 不算，否則當天的補跑會被略過
-          if [ "${{ steps.deploy.outcome }}" = "success" ] && [ "${PAGES_BRANCH}" = "master" ] && [ "${{ steps.record.outputs.incomplete }}" != "true" ]; then
-            ok_for=$(TZ=Asia/Taipei date +%F)
+          today=$(TZ=Asia/Taipei date +%F)
+          candles_end=$(python3 -c "import json;print(json.load(open('../frontend/public/data/meta.json')).get('candles_end') or '')" 2>/dev/null || true)
+          # 只有正式站（master）部署成功、資料完整、且 K 線已含今日證交所資料才算「今日完成」；
+          # preview 不算，否則當天的補跑會被略過
+          if [ "${{ steps.deploy.outcome }}" = "success" ] && [ "${PAGES_BRANCH}" = "master" ] && [ "${{ steps.record.outputs.incomplete }}" != "true" ] && [ "${candles_end}" = "${today}" ]; then
+            ok_for=${today}
           else
             ok_for=$(python3 -c "import json;print(json.load(open('${prev}/STATE.json')).get('last_success_for',''))" 2>/dev/null || true)
           fi

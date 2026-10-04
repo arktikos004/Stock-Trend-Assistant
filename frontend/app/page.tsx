@@ -32,6 +32,8 @@ import {
 } from "@/lib/api";
 
 const RANGES = ["1mo", "3mo", "6mo", "1y", "2y", "5y"] as const;
+/** 開始逐日累積證交所盤後資料的第一個交易日（OpenAPI 只提供當日，之前的日子無法回補） */
+const TWSE_SINCE = "2026-10-02";
 
 function isoDaysAgo(days: number): string {
   const d = new Date();
@@ -121,6 +123,7 @@ export default function Home() {
   const [range, setRange] = useState<(typeof RANGES)[number]>("1y");
   const [custom, setCustom] = useState<{ start: string; end: string } | null>(null);
   const [candles, setCandles] = useState<Candle[] | null>(null);
+  const [candleNote, setCandleNote] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
   const [modelInfo, setModelInfo] = useState<ModelInfoResponse | null>(null);
   const [indicators, setIndicators] = useState<IndicatorsResponse | null>(null);
@@ -144,7 +147,12 @@ export default function Home() {
       api.indicators(t).then(setIndicators).catch(() => setIndicators(null));
       api.predictionHistory(t).then((h) => setHistory(h.records)).catch(() => setHistory([]));
       try {
-        const candlesReq = c ? api.candles(t, r, c.start, c.end) : api.candles(t, r);
+        // K 線取不到（例如證交所資料尚未累積到這個區間）不該連帶讓預測顯示失敗：獨立接住
+        const candlesReq = (c ? api.candles(t, r, c.start, c.end) : api.candles(t, r)).catch((e) => {
+          setCandleNote(e instanceof ApiError ? e.message : null);
+          return { ticker: t, candles: [] as Candle[] };
+        });
+        setCandleNote(null);
         const [cd, p] = await Promise.all([candlesReq, api.prediction(t)]);
         setCandles(cd.candles);
         setPrediction(p);
@@ -243,10 +251,20 @@ export default function Home() {
           <CustomRangeRow custom={custom} onApply={setCustom} />
           {loading ? (
             <div className="flex h-[380px] items-center justify-center text-sm text-ink-3">載入中…</div>
-          ) : candles ? (
-            <CandleChart candles={candles} />
+          ) : candles && candles.length > 0 ? (
+            <>
+              <CandleChart candles={candles} />
+              <p className="mt-2 text-[11px] text-ink-3">
+                資料來源：臺灣證券交易所 OpenAPI 盤後資料（未還原權值）。證交所只提供當日資料，本站自 {TWSE_SINCE} 起逐日累積。
+              </p>
+            </>
           ) : !error ? (
-            <div className="flex h-[380px] items-center justify-center text-sm text-ink-3">無資料</div>
+            <div className="flex h-[380px] flex-col items-center justify-center gap-1 px-6 text-center text-sm text-ink-3">
+              <span>此區間尚無 K 線資料</span>
+              <span className="text-[11px]">
+                K 線改用臺灣證券交易所開放資料，自 {TWSE_SINCE} 起逐日累積{candleNote ? `（${candleNote}）` : ""}。
+              </span>
+            </div>
           ) : null}
         </Card>
 
@@ -289,8 +307,21 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="mt-8 text-center text-xs text-ink-3">
-        基於深度學習之股價趨勢預測與投資助理系統 — 研究原型，僅供學術研究參考，不構成投資建議
+      <footer className="mt-8 space-y-1 text-center text-xs text-ink-3">
+        <p>基於深度學習之股價趨勢預測與投資助理系統 — 研究原型，僅供學術研究參考，不構成投資建議</p>
+        <p>
+          K 線資料：臺灣證券交易所 OpenAPI，依
+          <a className="underline" href="https://data.gov.tw/license" target="_blank" rel="noopener noreferrer">
+            政府資料開放授權條款
+          </a>
+          釋出；模型訓練用的歷史價格僅供內部研究，不對外提供。
+        </p>
+        <p>
+          圖表：
+          <a className="underline" href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">
+            TradingView Lightweight Charts™
+          </a>
+        </p>
       </footer>
     </main>
   );

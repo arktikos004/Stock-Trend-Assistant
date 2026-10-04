@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # 固定版本：ubuntu-latest 自 2026-10-19 起改為 Ubuntu 26
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +31,13 @@ jobs:
           path: _state
 
       - name: 放入上一版網站資料
-        run: cp -r _state/site-data frontend/public/data
+        run: |
+          cp -r _state/site-data frontend/public/data
+          # 舊版 site-data 的 K 線是 yfinance 價格（依 Yahoo 條款不得對外散布）：來源不是證交所就整批移除，
+          # 前端會顯示「K 線改用證交所開放資料」的說明，等下一次每日排程匯出證交所版本
+          if ! python3 -c "import json,sys;sys.exit(json.load(open('frontend/public/data/meta.json')).get('candles_source')!='twse-openapi')"; then
+            find frontend/public/data/stocks -name candles.json -delete
+          fi
 
       - uses: actions/setup-node@v4
         with:

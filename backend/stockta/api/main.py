@@ -17,6 +17,7 @@ from stockta.config import (
     PREDICTIONS_DB_PATH,
     PRODUCTION_MODEL,
     STOCK_POOL,
+    TWSE_DATA_DIR,
 )
 from stockta.data.cache import ParquetCache
 from stockta.data.provider import YFinanceProvider
@@ -38,6 +39,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 async def lifespan(app: FastAPI):
     cache = ParquetCache(DATA_CACHE_DIR)
     app.state.data_provider = YFinanceProvider(cache=cache, auto_adjust=AUTO_ADJUST)
+    app.state.twse_dir = TWSE_DATA_DIR  # 網站 K 線只用證交所開放資料（見 config.TWSE_DATA_DIR）
     app.state.market_context = MarketContextService(
         app.state.data_provider, cache, list(STOCK_POOL)
     )

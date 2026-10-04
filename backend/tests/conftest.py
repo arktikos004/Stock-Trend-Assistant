@@ -120,13 +120,41 @@ def market_context(market_ohlcv, random_walk_ohlcv) -> pd.DataFrame:
     return build_market_context(market_ohlcv, pool, min_tickers=2)
 
 
+TWSE_FIXTURE_DAYS = 3
+
+
+@pytest.fixture
+def twse_dir(tmp_path_factory):
+    """證交所盤後資料的假目錄：2330 截至最後完成交易日的 3 根日 K（網站 K 線唯一來源）。
+
+    收盤依日期遞增為 103、102、101，與 FakeProvider 的隨機漫步價格可明確區分。
+    """
+    from datetime import timedelta
+
+    from stockta.data.calendar import last_completed_trading_day
+    from stockta.data.twse import store
+
+    root = tmp_path_factory.mktemp("twse")
+    last_day = last_completed_trading_day()
+    for back in range(TWSE_FIXTURE_DAYS - 1, -1, -1):
+        day = last_day - timedelta(days=back)
+        roc = f"{day.year - 1911}{day:%m%d}"
+        row = {
+            "Date": roc, "Code": "2330", "Name": "台積電", "TradeVolume": "1000", "TradeValue": "1",
+            "OpeningPrice": "100.00", "HighestPrice": "110.00", "LowestPrice": "95.00",
+            "ClosingPrice": f"{101 + back}.00", "Change": "0.0000", "Transaction": "10",
+        }
+        store(root, "STOCK_DAY_ALL", day, [row], "https://example.invalid/twse")
+    return root
+
+
 def _no_local_artifact(*args, **kwargs):
     """測試不得依賴本機 artifact（特徵欄位改版期間會觸發契約錯誤）——一律走 mock 路徑。"""
     raise FileNotFoundError("測試環境不載入 artifact")
 
 
 @pytest.fixture
-def client(fake_ohlcv, monkeypatch):
+def client(fake_ohlcv, monkeypatch, twse_dir):
     from fastapi.testclient import TestClient
 
     from stockta.api import main as api_main
@@ -139,6 +167,7 @@ def client(fake_ohlcv, monkeypatch):
         state = api_main.app.state
         state.limiter.enabled = False  # 測試逐案累計會誤觸限流
         state.data_provider = FakeProvider(fake_ohlcv)
+        state.twse_dir = twse_dir
         fake_ctx = build_market_context(fake_ohlcv, {"2330.TW": fake_ohlcv}, min_tickers=1)
         state.market_context = FakeMarketContext(fake_ctx)
         state.predictor = None
@@ -148,7 +177,7 @@ def client(fake_ohlcv, monkeypatch):
 
 
 @pytest.fixture
-def client_with_model(fake_ohlcv, monkeypatch):
+def client_with_model(fake_ohlcv, monkeypatch, twse_dir):
     from fastapi.testclient import TestClient
 
     from stockta.api import main as api_main
@@ -160,6 +189,7 @@ def client_with_model(fake_ohlcv, monkeypatch):
         state = api_main.app.state
         state.limiter.enabled = False
         state.data_provider = FakeProvider(fake_ohlcv)
+        state.twse_dir = twse_dir
         fake_ctx = build_market_context(fake_ohlcv, {"2330.TW": fake_ohlcv}, min_tickers=1)
         state.market_context = FakeMarketContext(fake_ctx)
         state.predictor = FakePredictor()

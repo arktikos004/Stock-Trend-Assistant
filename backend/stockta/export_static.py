@@ -5,7 +5,9 @@
 走 API 本身的程式路徑＝靜態站與本機 uvicorn 的數字同源，不另寫一套計算。
 
 帶參數的端點改為「匯出最大範圍、前端切片」：
-- candles：匯出近 5 年，前端依 range 或自訂區間切
+- candles：匯出近 5 年，前端依 range 或自訂區間切。來源是證交所 OpenAPI 每日累積的開放資料
+  （未還原權值、從開始累積的那天起才有），meta 的 candles_* 欄位記錄實際起訖與來源；
+  yfinance 價格只供內部訓練與推論，不輸出到靜態站
 - history：匯出近 HISTORY_EXPORT_DAYS 天，前端依 (start, end] 篩選並重算命中率
 - scan / rank：匯出即時 + 最近 SCAN_HISTORY_SESSIONS 個交易日，其餘日期前端回報超出範圍
 
@@ -152,7 +154,12 @@ def run_export(
             f"個股檔案覆蓋率 {coverage:.0%} < {MIN_TICKER_COVERAGE:.0%}：\n  " + "\n  ".join(d.result.failures[:20])
         )
 
-    candle_days = _RANGE_TO_DAYS[CANDLE_EXPORT_RANGE]
+    from stockta.config import TWSE_DATA_DIR
+    from stockta.data.twse import candle_span
+
+    span = candle_span(getattr(client.app.state, "twse_dir", TWSE_DATA_DIR))
+    if span is None:
+        log("警告：沒有證交所盤後資料（twse-data 未取出？），本次靜態站沒有 K 線")
     meta = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         # API 的推論錨點（last_completed_trading_day）；前端切 candles 區間以此為終點
@@ -162,7 +169,11 @@ def run_export(
         "model_version": model["model_version"],
         "cs_model": rank.get("model"),
         "range_days": _RANGE_TO_DAYS,
-        "candles_start": (last_day - timedelta(days=candle_days)).isoformat(),
+        # K 線來源與實際範圍（證交所開放資料；未還原權值）。沒有資料時起訖為 None，前端顯示說明而非空圖
+        "candles_source": "twse-openapi",
+        "candles_adjusted": False,
+        "candles_start": span[0].isoformat() if span else None,
+        "candles_end": span[1].isoformat() if span else None,
         "history_start": history_start.isoformat(),
         "coverage": round(coverage, 4),
         "failures": d.result.failures,
