@@ -21,6 +21,8 @@ import WatchlistSignals from "@/components/WatchlistSignals";
 import {
   api,
   ApiError,
+  siteMeta,
+  STATIC_DATA,
   type Candle,
   type IndicatorsResponse,
   type MarketResponse,
@@ -32,8 +34,20 @@ import {
 } from "@/lib/api";
 
 const RANGES = ["1mo", "3mo", "6mo", "1y", "2y", "5y"] as const;
+type Range = (typeof RANGES)[number];
+const RANGE_DAYS: Record<Range, number> = { "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825 };
 /** 開始逐日累積證交所盤後資料的第一個交易日（OpenAPI 只提供當日，之前的日子無法回補） */
 const TWSE_SINCE = "2026-10-02";
+
+/**
+ * K 線只有證交所資料累積的那一段：上一個較短的區間已涵蓋全部資料時，更長的區間畫出來一模一樣，
+ * 所以只留「還看得到更多資料」的按鈕。不知道資料範圍（本機 API 模式）時全部顯示。
+ */
+function visibleRanges(span: { start: string; end: string } | null): Range[] {
+  if (!span) return [...RANGES];
+  const available = (Date.parse(span.end) - Date.parse(span.start)) / 86_400_000;
+  return RANGES.filter((_, i) => i === 0 || RANGE_DAYS[RANGES[i - 1]] < available);
+}
 
 function isoDaysAgo(days: number): string {
   const d = new Date();
@@ -120,7 +134,8 @@ function SectionHeading({ children, className = "" }: { children: React.ReactNod
 export default function Home() {
   const [stocks, setStocks] = useState<StockInfo[]>([]);
   const [ticker, setTicker] = useState("2330.TW");
-  const [range, setRange] = useState<(typeof RANGES)[number]>("1y");
+  const [range, setRange] = useState<Range>("1y");
+  const [candleSpan, setCandleSpan] = useState<{ start: string; end: string } | null>(null);
   const [custom, setCustom] = useState<{ start: string; end: string } | null>(null);
   const [candles, setCandles] = useState<Candle[] | null>(null);
   const [candleNote, setCandleNote] = useState<string | null>(null);
@@ -138,7 +153,17 @@ export default function Home() {
     api.modelInfo().then(setModelInfo).catch(() => setModelInfo(null));
     api.market().then(setMarket).catch(() => setMarket(null));
     api.trackRecord().then(setTrackRecord).catch(() => setTrackRecord(null));
+    if (STATIC_DATA) {
+      siteMeta()
+        .then((m) => m.candles_start && setCandleSpan({ start: m.candles_start, end: m.candles_end ?? m.last_trading_day }))
+        .catch(() => {});
+    }
   }, []);
+
+  const ranges = visibleRanges(candleSpan);
+  // 預設的 1y 若因資料還短而被隱藏，改用看得到的最長區間
+  const activeRange = ranges.includes(range) ? range : ranges[ranges.length - 1];
+  const twseSince = candleSpan?.start ?? TWSE_SINCE;
 
   const load = useCallback(
     async (t: string, r: string, c: { start: string; end: string } | null) => {
@@ -172,8 +197,8 @@ export default function Home() {
   );
 
   useEffect(() => {
-    load(ticker, range, custom);
-  }, [ticker, range, custom, load]);
+    load(ticker, activeRange, custom);
+  }, [ticker, activeRange, custom, load]);
 
   const stockName = stocks.find((s) => s.ticker === ticker)?.name ?? "";
 
@@ -227,7 +252,7 @@ export default function Home() {
           title={`${stockName} ${ticker}`}
           action={
             <div className="flex gap-1">
-              {RANGES.map((r) => (
+              {ranges.map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -237,7 +262,7 @@ export default function Home() {
                   }}
                   className="rounded-md px-2.5 py-1 text-xs font-medium transition"
                   style={
-                    r === range && !custom
+                    r === activeRange && !custom
                       ? { background: "var(--accent)", color: "var(--accent-fg)" }
                       : { background: "var(--surface-2)", color: "var(--ink-2)" }
                   }
@@ -255,14 +280,14 @@ export default function Home() {
             <>
               <CandleChart candles={candles} />
               <p className="mt-2 text-[11px] text-ink-3">
-                資料來源：臺灣證券交易所 OpenAPI 盤後資料（未還原權值）。證交所只提供當日資料，本站自 {TWSE_SINCE} 起逐日累積。
+                資料來源：臺灣證券交易所 OpenAPI 盤後資料（未還原權值）。證交所只提供當日資料，本站自 {twseSince} 起逐日累積。
               </p>
             </>
           ) : !error ? (
             <div className="flex h-[380px] flex-col items-center justify-center gap-1 px-6 text-center text-sm text-ink-3">
               <span>此區間尚無 K 線資料</span>
               <span className="text-[11px]">
-                K 線改用臺灣證券交易所開放資料，自 {TWSE_SINCE} 起逐日累積{candleNote ? `（${candleNote}）` : ""}。
+                K 線改用臺灣證券交易所開放資料，自 {twseSince} 起逐日累積{candleNote ? `（${candleNote}）` : ""}。
               </span>
             </div>
           ) : null}
