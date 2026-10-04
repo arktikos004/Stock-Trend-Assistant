@@ -245,7 +245,11 @@ export interface SiteMeta {
   model_version: string;
   cs_model: string | null;
   range_days: Record<string, number>;
-  candles_start: string;
+  /** K 線來源：證交所 OpenAPI 每日累積的開放資料（未還原權值）。舊版 site-data 沒有此欄＝yfinance，不得顯示 */
+  candles_source?: string;
+  candles_adjusted?: boolean;
+  candles_start: string | null; // 已累積的第一個交易日；沒有資料時為 null
+  candles_end?: string | null;
   history_start: string;
 }
 
@@ -295,10 +299,10 @@ async function staticDated<T>(kind: "scan" | "rank", date?: string): Promise<T> 
 const staticApi: typeof liveApi = {
   stocks: () => staticGet("/stocks.json"),
   candles: async (ticker, range, start, end) => {
-    const [meta, full] = await Promise.all([
-      siteMeta(),
-      staticGet<CandlesResponse>(`/stocks/${enc(ticker)}/candles.json`),
-    ]);
+    const meta = await siteMeta();
+    // 只顯示證交所開放資料；還沒有資料（或舊版 site-data 的 yfinance K 線已被移除）時回空清單，由頁面顯示說明
+    if (meta.candles_source !== "twse-openapi" || !meta.candles_start) return { ticker, candles: [] };
+    const full = await staticGet<CandlesResponse>(`/stocks/${enc(ticker)}/candles.json`);
     let lo: string;
     let hi: string;
     if (start && end) {

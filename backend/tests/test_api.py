@@ -25,6 +25,22 @@ def test_candles_valid_ticker(client):
     assert len(body["candles"]) > 0
 
 
+def test_candles_come_from_twse_open_data_not_yfinance(client):
+    # 網站 K 線只能用證交所開放資料（可公開、需顯名）；yfinance 價格依 Yahoo 條款不得對外散布。
+    # fixture 的 FakeProvider 是隨機漫步價格，證交所假資料的收盤是 103/102/101——拿到後者才對。
+    r = client.get("/api/stocks/2330.TW/candles?range=1mo")
+    assert r.status_code == 200
+    closes = [c["close"] for c in r.json()["candles"]]
+    assert closes == [103.0, 102.0, 101.0]
+
+
+def test_candles_without_twse_data_are_empty_not_an_error(client):
+    # 證交所資料從開始累積的那天起才有：沒有資料的標的回空清單，前端顯示說明而非錯誤
+    r = client.get("/api/stocks/2317.TW/candles?range=1y")
+    assert r.status_code == 200
+    assert r.json()["candles"] == []
+
+
 def test_candles_unknown_ticker_returns_404(client):
     r = client.get("/api/stocks/9999.TW/candles")
     assert r.status_code == 404

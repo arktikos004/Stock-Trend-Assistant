@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import date, timedelta
 
+import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
 
 from stockta.api.deps import get_valid_ticker
@@ -25,9 +26,11 @@ from stockta.config import (
     INDICATOR_WARMUP_DAYS,
     LABEL_CLASSES,
     PREDICTIONS_DB_PATH,
+    TWSE_DATA_DIR,
     WINDOW_LENGTH_DAYS,
 )
 from stockta.data.cache import ParquetCache
+from stockta.data.twse import load_candles as load_twse_candles
 from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
 from stockta.data.provider import DataProvider, DataProviderError, YFinanceProvider
 from stockta.features.pipeline import build_features
@@ -49,7 +52,11 @@ def get_candles(
     start: str | None = Query(None, description="自訂起日 YYYY-MM-DD；與 end 並用時覆蓋 range"),
     end: str | None = Query(None, description="自訂迄日 YYYY-MM-DD"),
 ) -> CandlesResponse:
-    provider: DataProvider = request.app.state.data_provider
+    """K 線一律取自證交所 OpenAPI 每日累積的開放資料（未還原權值；從開始累積的那天起才有資料）。
+
+    yfinance 的價格只供內部訓練與推論，依 Yahoo 條款不得對外散布，所以這裡刻意不用 data_provider。
+    """
+    twse_dir = getattr(request.app.state, "twse_dir", TWSE_DATA_DIR)
     last_day = last_completed_trading_day()
 
     if start or end:
@@ -68,10 +75,8 @@ def get_candles(
         end_d = last_day
         start_d = end_d - timedelta(days=days)
 
-    try:
-        df = provider.get_ohlcv(ticker, start_d, end_d)
-    except DataProviderError as exc:
-        raise DataSourceUnavailableError(str(exc)) from exc
+    df = load_twse_candles(twse_dir, ticker.removesuffix(".TW"))
+    df = df.loc[pd.Timestamp(start_d) : pd.Timestamp(end_d)]
 
     candles = [
         Candle(

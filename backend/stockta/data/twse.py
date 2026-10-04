@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import io
 import json
 import sys
@@ -187,28 +188,47 @@ def stored_days(data_dir: Path, dataset: str = "STOCK_DAY_ALL") -> list[date]:
     return sorted(date.fromisoformat(p.stem) for p in root.glob("*/*.json"))
 
 
-def load_candles(data_dir: Path, code: str):
-    """單一股票（代號不含 .TW）的日 K：欄位 open/high/low/close/volume，索引為日期。
+def _files(data_dir: Path) -> list[Path]:
+    return sorted(Path(data_dir).glob("stock_day_all/*/*.json"))
 
-    **未還原權值**——證交所公告的是當日實際成交價，除權息日會有跳空，圖表需註明。
-    當日無成交（價格為 '--'）的日子略過。
+
+@functools.lru_cache(maxsize=4)
+def _candle_table(signature: tuple[tuple[str, int], ...]):
+    """全部交易日、全部股票的日 K 長表（code, date, OHLCV）。
+
+    以檔案清單＋大小當快取鍵：每天新增一個檔就自動重讀，否則 API 每次請求都要解析所有檔案。
     """
     import pandas as pd
 
     records = []
-    for path in sorted((data_dir / "stock_day_all").glob("*/*.json")):
-        payload = json.loads(path.read_text(encoding="utf-8"))
+    for name, _size in signature:
+        payload = json.loads(Path(name).read_text(encoding="utf-8"))
+        day = pd.Timestamp(payload["meta"]["date"])
         for row in payload["rows"]:
-            if row.get("Code") != code:
-                continue
             values = [parse_number(row.get(k)) for k in ("OpeningPrice", "HighestPrice", "LowestPrice", "ClosingPrice")]
             volume = parse_number(row.get("TradeVolume"))
             if any(v is None for v in values) or volume is None:
-                break
-            records.append((pd.Timestamp(payload["meta"]["date"]), *values, volume))
-            break
-    frame = pd.DataFrame(records, columns=["date", "open", "high", "low", "close", "volume"])
+                continue  # 當日無成交
+            records.append((row.get("Code"), day, *values, volume))
+    return pd.DataFrame(records, columns=["code", "date", "open", "high", "low", "close", "volume"])
+
+
+def load_candles(data_dir: Path, code: str):
+    """單一股票（代號不含 .TW）的日 K：欄位 open/high/low/close/volume，索引為日期。
+
+    **未還原權值**——證交所公告的是當日實際成交價，除權息日會有跳空，圖表需註明。
+    當日無成交（價格為 '--'）的日子略過；資料目錄不存在時回傳空表。
+    """
+    signature = tuple((str(p), p.stat().st_size) for p in _files(data_dir))
+    table = _candle_table(signature)
+    frame = table.loc[table["code"] == code, ["date", "open", "high", "low", "close", "volume"]]
     return frame.set_index("date").sort_index()
+
+
+def candle_span(data_dir: Path) -> tuple[date, date] | None:
+    """已累積的第一個與最後一個交易日；沒有資料時回傳 None。"""
+    days = stored_days(Path(data_dir))
+    return (days[0], days[-1]) if days else None
 
 
 def _cmd_fetch(args: argparse.Namespace) -> int:

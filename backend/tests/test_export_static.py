@@ -49,6 +49,11 @@ def test_writes_site_layout_and_meta(client_with_model, tmp_path):
     assert meta["data_as_of"] == "2026-09-24"
     assert meta["last_trading_day"] == "2026-09-25"
     assert meta["range_days"]["5y"] == 1825
+    # K 線來源與實際範圍：證交所開放資料、未還原權值，起訖＝已累積的第一／最後一天
+    assert meta["candles_source"] == "twse-openapi" and meta["candles_adjusted"] is False
+    assert meta["candles_start"] < meta["candles_end"]
+    candles = json.loads((out / "stocks/2330.TW/candles.json").read_text(encoding="utf-8"))["candles"]
+    assert [c["time"] for c in candles][0] == meta["candles_start"]
     assert json.loads((out / "meta.json").read_text(encoding="utf-8")) == meta
 
 
