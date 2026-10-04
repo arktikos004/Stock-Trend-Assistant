@@ -19,6 +19,8 @@ dependencies = [
     #   pip install torch --index-url https://download.pytorch.org/whl/cu128
     # 再 pip install -e . 時已滿足版本需求，不會被 PyPI 的 CPU 版覆蓋
     "torch>=2.7",
+    # state 分支私有資料（不得公開的價格／新聞資料庫）的 AES-GCM 加密封包：scripts/state_crypt.py
+    "cryptography>=46",
 ]
 
 [project.optional-dependencies]
