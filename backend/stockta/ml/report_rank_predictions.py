@@ -60,6 +60,18 @@ def _load_rows(version: str | None) -> list[tuple]:
     return rows
 
 
+def _backtest_ic_text(days_unit: str = "個交易日") -> str:
+    """回測測試期 Rank IC 的引用字串，一律讀 artifacts_cs/summary.json——不在文字裡寫死數字，
+    以免回測重跑後報告與 README 各說各話（曾發生：寫死的 +0.0442/134 天 vs 實際 +0.0437/128 天）。"""
+    try:
+        s = json.loads((ARTIFACTS_CS_DIR / "summary.json").read_text(encoding="utf-8"))
+        days = s.get("test_rank_ic_days")
+        tail = f"、{days} {days_unit}" if days else ""
+        return f"{s['test_rank_ic']:+.4f}, t={s['test_rank_ic_t']:.1f}{tail}"
+    except (OSError, KeyError, ValueError):
+        return "見 docs/cross_sectional_report.md"
+
+
 def _interpret(ic: dict) -> str:
     """依到期天數與顯著性給出誠實、隨資料自動調整的判讀句（不誇大、不粉飾）。"""
     n, mean, t = ic["n_days"], ic["mean"], ic["t"]
@@ -70,7 +82,7 @@ def _interpret(ic: dict) -> str:
         sign = "略正" if mean > 0 else "略負" if mean < 0 else "約零"
         return (
             f"樣本不足（{n} 個到期交易日、窗重疊），線上 Rank IC {sign}且**與 0 無法區分**"
-            f"（|t|={abs(t):.2f}<2），既不佐證也不反駁回測 +0.044，僅為起步累積。"
+            f"（|t|={abs(t):.2f}<2），既不佐證也不反駁回測（{_backtest_ic_text()}），僅為起步累積。"
         )
     if mean > 0:
         return f"線上 Rank IC 為正且顯著（t={t:.2f}），與回測方向一致，開始佐證選股技能。"
@@ -162,8 +174,8 @@ def main() -> int:
         "> **與絕對方向對照**：同批線上交易日的絕對方向命中率見 `docs/online_predictions.md`"
         "（該報告自帶最新數字）。兩條線上實證都在累積、都誠實揭露；相對排序**在原理上**不受多頭 beta "
         "影響（問「贏過中位數」而非「漲」），但**是否成立仍須線上樣本說話**，不能只憑原理宣稱。"
-        "目前的主要統計證據是回測 `docs/cross_sectional_report.md`（測試期 Rank IC +0.0442, "
-        "t=2.3、134 個交易日）；本報告是把它放到真實線上時序去持續檢驗。",
+        f"目前的主要統計證據是回測 `docs/cross_sectional_report.md`（測試期 Rank IC {_backtest_ic_text()}）；"
+        "本報告是把它放到真實線上時序去持續檢驗。",
         "",
     ]
 
@@ -203,7 +215,7 @@ def main() -> int:
         f"各自 {LABEL_HORIZON_DAYS} 日 forward 報酬彼此重疊（非獨立），t 值高度敏感、逐日 IC "
         "在此melt-up段大幅震盪（見上表 −0.32~+0.53）。此線上切片與 0 無法區分，"
         "**尚不構成佐證亦不構成反證**，僅為起步。",
-        "- 主要統計證據仍是回測（測試期 Rank IC +0.0442, t=2.3, 134 天）；本線上序列需累積"
+        f"- 主要統計證據仍是回測（測試期 Rank IC {_backtest_ic_text('天')}）；本線上序列需累積"
         "數週、待 live 段變厚才有獨立說服力。多空價差為 gross、未計滑價借券，僅概念參考。",
         "",
         "> 由 `python -m stockta.ml.report_rank_predictions` 產生；每日排程後自動重跑累積。"
