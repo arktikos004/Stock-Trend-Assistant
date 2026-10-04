@@ -1,6 +1,7 @@
 # 股價趨勢預測與投資助理系統
 
 個人研究原型。詳細開發計畫見 [PLAN.md](./PLAN.md)。
+資料來源與授權見 [DATA_SOURCES.md](./DATA_SOURCES.md)，套件授權見 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)，生成式 AI 的使用見 [AI_USE.md](./AI_USE.md)。
 
 台灣 50 成分股 × 25 維特徵（17 個股技術指標 ＋ 6 大盤情境 ＋ 2 相對強弱）
 × 五模型比較（RF / XGBoost / LSTM / GRU / TCN），FastAPI 後端 + Next.js 前端。
@@ -133,5 +134,12 @@ npm run dev                                     # http://localhost:3000（後端
 - 模型與回測：[模型比較](docs/model_comparison.md)、[回測報告](docs/backtest_report.md)、[相對強弱](docs/cross_sectional_report.md)、[walk-forward](docs/experiment_walkforward.md)
 - 線上實證：[絕對方向](docs/online_predictions.md)、[線上 Rank IC](docs/online_rank_ic.md)
 - 系統：[架構](docs/architecture.md)、[特徵設計](docs/feature_engineering.md)、[資料探索](docs/data_exploration.md)
+
+## 授權
+
+- 本 repo 的程式碼與文件未採用開源授權，保留所有權利。
+- 模型權重（Release `models-v1`）以 Yahoo Finance 的價格資料訓練，僅供研究與重現本專案結果。
+- 網站 K 線使用臺灣證券交易所 OpenAPI 的開放資料，依政府資料開放授權條款顯名；訓練用的歷史價格不對外提供。
+- 第三方套件、資料與模型的授權見 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 與 [DATA_SOURCES.md](./DATA_SOURCES.md)。
 
 > 免責聲明：本系統為研究原型，預測結果僅供學術研究參考，不構成投資建議。
