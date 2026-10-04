@@ -22,3 +22,7 @@ torch==2.11.0
 tzdata==2026.3
 httpx==0.28.1
 pytest==9.1.1
+# state 分支私有資料加密（scripts/state_crypt.py）
+cryptography==50.0.2
+cffi==2.1.1
+pycparser==3.0

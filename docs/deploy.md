@@ -6,7 +6,7 @@ GitHub Actions：每個交易日收盤後記錄線上預測、把 API 的回應�
 
 ```
 GitHub Actions（daily.yml，台北 15:20；16:50 補跑）
-  還原狀態（state 分支：predictions.db、價格快取、報告、上一版網站資料）＋取出 twse-data 分支
+  還原狀態（state 分支：predictions.db、加密的價格快取封包、報告、上一版網站資料）＋取出 twse-data 分支
   → record_predictions / record_rank_predictions（--require-complete）→ report_*
   → 補抓證交所今日盤後資料（只供本次匯出）
   → export_static：TestClient 呼叫現有 API → frontend/public/data/*.json（含發布關卡）
@@ -25,6 +25,7 @@ GitHub Actions（daily.yml，台北 15:20；16:50 補跑）
 | 部分標的抓取失敗 | 自癒改以「標的×日」為單位、缺當日 K 棒不記；有缺漏時 exit 2 → 16:50 補跑 |
 | 把假資料發布出去 | 匯出關卡：模型 mock、覆蓋率 < 90%、資料日期倒退 → exit 1，不部署，線上維持上一版 |
 | 資料庫要跨次保存 | 孤立分支 `state`，每次覆寫成單一 commit；另存 30 天 artifact |
+| 價格快取不得公開 | yfinance 價格只以 AES-256-GCM 加密封包 `private.tar.gz.enc` 存在公開的 state 分支（`scripts/state_crypt.py`，金鑰在 Secret `STATE_KEY`）；保存步驟遇到明文 `.parquet` 直接失敗 |
 | 模型不能進 git | GitHub Release `models-v1` ＋ `backend/models.lock`（sha256） |
 | pickle 模型對版本敏感 | `backend/requirements-ci.txt` 鎖定與 Windows 開發機相同的版本 |
 | 新聞情緒卡 | 讀 `https://news.sekinv.com/data/stocks/<ADR>/sentiment.json`（新聞站以 `_headers` 開放跨站） |
@@ -40,7 +41,8 @@ GitHub Actions（daily.yml，台北 15:20；16:50 補跑）
 
 ## Secrets
 
-`CLOUDFLARE_API_TOKEN`（Account → Cloudflare Pages → Edit）、`CLOUDFLARE_ACCOUNT_ID`。
+`CLOUDFLARE_API_TOKEN`（Account → Cloudflare Pages → Edit）、`CLOUDFLARE_ACCOUNT_ID`、
+`STATE_KEY`（價格快取封包的金鑰，`python scripts/state_crypt.py keygen` 產生；遺失就解不開封包，另存一份在密碼管理器）。
 
 ## 常用操作
 
