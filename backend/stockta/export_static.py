@@ -44,7 +44,9 @@ TICKER_ENDPOINTS: tuple[tuple[str, str], ...] = (
     ("/api/stocks/{t}/prediction", "prediction.json"),
     ("/api/stocks/{t}/indicators", "indicators.json"),
     ("/api/stocks/{t}/predictions", "predictions.json"),
-    (f"/api/stocks/{{t}}/candles?range={CANDLE_EXPORT_RANGE}", "candles.json"),
+    # 檔名刻意與舊版不同：舊的 candles.json 是 yfinance 價格，可能還留在 CDN 快取裡（s-maxage 7 天），
+    # 換名字才能保證網站拿到的一定是證交所資料
+    (f"/api/stocks/{{t}}/candles?range={CANDLE_EXPORT_RANGE}", "candles-twse.json"),
     ("/api/stocks/{t}/history?start={history_start}&end={last_day}", "history.json"),
 )
 
