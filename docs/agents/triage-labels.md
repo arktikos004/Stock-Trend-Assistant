@@ -14,19 +14,9 @@ When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the 
 
 Edit the right-hand column to match whatever vocabulary you actually use.
 
-## Gitea label ids (this repo)
+## GitHub labels
 
-Gitea filters by label **name** when listing, but attaching or removing a label on an issue
-takes the numeric **id**. These are this repo's ids, created by `/setup-matt-pocock-skills`:
-
-| Role | Name | Gitea id |
-| ---- | ---- | -------- |
-| `needs-triage`    | `needs-triage`    | 1 |
-| `needs-info`      | `needs-info`      | 2 |
-| `ready-for-agent` | `ready-for-agent` | 3 |
-| `ready-for-human` | `ready-for-human` | 4 |
-| `wontfix`         | `wontfix`         | 5 |
-
-Ids are per-repo and are **not** the same in the sibling repo, so don't copy them across.
-If they ever drift, re-read them with
-`GET /api/v1/repos/local/stock-trend-assistant/labels`.
+GitHub attaches, removes and filters labels by **name**, so the right-hand column above is all
+a skill needs. Create any missing label once with
+`POST https://api.github.com/repos/arktikos004/Stock-Trend-Assistant/labels` and body `{"name": "needs-triage"}`
+(see `docs/agents/issue-tracker.md` for authentication).

@@ -4,9 +4,8 @@
 
 ### Issue tracker
 
-Issues live as Gitea issues on a self-hosted instance, repo
-`local/stock-trend-assistant`, driven through the REST API with `curl` (no `gh`/`tea` CLI
-on this machine). See `docs/agents/issue-tracker.md`.
+Issues live as GitHub issues on `arktikos004/Stock-Trend-Assistant`, driven through the
+REST API with `curl` (no `gh` CLI on the development machine). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
