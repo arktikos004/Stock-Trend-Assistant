@@ -229,8 +229,8 @@ def report() -> None:
     # 機器可讀摘要（/api/rank/summary 用）
     summary = {
         "model": best,
-        "val_rank_ic": val_ic["mean"], "val_rank_ic_t": val_ic["t"],
-        "test_rank_ic": test_ic["mean"], "test_rank_ic_t": test_ic["t"],
+        "val_rank_ic": val_ic["mean"], "val_rank_ic_t": val_ic["t"], "val_rank_ic_days": val_ic["n_days"],
+        "test_rank_ic": test_ic["mean"], "test_rank_ic_t": test_ic["t"], "test_rank_ic_days": test_ic["n_days"],
         "test_by_year": test_ic["by_year"], "holding_days": best_h,
         "net_cum": bt.get("net_cum"), "bench_cum": bt.get("bench_cum"),
         "net_ann": bt.get("net_ann"), "bench_ann": bt.get("bench_ann"),

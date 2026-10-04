@@ -2,8 +2,10 @@
   "model": "xgb",
   "val_rank_ic": 0.042676724365233794,
   "val_rank_ic_t": 2.794455005969861,
+  "val_rank_ic_days": 238,
   "test_rank_ic": 0.04373957206996269,
   "test_rank_ic_t": 2.1769927993329947,
+  "test_rank_ic_days": 128,
   "test_by_year": {
     "2026": 0.04373957206996269
   },
