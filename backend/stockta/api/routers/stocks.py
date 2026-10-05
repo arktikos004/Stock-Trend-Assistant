@@ -52,7 +52,7 @@ def get_candles(
     start: str | None = Query(None, description="自訂起日 YYYY-MM-DD；與 end 並用時覆蓋 range"),
     end: str | None = Query(None, description="自訂迄日 YYYY-MM-DD"),
 ) -> CandlesResponse:
-    """K 線一律取自證交所 OpenAPI 每日累積的開放資料（未還原權值；從開始累積的那天起才有資料）。
+    """K 線一律取自每日累積的證交所開放資料（未還原權值；從開始累積的那天起才有資料）。
 
     yfinance 的價格只供內部訓練與推論，依 Yahoo 條款不得對外散布，所以這裡刻意不用 data_provider。
     """

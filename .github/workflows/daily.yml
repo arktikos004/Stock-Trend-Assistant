@@ -16,6 +16,7 @@ on:
   schedule:
     - cron: "20 7 * * 1-5" # 台北 15:20（台股 13:30 收盤；舊排程 15:00）
     - cron: "50 8 * * 1-5" # 台北 16:50 補跑：前一次缺資料或未執行時補上；已完成則提早結束
+    - cron: "30 11 * * 1-5" # 台北 19:30 補跑：證交所當日資料較晚出來時補上今天的 K 線；已完成則提早結束
   workflow_dispatch:
     inputs:
       branch:
@@ -123,7 +124,7 @@ jobs:
         run: |
           python -c "import sqlite3,sys; r=sqlite3.connect('backend/predictions.db').execute('PRAGMA integrity_check').fetchone()[0]; print(r); sys.exit(r!='ok')"
 
-      - name: 補抓證交所今日盤後資料（只供本次匯出；累積由 twse.yml 負責 commit）
+      - name: 抓證交所今日盤後資料（只供本次匯出；累積由 twse.yml 負責 commit）
         if: steps.guard.outputs.skip != 'true'
         working-directory: backend
         run: python -m stockta.data.twse fetch --out ../_twse || echo "證交所資料暫時抓不到，K 線沿用已累積的資料"

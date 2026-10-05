@@ -5,7 +5,7 @@ GitHub Actions：每個交易日收盤後記錄線上預測、把 API 的回應�
 部署到 Cloudflare Pages。本機開發（uvicorn＋`next dev`）不受影響。
 
 ```
-GitHub Actions（daily.yml，台北 15:20；16:50 補跑）
+GitHub Actions（daily.yml，台北 15:20；16:50、19:30 補跑）
   還原狀態（state 分支：predictions.db、加密的價格快取封包、報告、上一版網站資料）＋取出 twse-data 分支
   → record_predictions / record_rank_predictions（--require-complete）→ report_*
   → 補抓證交所今日盤後資料（只供本次匯出）
@@ -18,7 +18,7 @@ GitHub Actions（daily.yml，台北 15:20；16:50 補跑）
 | 問題 | 做法 |
 |---|---|
 | 靜態站沒有後端 | `stockta/export_static.py` 用 TestClient 逐一呼叫現有端點、原樣寫檔；數字與本機 API 同源 |
-| K 線的資料來源 | **只用證交所 OpenAPI 的開放資料**（檔名 `candles-twse.json`，與舊版 yfinance 的 `candles.json` 區隔，避免拿到 CDN 舊快取）（政府資料開放授權條款，需顯名；未還原權值）。OpenAPI 只提供當日，所以 `twse.yml` 每天把當日檔以一般 commit 累積到 `twse-data` 分支，K 線自 2026-10-02 起才有資料。yfinance 價格依 Yahoo 條款不得對外散布，只供內部訓練與推論 |
+| K 線的資料來源 | **只用證交所的開放資料**（檔名 `candles-twse.json`，與舊版 yfinance 的 `candles.json` 區隔，避免拿到 CDN 舊快取）（政府資料開放授權條款，需顯名；未還原權值）。這份資料只提供最新一個交易日，所以 `twse.yml` 每天把當日檔以一般 commit 累積到 `twse-data` 分支，K 線自 2026-10-02 起才有資料。yfinance 價格依 Yahoo 條款不得對外散布，只供內部訓練與推論 |
 | 帶參數的端點 | 匯出最大範圍、前端切片：K 線近 5 年、歷史回放近 730 天（(start, end] 篩選並重算命中率）、全池掃描與排名保留最近 60 個交易日（查詢日對齊到 ≤ 它的交易日，超出範圍明確報錯） |
 | 匯出途中抓到新 K 棒 | 匯出時資料源換成只讀快取的 provider；`/prediction` 的寫入副作用關閉（只由 record 寫入） |
 | 還原的快取被當成最新 | `ParquetCache.is_fresh` 看檔案修改時間；還原後設為 3 天前，即時路徑才會重抓 |
@@ -34,10 +34,10 @@ GitHub Actions（daily.yml，台北 15:20；16:50 補跑）
 
 | 檔案 | 觸發 | 做什麼 |
 |---|---|---|
-| `daily.yml` | 平日 07:20、08:50 UTC、手動 | 上述完整流程；第二次（補跑）若當天已完成就略過；手動可指定 Pages 分支（非 master＝preview） |
+| `daily.yml` | 平日 07:20、08:50、11:30 UTC、手動 | 上述完整流程；後兩次是補跑，當天已完成（含 K 線已有今日的證交所資料）就略過；手動可指定 Pages 分支（非 master＝preview） |
 | `deploy.yml` | master 上 `frontend/**` 變動、手動 | 用 state 分支上的上一版資料重新 build 部署，不跑 Python |
 | `leakage.yml` | master push、PR | 洩漏回歸測試 |
-| `twse.yml` | 平日 07:40、09:40、12:40 UTC，週六 02:00 UTC、手動 | 抓證交所 OpenAPI 最新一日（失敗改用政府開放資料平臺 CSV），以一般 commit 累積到 `twse-data`；已收過的日子略過 |
+| `twse.yml` | 平日 07:40、09:40、12:40 UTC，週六 02:00 UTC、手動 | 抓證交所開放資料的兩個官方出口（政府資料開放平臺 CSV 當晚換日、OpenAPI 隔天清晨換日），日期不同就各存一份，以一般 commit 累積到 `twse-data`；已收過的日子略過 |
 
 ## Secrets
 

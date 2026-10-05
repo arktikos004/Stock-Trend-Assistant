@@ -1,7 +1,9 @@
-# 每日收集證交所 OpenAPI 盤後資料到 twse-data 分支（網站 K 線的資料來源）。
+# 每日收集證交所開放資料（盤後）到 twse-data 分支（網站 K 線的資料來源）。
 #
-# 證交所 OpenAPI 只提供最新一個交易日、無法指定日期——漏收的日子補不回來，所以：
+# 這份資料只提供最新一個交易日、無法指定日期——漏收的日子補不回來，所以：
 #   - 一天排三次（收盤後 15:40、17:40、20:40），週六早上再補一次週五；已收過的日子自動略過。
+#   - 兩個官方出口都抓：政府資料開放平臺登錄的 CSV 當晚就是當日資料，OpenAPI 隔天清晨才換日；
+#     日期不同就各存一份，前一天漏收時還能從 OpenAPI 補回來。
 #   - twse-data 分支只用一般 commit 累積，從不 force push。
 #   - 只用 Python 標準函式庫（不安裝後端相依），避免別的套件出問題連帶漏收。
 # 資料依政府資料開放授權條款釋出，顯名說明見 twse-data 分支的 README.md。
@@ -39,7 +41,7 @@ jobs:
         with:
           python-version: "3.12.10"
 
-      - name: 抓取最新一日（OpenAPI，失敗改用政府開放資料平臺的 CSV）
+      - name: 抓取兩個官方出口目前提供的交易日（政府資料開放平臺 CSV、OpenAPI）
         id: fetch
         env:
           PYTHONPATH: backend
@@ -53,10 +55,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
-            echo "沒有新的交易日資料"
+            latest=$(find stock_day_all -name '*.json' | sort | tail -n 1 | xargs -r basename -s .json)
+            echo "::notice title=證交所資料::沒有新的交易日（已收到 ${latest}）"
             exit 0
           fi
           files=$(git diff --cached --name-only | xargs -n1 basename | sort -u | tr '\n' ' ')
+          echo "::notice title=證交所資料::新增 ${files}"
           git commit -qm "twse: ${files}"
           for attempt in 1 2 3; do
             git push -q origin HEAD:twse-data && exit 0

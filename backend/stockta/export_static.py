@@ -5,7 +5,7 @@
 走 API 本身的程式路徑＝靜態站與本機 uvicorn 的數字同源，不另寫一套計算。
 
 帶參數的端點改為「匯出最大範圍、前端切片」：
-- candles：匯出近 5 年，前端依 range 或自訂區間切。來源是證交所 OpenAPI 每日累積的開放資料
+- candles：匯出近 5 年，前端依 range 或自訂區間切。來源是每日累積的證交所開放資料
   （未還原權值、從開始累積的那天起才有），meta 的 candles_* 欄位記錄實際起訖與來源；
   yfinance 價格只供內部訓練與推論，不輸出到靜態站
 - history：匯出近 HISTORY_EXPORT_DAYS 天，前端依 (start, end] 篩選並重算命中率
