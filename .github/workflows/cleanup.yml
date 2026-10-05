@@ -55,21 +55,34 @@ jobs:
         run: |
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}/deployments"
-          : > deployments.txt
-          previous=""
-          for page in $(seq 1 80); do
-            curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}?page=${page}&per_page=25" > page.json
-            first=$(jq -r '.result[0].id // ""' page.json)
-            # 沒有更多部署，或分頁參數沒有作用（又拿到同一頁）就停
-            if [ -z "${first}" ] || [ "${first}" = "${previous}" ]; then break; fi
-            previous="${first}"
-            jq -r --arg before "${PAGES_BEFORE}" '.result[] | select(.created_on < $before) | .id' page.json >> deployments.txt
+          : > deployments.tsv
+          # 正式與 preview 兩種環境分開列（第一次執行後 preview 網址仍在，改為明確指定環境並回報細節）
+          for kind in production preview; do
+            previous=""
+            total=0
+            for page in $(seq 1 80); do
+              curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}?env=${kind}&page=${page}&per_page=25" > page.json
+              first=$(jq -r '.result[0].id // ""' page.json)
+              # 沒有更多部署，或分頁參數沒有作用（又拿到同一頁）就停
+              if [ -z "${first}" ] || [ "${first}" = "${previous}" ]; then break; fi
+              previous="${first}"
+              total=$((total + $(jq '.result | length' page.json)))
+              jq -r --arg before "${PAGES_BEFORE}" '.result[] | select(.created_on < $before) | [.id, .environment, .created_on, ((.aliases // []) | join(","))] | @tsv' page.json >> deployments.tsv
+            done
+            echo "::notice title=清理::Cloudflare ${kind} 環境目前共 ${total} 筆部署"
           done
-          sort -u deployments.txt -o deployments.txt
+          sort -u deployments.tsv -o deployments.tsv
           failed=0
-          while read -r id; do
+          reasons=""
+          while IFS=$'\t' read -r id kind created aliases; do
             # force：preview 網址（分支別名）指到的部署也刪；正式站目前的部署在界線之後，不會被選到
-            curl -fsS -o /dev/null -X DELETE -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}/${id}?force=true" || failed=$((failed + 1))
-          done < deployments.txt
-          echo "::notice title=清理::Cloudflare 舊部署 $(wc -l < deployments.txt) 個，刪除失敗 ${failed} 個"
+            code=$(curl -sS -o resp.json -w '%{http_code}' -X DELETE -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}/${id}?force=true")
+            ok=$(jq -r '.success // false' resp.json 2>/dev/null || echo false)
+            echo "${kind} ${created} aliases=[${aliases}] -> HTTP ${code} success=${ok}"
+            if [ "${code}" != "200" ] || [ "${ok}" != "true" ]; then
+              failed=$((failed + 1))
+              reasons="${kind} ${created}：HTTP ${code} $(jq -c '[.errors[]?.message]' resp.json 2>/dev/null)"
+            fi
+          done < deployments.tsv
+          echo "::notice title=清理::Cloudflare 舊部署 $(wc -l < deployments.tsv) 個（其中 preview $(awk -F'\t' '$2 == "preview"' deployments.tsv | wc -l) 個），刪除失敗 ${failed} 個 ${reasons}"
           [ "${failed}" -eq 0 ]
