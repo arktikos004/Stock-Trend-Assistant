@@ -1,0 +1,75 @@
+# 一次性清理：狀態加密與網站改版之前留在線上的舊資料。跑完並確認後即移除本檔。
+#   1. 加密前的 state artifact：內含未加密的價格快取（yfinance）與舊版網站資料
+#   2. 2026-10-04 改版前的執行紀錄：連同它們的 log 與 artifact 一起刪
+#   3. Cloudflare Pages 的舊部署：舊版網站（含 preview 網址），仍提供 yfinance K 線
+name: cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: [.github/workflows/cleanup.yml]
+
+permissions:
+  actions: write # 刪除 artifact 與執行紀錄
+
+concurrency:
+  group: cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ARTIFACTS_BEFORE: "2026-10-05T07:00:00Z" # 第一次以加密封包保存狀態之前
+      RUNS_BEFORE: "2026-10-04T15:00:00Z" # 改版後第一次推送之前
+      PAGES_BEFORE: "2026-10-04T16:00:00Z" # 改版後的網站第一次部署之前
+      PAGES_PROJECT: stock-trend-assistant
+    steps:
+      - name: 刪除加密前的 artifact
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.created_at < \"${ARTIFACTS_BEFORE}\") | .id" > artifacts.txt
+          while read -r id; do
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}"
+          done < artifacts.txt
+          echo "::notice title=清理::刪除 artifact $(wc -l < artifacts.txt) 個"
+
+      - name: 刪除改版前的執行紀錄（含 log 與 artifact）
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
+            --jq ".workflow_runs[] | select(.created_at < \"${RUNS_BEFORE}\") | .id" > runs.txt
+          while read -r id; do
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${id}"
+          done < runs.txt
+          echo "::notice title=清理::刪除執行紀錄 $(wc -l < runs.txt) 筆"
+
+      - name: 刪除 Cloudflare Pages 的舊部署（含 preview 網址）
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          base="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}/deployments"
+          : > deployments.txt
+          previous=""
+          for page in $(seq 1 80); do
+            curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}?page=${page}&per_page=25" > page.json
+            first=$(jq -r '.result[0].id // ""' page.json)
+            # 沒有更多部署，或分頁參數沒有作用（又拿到同一頁）就停
+            if [ -z "${first}" ] || [ "${first}" = "${previous}" ]; then break; fi
+            previous="${first}"
+            jq -r --arg before "${PAGES_BEFORE}" '.result[] | select(.created_on < $before) | .id' page.json >> deployments.txt
+          done
+          sort -u deployments.txt -o deployments.txt
+          failed=0
+          while read -r id; do
+            # force：preview 網址（分支別名）指到的部署也刪；正式站目前的部署在界線之後，不會被選到
+            curl -fsS -o /dev/null -X DELETE -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}/${id}?force=true" || failed=$((failed + 1))
+          done < deployments.txt
+          echo "::notice title=清理::Cloudflare 舊部署 $(wc -l < deployments.txt) 個，刪除失敗 ${failed} 個"
+          [ "${failed}" -eq 0 ]
