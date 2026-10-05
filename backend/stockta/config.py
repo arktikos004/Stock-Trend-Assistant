@@ -43,7 +43,7 @@ ARTIFACTS_DIR = BACKEND_ROOT / "artifacts"
 ARTIFACTS_CS_DIR = BACKEND_ROOT / "artifacts_cs"  # cross-sectional 排序模型（與 3 類分開）
 PREDICTIONS_DB_PATH = BACKEND_ROOT / "predictions.db"
 
-# 網站 K 線的唯一資料來源：證交所 OpenAPI 每日累積的官方開放資料（twse-data 分支的工作目錄；
+# 網站 K 線的唯一資料來源：每日累積的證交所官方開放資料（twse-data 分支的工作目錄；
 # CI 取出在 repo 根目錄的 _twse，本機以環境變數 TWSE_DATA_DIR 指定）。
 # 依政府資料開放授權條款可公開（需顯名）；yfinance 價格只供內部訓練與推論，不得出現在網站上。
 TWSE_DATA_DIR = Path(os.environ.get("TWSE_DATA_DIR") or BACKEND_ROOT.parent / "_twse")

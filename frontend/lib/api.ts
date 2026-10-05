@@ -245,7 +245,7 @@ export interface SiteMeta {
   model_version: string;
   cs_model: string | null;
   range_days: Record<string, number>;
-  /** K 線來源：證交所 OpenAPI 每日累積的開放資料（未還原權值）。舊版 site-data 沒有此欄＝yfinance，不得顯示 */
+  /** K 線來源：每日累積的證交所開放資料（未還原權值；識別值沿用 twse-openapi）。舊版 site-data 沒有此欄＝yfinance，不得顯示 */
   candles_source?: string;
   candles_adjusted?: boolean;
   candles_start: string | null; // 已累積的第一個交易日；沒有資料時為 null

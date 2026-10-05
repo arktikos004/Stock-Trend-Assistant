@@ -113,7 +113,7 @@ npm run dev                                     # http://localhost:3000（後端
 | 五模型集成（#2）、籌碼面（#6）、triple-barrier（#7b）、regime 特徵（#9） | **不採用**，四個負結果都寫成記錄 |
 | walk-forward 週期性重訓（#3、#9） | 採用；**production = `gru-2026-08-13+cal`**（驗證 macro AUC 0.6712），每半年重訓 |
 | **cross-sectional 相對強弱（#8）** | 採用，成為正面主線；回測測試期 Rank IC **+0.0437（t=2.2，128 個交易日）** |
-| 每日排程 + 自癒 catch-up | 收盤後自動落地預測；當日 K 線未到位時冪等補回（以「標的×日」為單位）。2026-09 起由 GitHub Actions 執行（台北 15:20、16:50 補跑），取代 Windows 工作排程器 |
+| 每日排程 + 自癒 catch-up | 收盤後自動落地預測；當日 K 線未到位時冪等補回（以「標的×日」為單位）。2026-09 起由 GitHub Actions 執行（台北 15:20，16:50、19:30 補跑），取代 Windows 工作排程器 |
 
 ### 第三輪（2026-08-16）資料誠信與洩漏防治
 
@@ -139,7 +139,7 @@ npm run dev                                     # http://localhost:3000（後端
 
 - 本 repo 的程式碼與文件未採用開源授權，保留所有權利。
 - 模型權重（Release `models-v1`）以 Yahoo Finance 的價格資料訓練，僅供研究與重現本專案結果。
-- 網站 K 線使用臺灣證券交易所 OpenAPI 的開放資料，依政府資料開放授權條款顯名；訓練用的歷史價格不對外提供。
+- 網站 K 線使用臺灣證券交易所的開放資料，依政府資料開放授權條款顯名；訓練用的歷史價格不對外提供。
 - 第三方套件、資料與模型的授權見 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 與 [DATA_SOURCES.md](./DATA_SOURCES.md)。
 
 > 免責聲明：本系統為研究原型，預測結果僅供學術研究參考，不構成投資建議。

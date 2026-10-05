@@ -36,7 +36,7 @@ import {
 const RANGES = ["1mo", "3mo", "6mo", "1y", "2y", "5y"] as const;
 type Range = (typeof RANGES)[number];
 const RANGE_DAYS: Record<Range, number> = { "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825 };
-/** 開始逐日累積證交所盤後資料的第一個交易日（OpenAPI 只提供當日，之前的日子無法回補） */
+/** 開始逐日累積證交所盤後資料的第一個交易日（開放資料只提供最新一個交易日，之前的日子無法回補） */
 const TWSE_SINCE = "2026-10-02";
 
 /**
@@ -280,7 +280,7 @@ export default function Home() {
             <>
               <CandleChart candles={candles} />
               <p className="mt-2 text-[11px] text-ink-3">
-                資料來源：臺灣證券交易所 OpenAPI 盤後資料（未還原權值）。證交所只提供當日資料，本站自 {twseSince} 起逐日累積。
+                資料來源：臺灣證券交易所開放資料（盤後資訊，未還原權值）。開放資料只提供最新一個交易日，本站自 {twseSince} 起逐日累積。
               </p>
             </>
           ) : !error ? (
@@ -335,7 +335,7 @@ export default function Home() {
       <footer className="mt-8 space-y-1 text-center text-xs text-ink-3">
         <p>基於深度學習之股價趨勢預測與投資助理系統 — 研究原型，僅供學術研究參考，不構成投資建議</p>
         <p>
-          K 線資料：臺灣證券交易所 OpenAPI，依
+          K 線資料：臺灣證券交易所開放資料，依
           <a className="underline" href="https://data.gov.tw/license" target="_blank" rel="noopener noreferrer">
             政府資料開放授權條款
           </a>
