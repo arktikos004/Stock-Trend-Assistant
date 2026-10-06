@@ -23,6 +23,15 @@
   --down: #15803d;      /* 跌：台股綠 */
   --down-soft: #e7f6ec;
 
+  /* 類別色（篩選器的綜合評分組成：排序、動能、評價、營收、籌碼）。避開紅綠（台股漲跌色）；
+     順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過（相鄰 CVD ΔE ≥ 13、正常視覺 ≥ 19）。
+     淺色主題的黃、粉低於 3:1，所以每個組成另以文字列出分數 */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #4a3aa7;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+
   --shadow-sm: 0 1px 2px rgba(16, 23, 37, 0.06), 0 1px 3px rgba(16, 23, 37, 0.04);
   --shadow-md: 0 4px 12px rgba(16, 23, 37, 0.08), 0 2px 4px rgba(16, 23, 37, 0.04);
 }
@@ -48,6 +57,12 @@
     --down: #4ade80;
     --down-soft: #12321f;
 
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #9085e9;
+    --series-4: #c98500;
+    --series-5: #d55181;
+
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
@@ -59,6 +74,7 @@
   --accent: #818cf8; --accent-fg: #0a0d14; --accent-soft: #1e2542;
   --up: #f87171; --up-soft: #35191b; --hold: #94a3b8; --hold-soft: #202634;
   --down: #4ade80; --down-soft: #12321f;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #9085e9; --series-4: #c98500; --series-5: #d55181;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
 }
 :root[data-theme="light"] {
@@ -67,6 +83,7 @@
   --accent: #4f46e5; --accent-fg: #ffffff; --accent-soft: #eef0fe;
   --up: #dc2626; --up-soft: #fdeaea; --hold: #64748b; --hold-soft: #eef1f5;
   --down: #15803d; --down-soft: #e7f6ec;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #4a3aa7; --series-4: #eda100; --series-5: #e87ba4;
   --shadow-sm: 0 1px 2px rgba(16,23,37,0.06),0 1px 3px rgba(16,23,37,0.04);
   --shadow-md: 0 4px 12px rgba(16,23,37,0.08),0 2px 4px rgba(16,23,37,0.04);
 }

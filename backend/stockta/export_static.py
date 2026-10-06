@@ -123,6 +123,13 @@ def run_export(
     _require_real(scan, "/api/scan")
     rank = d.dump("/api/rank", "rank/latest.json", required=True)
     _require_real(rank, "/api/rank")
+    # 篩選器與綜合評分（docs/screener_prereg.md）：非必要，失敗只記在 meta.failures，網站其餘部分照常部署。
+    # TestClient 會把端點裡沒接住的例外直接拋出來，所以連例外也接住，不讓新功能擋住整站部署
+    try:
+        d.dump("/api/screener", "screener/latest.json")
+    except Exception as exc:
+        d.result.failures.append(f"/api/screener → {exc!r}")
+        log(f"[略過] /api/screener：{exc!r}")
 
     t0 = time.monotonic()
     for kind in ("scan", "rank"):
