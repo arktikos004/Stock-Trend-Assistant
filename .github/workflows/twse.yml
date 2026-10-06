@@ -1,12 +1,14 @@
-# 每日收集證交所開放資料（盤後）到 twse-data 分支（網站 K 線的資料來源）。
+# 每日收集證交所與集保的開放資料到 twse-data 分支：盤後行情（網站 K 線的資料來源）、
+# 本益比與殖利率、融資融券、外資持股（類股、前 20 名）、月營收、集保股權分散（清單見 stockta/data/twse.py）。
 #
-# 這份資料只提供最新一個交易日、無法指定日期——漏收的日子補不回來，所以：
-#   - 一天排三次（收盤後 15:40、17:40、20:40），週六早上再補一次週五；已收過的日子自動略過。
-#   - 兩個官方出口都抓：政府資料開放平臺登錄的 CSV 當晚就是當日資料，OpenAPI 隔天清晨才換日；
+# 這些資料只提供最新一期、無法指定日期——漏收的那一期補不回來，所以：
+#   - 一天排三次（收盤後 15:40、17:40、20:40），週六早上再補一次週五；已收過的那一期自動略過。
+#   - 有兩個官方出口的都抓：政府資料開放平臺登錄的 CSV 當晚就是當日資料，OpenAPI 隔天清晨才換日；
 #     日期不同就各存一份，前一天漏收時還能從 OpenAPI 補回來。
 #   - twse-data 分支只用一般 commit 累積，從不 force push。
 #   - 只用 Python 標準函式庫（不安裝後端相依），避免別的套件出問題連帶漏收。
-# 資料依政府資料開放授權條款釋出，顯名說明見 twse-data 分支的 README.md。
+#   - 只有個股行情抓不到算失敗；其他資料集抓不到只示警，下次排程再試。
+# 資料依政府資料開放授權條款釋出，顯名說明見 twse-data 分支的 README.md 與每個檔案的 meta.attribution。
 name: twse
 
 on:
@@ -27,7 +29,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30 # 每個出口最多重試 3 次、每次逾時 30 秒；證交所網站整個連不上時也要跑得完
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +43,7 @@ jobs:
         with:
           python-version: "3.12.10"
 
-      - name: 抓取兩個官方出口目前提供的交易日（政府資料開放平臺 CSV、OpenAPI）
+      - name: 抓取各官方出口目前提供的資料（政府資料開放平臺 CSV、OpenAPI）
         id: fetch
         env:
           PYTHONPATH: backend
@@ -59,7 +61,8 @@ jobs:
             echo "::notice title=證交所資料::沒有新的交易日（已收到 ${latest}）"
             exit 0
           fi
-          files=$(git diff --cached --name-only | xargs -n1 basename | sort -u | tr '\n' ' ')
+          # stock_day_all/2026/2026-10-06.json → stock_day_all/2026-10-06（資料集／日期）
+          files=$(git diff --cached --name-only | sed -E 's#^([^/]+)/[0-9]{4}/([^/]+)\.json$#\1/\2#' | sort -u | tr '\n' ' ')
           echo "::notice title=證交所資料::新增 ${files}"
           git commit -qm "twse: ${files}"
           for attempt in 1 2 3; do

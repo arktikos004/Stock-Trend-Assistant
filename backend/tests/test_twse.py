@@ -1,19 +1,25 @@
-"""證交所每日資料：日期換算、數字解析、CSV 正規化、兩個出口都收、只收一次、讀回 K 線。
+"""證交所與集保開放資料：日期換算、數字解析、CSV 正規化、兩個出口都收、只收一次、讀回 K 線。
 
 這份資料錯過一天就補不回來，存檔邏輯若默默覆寫或寫錯日期，損失無法回復——
-所以把「已存在不覆寫」「日期一致」「兩個出口日期不同時兩天都收」釘死。全部不連網。
+所以把「已存在不覆寫」「日期一致」「兩個出口日期不同時兩天都收」「內容沒有日期時只信下載檔名」釘死。全部不連網。
 """
 
 import json
+import re
 from datetime import date
+from pathlib import Path
 
 import pytest
 
 from stockta.data import twse
 from stockta.data.twse import (
+    DATASETS,
     TwseError,
+    attribution,
     fetch_available,
+    filename_day,
     load_candles,
+    parse_day,
     parse_number,
     roc_to_date,
     rows_from_csv,
@@ -67,16 +73,32 @@ def _csv_body(roc: str) -> bytes:
     return ("﻿" + "\n".join(lines) + "\n").encode("utf-8")
 
 
-def _serve(monkeypatch, *, csv: bytes | None, openapi: bytes | None) -> None:
-    """把下載換成假的：依網址回傳指定內容，None 代表該出口連不上。"""
+def _serve(monkeypatch, *, csv: bytes | None, openapi: bytes | None, csv_filename: str | None = None) -> None:
+    """把下載換成假的：依網址回傳指定內容，None 代表該出口連不上；CSV 可附下載檔名（Content-Disposition）。"""
 
-    def fake_get(url: str) -> bytes:
-        body = openapi if url.startswith(twse.OPENAPI_BASE) else csv
+    def fake_get(url: str) -> tuple[bytes, str | None]:
+        from_openapi = url.startswith(twse.OPENAPI_BASE)
+        body = openapi if from_openapi else csv
         if body is None:
             raise TwseError(f"下載失敗：{url}")
-        return body
+        return body, None if from_openapi else csv_filename
 
     monkeypatch.setattr(twse, "_get", fake_get)
+
+
+def _csv(header: str, rows: list[str]) -> bytes:
+    return ("﻿" + "\n".join([header, *rows]) + "\n").encode("utf-8")
+
+
+_MARGN_HEADER = (
+    "股票代號,股票名稱,融資買進,融資賣出,融資現金償還,融資前日餘額,融資今日餘額,融資限額,"
+    "融券買進,融券賣出,融券現券償還,融券前日餘額,融券今日餘額,融券限額,資券互抵,註記"
+)
+
+
+def _margin_csv(n: int = 600) -> bytes:
+    codes = ["2330"] + [f"{9000 + i}" for i in range(n - 1)]
+    return _csv(_MARGN_HEADER, [f'"{c}","股票{c}","1","2","0","100","99","500","","","","3","3","500","","X "' for c in codes])
 
 
 def test_roc_to_date():
@@ -199,6 +221,125 @@ def test_cli_stores_every_available_day_once(monkeypatch, tmp_path, capsys):
     _serve(monkeypatch, csv=None, openapi=None)
     assert twse.main(argv) == 1  # 個股行情兩個出口都拿不到才算失敗
     assert "error" in json.loads(capsys.readouterr().out)["STOCK_DAY_ALL"]
+
+
+def test_parse_day_accepts_roc_and_gregorian():
+    """證交所用民國（1151006），集保用西元（20261002）。"""
+    assert parse_day("1151006") == date(2026, 10, 6)
+    assert parse_day(" 20261002 ") == date(2026, 10, 2)
+    assert parse_day("990104") == date(2010, 1, 4)
+    for bad in ("2026-10-02", "", "20261399"):
+        with pytest.raises((TwseError, ValueError)):
+            parse_day(bad)
+
+
+def test_filename_day_reads_the_platform_csv_name():
+    assert filename_day("MI_MARGN_ALL_20261005.csv") == date(2026, 10, 5)
+    assert filename_day("STOCK_DAY_ALL_20261006.csv") == date(2026, 10, 6)
+    assert filename_day("TDCC_OD_1-5.csv") is None
+    assert filename_day("MI_MARGN_ALL_20261399.csv") is None
+    assert filename_day(None) is None
+
+
+def test_undated_dataset_takes_its_date_from_the_csv_filename(monkeypatch):
+    """融資融券餘額的內容沒有日期：日期只能取自平臺 CSV 的下載檔名，而且不抓沒有日期的 OpenAPI。"""
+    assert all(not url.startswith(twse.OPENAPI_BASE) for url in DATASETS["MI_MARGN"].outlets)
+    _serve(monkeypatch, csv=_margin_csv(), openapi=None, csv_filename="MI_MARGN_ALL_20261005.csv")
+    [(day, rows, url)] = fetch_available("MI_MARGN")
+    assert day == date(2026, 10, 5)
+    assert url.endswith("selectType=ALL")
+    assert rows[0]["股票代號"] == "2330" and rows[0]["註記"] == "X"  # 值去掉補白
+
+
+def test_undated_dataset_without_a_filename_date_is_refused(monkeypatch):
+    """判定不了是哪一天就不收：寫錯日期的檔案永遠不會被覆寫，比漏收一天更糟。"""
+    _serve(monkeypatch, csv=_margin_csv(), openapi=None, csv_filename=None)
+    errors: list[str] = []
+    with pytest.raises(TwseError, match="檔名"):
+        fetch_available("MI_MARGN", outlet_errors=errors)
+    assert len(errors) == 1
+
+
+def test_validate_rejects_future_dates():
+    rows = _market("1151007")
+    assert validate_rows("STOCK_DAY_ALL", rows, today=date(2026, 10, 7)) == date(2026, 10, 7)
+    with pytest.raises(TwseError, match="未來"):
+        validate_rows("STOCK_DAY_ALL", rows, today=date(2026, 10, 6))
+    with pytest.raises(TwseError, match="未來"):
+        validate_rows("MI_MARGN", [{"股票代號": "2330"}] * 600, filename_date=date(2026, 10, 9), today=date(2026, 10, 6))
+
+
+def test_bwibbu_csv_rows_use_openapi_keys(monkeypatch):
+    header = "日期,股票代號,股票名稱,本益比,殖利率(%),股價淨值比"
+    codes = ["2330"] + [f"{9000 + i}" for i in range(599)]
+    body = _csv(header, [f'"1151006","{c}","股票{c}","","3.17","0.82"' for c in codes])
+    assert rows_from_csv(body.decode("utf-8-sig"), "BWIBBU_ALL")[0] == {
+        "Date": "1151006",
+        "Code": "2330",
+        "Name": "股票2330",
+        "PEratio": "",
+        "DividendYield": "3.17",
+        "PBratio": "0.82",
+    }
+    _serve(monkeypatch, csv=body, openapi=None)
+    assert [day for day, _, _ in fetch_available("BWIBBU_ALL")] == [date(2026, 10, 6)]
+
+
+def test_monthly_revenue_is_dated_by_its_report_date(monkeypatch):
+    """月營收一個月才換一次：以出表日期存檔，兩個出口同一天只留一份。"""
+    header = "出表日期,資料年月,公司代號,公司名稱,產業別,營業收入-當月營收"
+    codes = ["2330"] + [f"{9000 + i}" for i in range(599)]
+    rows = [{"出表日期": "1150917", "資料年月": "11508", "公司代號": c, "公司名稱": "x", "產業別": "y", "營業收入-當月營收": "1"} for c in codes]
+    body = _csv(header, [",".join(f'"{r[k]}"' for k in r) for r in rows])
+    _serve(monkeypatch, csv=body, openapi=json.dumps(rows, ensure_ascii=False).encode("utf-8"))
+    [(day, _, url)] = fetch_available("t187ap05_L")
+    assert day == date(2026, 9, 17) and url.startswith(twse.OPENAPI_BASE)
+
+
+def test_tdcc_keeps_four_digit_codes_and_strips_padding(monkeypatch):
+    """集保的代號右邊補空白，而且混有權證、債券等代號：只留 4 碼的股票與 ETF。"""
+    header = "資料日期,證券代號,持股分級,人數,股數,占集保庫存數比例%"
+    codes = ["2330  ", "0050  ", "000218", "YY0080", "910861"] + [f"{1000 + i}  " for i in range(700)]
+    lines = [f"20261002,{c},{level},1,1,0.01" for c in codes for level in range(1, 18)]
+    _serve(monkeypatch, csv=_csv(header, lines), openapi=None)
+    [(day, rows, _)] = fetch_available("TDCC_OD_1-5")
+    assert day == date(2026, 10, 2)
+    kept = {r["證券代號"] for r in rows}
+    assert {"2330", "0050"} <= kept and not kept & {"000218", "YY0080", "910861"}
+    assert all(re.fullmatch(r"\d{4}", code) for code in kept)
+    assert len(rows) == 17 * 702
+
+
+def test_attribution_names_the_provider_and_the_dataset(tmp_path):
+    """政府資料開放授權條款要求顯名：提供機關＋資料集名稱＋授權條款，每個檔案各自寫清楚。"""
+    path = store(tmp_path, "TDCC_OD_1-5", date(2026, 10, 2), [{"證券代號": "2330"}], "https://example.invalid/tdcc")
+    meta = json.loads(path.read_text(encoding="utf-8"))["meta"]
+    assert "臺灣集中保管結算所" in meta["attribution"] and "集保戶股權分散表" in meta["attribution"]
+    assert meta["dataset_url"] == "https://data.gov.tw/dataset/11452"
+    assert path.relative_to(tmp_path).as_posix() == "tdcc_od_1-5/2026/2026-10-02.json"
+    for name, spec in DATASETS.items():
+        text = attribution(name)
+        assert spec.provider in text and f"「{spec.title}」" in text and "https://data.gov.tw/license" in text
+
+
+def test_cli_warns_but_succeeds_when_an_optional_dataset_fails(monkeypatch, tmp_path, capsys):
+    """月營收、融資券等抓不到不影響 K 線：排程算成功，但要示警。"""
+    _serve(monkeypatch, csv=_csv_body("1151005"), openapi=_openapi_body("1151005"))
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert twse.main(["fetch", "--out", str(tmp_path), "--datasets", "STOCK_DAY_ALL", "MI_MARGN"]) == 0
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["STOCK_DAY_ALL"]["days"][0]["written"] == "stock_day_all/2026/2026-10-05.json"
+    assert "error" in result["MI_MARGN"]
+    assert "::warning title=證交所資料::MI_MARGN" in captured.err
+
+
+def test_every_dataset_is_disclosed_in_data_sources():
+    """新增資料集時一併更新 DATA_SOURCES.md：資料集代號與政府資料開放平臺的編號都要列出。"""
+    text = (Path(__file__).resolve().parents[2] / "DATA_SOURCES.md").read_text(encoding="utf-8")
+    for name, spec in DATASETS.items():
+        assert f"`{name}`" in text, name
+        assert str(spec.gov_id) in text, name
 
 
 def test_cli_warns_when_only_one_outlet_answers(monkeypatch, tmp_path, capsys):
