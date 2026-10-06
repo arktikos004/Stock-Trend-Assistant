@@ -164,6 +164,63 @@ export interface ScanResponse {
   is_mock: boolean;
 }
 
+// --- 篩選器與綜合評分（/api/screener；規則見 docs/screener_prereg.md）：研究用候選清單，不是預測 ---
+
+export type ScreenerComponentKey = "rank" | "momentum" | "valuation" | "revenue" | "chips";
+export type ConditionKey = "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
+/** missing＝資料缺漏（算不符合）、na＝不適用（金融保險業的營收條件） */
+export type ConditionState = "pass" | "fail" | "missing" | "na";
+export type Tier = "T1" | "T2" | "T3";
+
+export interface ScreenerStock {
+  ticker: string;
+  name: string;
+  industry: string;
+  composite: number | null; // 0–100
+  components: Record<ScreenerComponentKey, number | null>; // 股票池內的百分位 0–100
+  missing: ScreenerComponentKey[];
+  metrics: {
+    rank_pct: number | null;
+    ret20: number | null;
+    ret60: number | null;
+    breakout: boolean | null;
+    ma_bullish: boolean | null;
+    pe: number | null;
+    earnings_yield: number | null;
+    dividend_yield: number | null; // %
+    pb: number | null;
+    book_to_price: number | null;
+    revenue_yoy: number | null; // %
+    revenue_cum_yoy: number | null; // %
+    margin_change: number | null; // 比率
+    big_holder_change: number | null; // 百分點
+  };
+  conditions: Record<ConditionKey, ConditionState>;
+  misses: number;
+  tier: Tier | null;
+  over_cap: boolean;
+}
+
+export interface ScreenerResponse {
+  base_date: string;
+  rules_version: string;
+  rules_doc: string;
+  weights: Record<ScreenerComponentKey, number>;
+  tier_caps: Record<Tier, number>;
+  sources: {
+    prices: string | null;
+    valuation: string | null;
+    revenue: string | null;
+    revenue_month: string | null;
+    margin: string | null;
+    margin_days: number;
+    big_holder_weeks: string[];
+  };
+  counts: Record<Tier, number>;
+  stocks: ScreenerStock[];
+  is_mock: boolean;
+}
+
 export interface StockInfo {
   ticker: string;
   name: string;
@@ -231,6 +288,7 @@ const liveApi = {
   rank: (date?: string) =>
     request<RankResponse>(`/api/rank${date ? `?date=${encodeURIComponent(date)}` : ""}`),
   rankSummary: () => request<RankSummaryResponse>("/api/rank/summary"),
+  screener: () => request<ScreenerResponse>("/api/screener"),
   stockHistory: (ticker: string, start: string, end: string) =>
     request<StockHistoryResponse>(
       `/api/stocks/${encodeURIComponent(ticker)}/history?start=${start}&end=${end}`,
@@ -329,6 +387,7 @@ const staticApi: typeof liveApi = {
   scan: (date) => staticDated("scan", date),
   rank: (date) => staticDated("rank", date),
   rankSummary: () => staticGet("/rank/summary.json"),
+  screener: () => staticGet("/screener/latest.json"),
   stockHistory: async (ticker, start, end) => {
     const [meta, full] = await Promise.all([
       siteMeta(),

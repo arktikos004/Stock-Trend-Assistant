@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 
-/** 頁面導覽：儀表板 ↔ 全池掃描。current 標示目前頁。 */
-export default function NavTabs({ current }: { current: "dashboard" | "scan" }) {
+/** 頁面導覽：儀表板 ↔ 全池掃描 ↔ 篩選器。current 標示目前頁。 */
+export default function NavTabs({ current }: { current: "dashboard" | "scan" | "screener" }) {
   const tabs = [
     { key: "dashboard", label: "儀表板", href: "/" },
     { key: "scan", label: "全池掃描", href: "/scan" },
+    { key: "screener", label: "篩選器", href: "/screener" },
   ] as const;
   return (
     <nav className="flex gap-1 rounded-lg bg-surface-2 p-1">

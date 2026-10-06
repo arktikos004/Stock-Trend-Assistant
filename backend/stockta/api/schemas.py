@@ -201,3 +201,73 @@ class ModelInfoResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: Literal["ok"]
     model_loaded: bool
+
+
+# --- 篩選器與綜合評分（GET /api/screener；規則見 docs/screener_prereg.md）---
+
+ConditionState = Literal["pass", "fail", "missing", "na"]
+
+
+class ScreenerComponents(BaseModel):
+    """各組成分數 0–100（股票池內的百分位）；null＝從缺。"""
+
+    rank: float | None
+    momentum: float | None
+    valuation: float | None
+    revenue: float | None
+    chips: float | None
+
+
+class ScreenerMetrics(BaseModel):
+    rank_pct: float | None = Field(description="相對強弱排序的百分位（0–1）")
+    ret20: float | None = Field(description="20 日報酬（以內部價格計算，只公開衍生值）")
+    ret60: float | None
+    breakout: bool | None = Field(description="收盤價高於前 60 個交易日的最高收盤價")
+    ma_bullish: bool | None = Field(description="5 日均線 > 20 日均線 > 60 日均線")
+    pe: float | None = Field(description="本益比；虧損或無法計算時為 null")
+    earnings_yield: float | None
+    dividend_yield: float | None = Field(description="現金殖利率（%）")
+    pb: float | None
+    book_to_price: float | None
+    revenue_yoy: float | None = Field(description="最新月營收年增率（%）；金融保險業不計")
+    revenue_cum_yoy: float | None
+    margin_change: float | None = Field(description="融資餘額變化率；涵蓋日數見 sources.margin_days")
+    big_holder_change: float | None = Field(description="千張大戶持股比例的週變化（百分點）")
+
+
+class ScreenerStock(BaseModel):
+    ticker: str
+    name: str
+    industry: str
+    composite: float | None = Field(description="綜合評分 0–100：依固定規則整理，不是預測")
+    components: ScreenerComponents
+    missing: list[str] = Field(description="從缺的組成（綜合評分在其他組成間重新正規化權重）")
+    metrics: ScreenerMetrics
+    conditions: dict[str, ConditionState] = Field(description="C1–C6；missing＝資料缺漏（算不符合）、na＝不適用")
+    misses: int
+    tier: Literal["T1", "T2", "T3"] | None
+    over_cap: bool = Field(description="條件夠進某一層，但該層已滿額：不列入，也不移到下一層")
+
+
+class ScreenerSources(BaseModel):
+    prices: date | None
+    valuation: date | None
+    revenue: date | None = Field(description="月營收彙總表的出表日期")
+    revenue_month: str | None = Field(description="月營收的資料月份 YYYY-MM")
+    margin: date | None
+    margin_days: int = Field(description="融資餘額變化率實際涵蓋的交易日數（滿 5 日前會少於 5）")
+    big_holder_weeks: list[date] = Field(description="大戶持股週變化用到的兩週；只有一週時沒有變化可算")
+
+
+class ScreenerResponse(BaseModel):
+    """篩選器與綜合評分：研究用的候選清單，不是預測，也不是投資建議。"""
+
+    base_date: date
+    rules_version: str
+    rules_doc: str
+    weights: dict[str, float]
+    tier_caps: dict[str, int]
+    sources: ScreenerSources
+    counts: dict[str, int]
+    stocks: list[ScreenerStock]
+    is_mock: bool = Field(default=False, description="排序模型未載入時為 True（排序組成全部從缺）")

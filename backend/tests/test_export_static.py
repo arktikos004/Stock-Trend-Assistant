@@ -38,7 +38,7 @@ def test_writes_site_layout_and_meta(client_with_model, tmp_path):
     for rel in [
         "model.json", "stocks.json", "market.json", "track-record.json",
         "scan/latest.json", "scan/index.json", "rank/latest.json", "rank/index.json", "rank/summary.json",
-        "stocks/2330.TW/prediction.json", "stocks/2330.TW/indicators.json",
+        "screener/latest.json", "stocks/2330.TW/prediction.json", "stocks/2330.TW/indicators.json",
         "stocks/2330.TW/predictions.json", "stocks/2330.TW/candles-twse.json", "meta.json",
     ]:
         assert (out / rel).is_file(), rel
@@ -55,6 +55,21 @@ def test_writes_site_layout_and_meta(client_with_model, tmp_path):
     candles = json.loads((out / "stocks/2330.TW/candles-twse.json").read_text(encoding="utf-8"))["candles"]
     assert [c["time"] for c in candles][0] == meta["candles_start"]
     assert json.loads((out / "meta.json").read_text(encoding="utf-8")) == meta
+
+
+def test_screener_failure_does_not_block_the_export(client_with_model, tmp_path, monkeypatch):
+    """篩選器是非必要的新功能：它出錯時其餘檔案照常匯出，錯誤記在 meta.failures。"""
+    from stockta.api.routers import screener as screener_router
+
+    def broken(**_):
+        raise RuntimeError("壞掉的開放資料")
+
+    monkeypatch.setattr(screener_router, "build_screener", broken)
+    out = tmp_path / "data"
+    meta = _export(client_with_model, out)
+    assert not (out / "screener/latest.json").exists()
+    assert (out / "rank/latest.json").is_file() and (out / "meta.json").is_file()
+    assert any("/api/screener" in f and "壞掉的開放資料" in f for f in meta["failures"])
 
 
 def test_refuses_mock_model(client, tmp_path):
