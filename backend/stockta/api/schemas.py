@@ -203,6 +203,76 @@ class HealthResponse(BaseModel):
     model_loaded: bool
 
 
+# --- 模型監控與例外報表（GET /api/monitor；規則見 docs/monitor_prereg.md）---
+
+
+class MonitorDay(BaseModel):
+    day: date
+    ic: float | None = Field(description="當日線上 Rank IC；名數不足或沒有變異時為 null")
+    n: int
+    source: Literal["live", "pit"]
+
+
+class ModelHealth(BaseModel):
+    version: str | None
+    status: Literal["normal", "watch", "breakdown", "insufficient"]
+    n_days: int = Field(description="IC 可算的已到期交易日數")
+    n_live_days: int
+    pending_rows: int = Field(description="尚未到期（不足 5 個交易日）的排序紀錄筆數")
+    backtest_ic: float | None
+    mean_ic: float | None
+    se_nw: float | None = Field(description="Newey–West HAC 標準誤（Bartlett、落後 4 期）")
+    t_skill: float | None = Field(description="線上平均 IC 對 0 的 t 值")
+    t_breakdown: float | None = Field(description="（線上 − 回測）平均 IC 的 t 值；< −1.645 為失效警示")
+    recent_mean_ic: float | None
+    thresholds: dict[str, float | list[float]]
+    daily: list[MonitorDay]
+
+
+class QuintileMove(BaseModel):
+    ticker: str
+    name: str
+    rank_now: int
+    rank_before: int
+    q_now: int
+    q_before: int
+    tags: list[Literal["enter_top", "leave_top", "jump"]]
+
+
+class QuintileMoves(BaseModel):
+    from_date: date | None
+    to_date: date | None
+    n: int = Field(description="兩個基準日都有分數的股票數")
+    moves: list[QuintileMove]
+
+
+class Week52Extreme(BaseModel):
+    ticker: str
+    name: str
+    to_high: float = Field(description="收盤價 ÷ 52 週最高價")
+
+
+class LedgerStatus(BaseModel):
+    available: bool = Field(description="取得到鏈檔才為 true")
+    entries: int = 0
+    chained: dict[str, int] = Field(default_factory=dict)
+    pending: dict[str, int] = Field(default_factory=dict)
+    ok: bool | None = None
+    problems: list[str] = Field(default_factory=list)
+    last_recorded_at: str | None = None
+
+
+class MonitorResponse(BaseModel):
+    base_date: date
+    rules_version: str
+    rules_doc: str
+    model: ModelHealth
+    quintile_moves: QuintileMoves
+    new_highs: list[Week52Extreme]
+    new_lows: list[Week52Extreme]
+    ledger: LedgerStatus
+
+
 # --- 篩選器與綜合評分（GET /api/screener；規則見 docs/screener_prereg.md）---
 
 ConditionState = Literal["pass", "fail", "missing", "na"]

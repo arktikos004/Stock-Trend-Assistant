@@ -109,6 +109,26 @@ def collect_matured(rows: list[tuple], cache) -> tuple[list, list, list, list, i
     return dates, scores, rets, sources, pending
 
 
+def daily_ic(dates: list, scores: list, rets: list, sources: list) -> list[tuple]:
+    """逐日 Rank IC：[(基準日, 名數, IC 或 None, 'live'／'pit')]，依基準日排序。
+
+    與 rank_ic 同一過濾條件（每日 ≥10 名、分數與報酬皆有變異；不符合時 IC 為 None）。
+    線上報告與模型監控（stockta/monitor.py）共用這一份定義。
+    """
+    per_day: list[tuple] = []
+    if not dates:
+        return per_day
+    df = pd.DataFrame({"date": np.array(dates), "s": np.array(scores, dtype=float), "r": np.array(rets, dtype=float), "src": sources})
+    for d, g in df.groupby("date"):
+        src = "live" if (g["src"] == "live").any() else "pit"
+        if len(g) < _MIN_NAMES or g["s"].nunique() < 2 or g["r"].nunique() < 2:
+            per_day.append((d, len(g), None, src))
+        else:
+            di, _ = spearmanr(g["s"], g["r"])
+            per_day.append((d, len(g), float(di), src))
+    return per_day
+
+
 def main() -> int:
     version = cs_production_version()
     rows = _load_rows(version)
@@ -123,16 +143,7 @@ def main() -> int:
     spread = quantile_spread(dts, sc, rt, CS_TOP_FRACTION) if len(dts) else float("nan")
 
     # 逐日 IC（與 rank_ic 同一過濾條件：每日 ≥10 名、分數與報酬皆有變異）
-    per_day: list[tuple] = []
-    if len(dts):
-        df = pd.DataFrame({"date": dts, "s": sc, "r": rt, "src": sources})
-        for d, g in df.groupby("date"):
-            src = "live" if (g["src"] == "live").any() else "pit"
-            if len(g) < _MIN_NAMES or g["s"].nunique() < 2 or g["r"].nunique() < 2:
-                per_day.append((d, len(g), None, src))
-            else:
-                di, _ = spearmanr(g["s"], g["r"])
-                per_day.append((d, len(g), float(di), src))
+    per_day = daily_ic(dates, scores, rets, sources)
 
     matured_dates = {str(d.date()) for d in dts}
     pend_dates = sorted({bd for (_t, bd, _s, _src) in rows} - matured_dates)

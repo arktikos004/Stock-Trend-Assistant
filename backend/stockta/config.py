@@ -47,6 +47,9 @@ PREDICTIONS_DB_PATH = BACKEND_ROOT / "predictions.db"
 # CI 取出在 repo 根目錄的 _twse，本機以環境變數 TWSE_DATA_DIR 指定）。
 # 依政府資料開放授權條款可公開（需顯名）；yfinance 價格只供內部訓練與推論，不得出現在網站上。
 TWSE_DATA_DIR = Path(os.environ.get("TWSE_DATA_DIR") or BACKEND_ROOT.parent / "_twse")
+# 預測存證的雜湊鏈（ledger 分支的 chain.jsonl）：模型監控頁顯示鏈節數與驗證結果。
+# CI 的 daily 把 ledger 分支取出在 repo 根目錄的 _ledger；本機以環境變數 LEDGER_CHAIN_PATH 指定
+LEDGER_CHAIN_PATH = Path(os.environ.get("LEDGER_CHAIN_PATH") or BACKEND_ROOT.parent / "_ledger" / "chain.jsonl")
 
 TAIPEI_TZ = ZoneInfo("Asia/Taipei")
 MARKET_CLOSE_HOUR = 13

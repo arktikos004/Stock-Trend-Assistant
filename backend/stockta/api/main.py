@@ -10,7 +10,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
 from stockta.api.errors import ApiError, api_error_handler
-from stockta.api.routers import meta, rank, scan, screener, stocks
+from stockta.api.routers import meta, monitor, rank, scan, screener, stocks
 from stockta.config import (
     AUTO_ADJUST,
     DATA_CACHE_DIR,
@@ -100,3 +100,4 @@ app.include_router(stocks.router)
 app.include_router(scan.router)
 app.include_router(rank.router)
 app.include_router(screener.router)
+app.include_router(monitor.router)
