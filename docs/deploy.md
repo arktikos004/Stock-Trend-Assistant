@@ -11,6 +11,7 @@ GitHub Actions（daily.yml，台北 15:20；16:50、19:30 補跑）
   → 補抓證交所今日盤後資料（只供本次匯出）
   → export_static：TestClient 呼叫現有 API → frontend/public/data/*.json（含發布關卡）
   → next build（NEXT_PUBLIC_STATIC_DATA=1）→ wrangler pages deploy → 保存狀態
+  → 新增的預測列上鏈（ledger 分支的 chain.jsonl，一般 commit）
 ```
 
 ## 重點設計
@@ -25,6 +26,7 @@ GitHub Actions（daily.yml，台北 15:20；16:50、19:30 補跑）
 | 部分標的抓取失敗 | 自癒改以「標的×日」為單位、缺當日 K 棒不記；有缺漏時 exit 2 → 16:50 補跑 |
 | 把假資料發布出去 | 匯出關卡：模型 mock、覆蓋率 < 90%、資料日期倒退 → exit 1，不部署，線上維持上一版 |
 | 資料庫要跨次保存 | 孤立分支 `state`，每次覆寫成單一 commit；另存 30 天 artifact |
+| state 每次覆寫，外人無法確認舊預測沒被改 | 雜湊鏈存在 `ledger` 分支（只用一般 commit、從不 force push）：狀態保存後，`stockta/ledger.py` 先驗證整條鏈與 predictions.db 相符，再把新增的資料列（依 id 區間）串成新的一節；對不上就讓執行失敗。任何人都能用公開的 predictions.db 重算（見 ledger 分支的 README）。第一節涵蓋上鏈前已存在的資料列，只能證明自上鏈之日起沒被改 |
 | 價格快取不得公開 | yfinance 價格只以 AES-256-GCM 加密封包 `private.tar.gz.enc` 存在公開的 state 分支（`scripts/state_crypt.py`，金鑰在 Secret `STATE_KEY`）；保存步驟遇到明文 `.parquet` 直接失敗 |
 | 模型不能進 git | GitHub Release `models-v1` ＋ `backend/models.lock`（sha256） |
 | pickle 模型對版本敏感 | `backend/requirements-ci.txt` 鎖定與 Windows 開發機相同的版本 |
@@ -34,7 +36,7 @@ GitHub Actions（daily.yml，台北 15:20；16:50、19:30 補跑）
 
 | 檔案 | 觸發 | 做什麼 |
 |---|---|---|
-| `daily.yml` | 平日 07:20、08:50、11:30 UTC、手動 | 上述完整流程；後兩次是補跑，當天已完成（含 K 線已有今日的證交所資料）就略過；手動可指定 Pages 分支（非 master＝preview） |
+| `daily.yml` | 平日 07:20、08:50、11:30 UTC、手動 | 上述完整流程；後兩次是補跑，當天已完成（含 K 線已有今日的證交所資料）就略過；手動可指定 Pages 分支（非 master＝preview）。最後把新增的預測列上鏈到 `ledger` |
 | `deploy.yml` | master 上 `frontend/**` 變動、手動 | 用 state 分支上的上一版資料重新 build 部署，不跑 Python |
 | `leakage.yml` | master push、PR | 洩漏回歸測試 |
 | `twse.yml` | 平日 07:40、09:40、12:40 UTC，週六 02:00 UTC、手動 | 抓證交所開放資料的兩個官方出口（政府資料開放平臺 CSV 當晚換日、OpenAPI 隔天清晨換日），日期不同就各存一份，以一般 commit 累積到 `twse-data`；已收過的日子略過 |
@@ -49,6 +51,10 @@ GitHub Actions（daily.yml，台北 15:20；16:50、19:30 補跑）
 ```bash
 # 把雲端最新的線上實證資料庫拿回本機
 git fetch github state && git show github/state:predictions.db > backend/predictions.db
+
+# 驗證預測紀錄沒被回改（只需 Python 3.10 以上的標準函式庫）
+git fetch github ledger && git show github/ledger:chain.jsonl > chain.jsonl
+python backend/stockta/ledger.py verify --db backend/predictions.db --chain chain.jsonl
 
 # 本機產生靜態站預覽
 cd backend && python -m stockta.export_static --out ../frontend/public/data

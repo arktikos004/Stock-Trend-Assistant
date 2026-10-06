@@ -1,7 +1,7 @@
 # 每日排程：取代 Windows 工作排程器的 daily_predict.bat，並部署靜態站 stock.sekinv.com。
 #
 # 流程：還原狀態 → 記錄線上預測（絕對方向＋相對強弱）→ 重生報告 → 匯出靜態 JSON
-#      → build → 部署 Cloudflare Pages → 保存狀態。
+#      → build → 部署 Cloudflare Pages → 保存狀態 → 新增的預測列上鏈（ledger 分支）。
 #
 # 狀態（predictions.db、加密的價格快取封包、線上實證報告、上一版網站資料）存在孤立分支 state，
 # 每次覆寫成單一 commit（SQLite/parquet 每天整檔改寫，保留歷史會讓 repo 無限長大）；
@@ -57,6 +57,14 @@ jobs:
         with:
           ref: twse-data
           path: _twse
+
+      - name: 取出存證鏈分支
+        # 取不到時不擋預測記錄與部署；最後的上鏈步驟會讓這次執行失敗，不會無聲漏掉
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: ledger
+          path: _ledger
 
       - name: 今日已完成則略過（補跑用）
         id: guard
@@ -162,6 +170,7 @@ jobs:
 
       - name: 保存狀態
         if: always() && steps.integrity.outcome == 'success'
+        id: save_state
         env:
           STATE_KEY: ${{ secrets.STATE_KEY }}
         run: |
@@ -213,6 +222,42 @@ jobs:
           fi
           git commit -qm "state: run ${GITHUB_RUN_ID}"
           git push -qf origin next:state
+
+      - name: 預測存證上鏈（ledger 分支，一般 commit、從不強制推送）
+        # 在狀態保存之後才上鏈：鏈上每一節涵蓋的資料列，都已經在 state 分支公開的 predictions.db 裡。
+        # ledger.py 只用標準函式庫；先驗證整條鏈與資料庫相符才追加，對不上就失敗、不替被改過的資料背書。
+        # 沒有 pull --rebase：唯一的寫入者是本 workflow（concurrency group site），推送失敗時下次排程會把同一段資料列重新上鏈
+        if: always() && steps.save_state.outcome == 'success'
+        run: |
+          if [ ! -d _ledger/.git ]; then
+            echo "::error title=存證鏈::取不到 ledger 分支，本次新增的預測列未上鏈（下次排程會一併上鏈）"
+            exit 1
+          fi
+          if ! out=$(python backend/stockta/ledger.py append --db backend/predictions.db --chain _ledger/chain.jsonl --run-id "${GITHUB_RUN_ID}"); then
+            echo "${out}"
+            echo "::error title=存證鏈::鏈與 predictions.db 對不上，拒絕追加（見上方訊息）"
+            exit 1
+          fi
+          echo "${out}"
+          cd _ledger
+          git add chain.jsonl
+          if git diff --cached --quiet; then
+            echo "::notice title=存證鏈::${out}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          seq=$(( $(grep -c . chain.jsonl) - 1 ))
+          git commit -qm "ledger: 第 ${seq} 節（run ${GITHUB_RUN_ID}）"
+          for attempt in 1 2 3; do
+            if git push -q origin HEAD:ledger; then
+              echo "::notice title=存證鏈::${out}"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error title=存證鏈::推送 ledger 分支失敗"
+          exit 1
 
       - name: 備份狀態（artifact，保留 30 天）
         if: always() && steps.integrity.outcome == 'success'

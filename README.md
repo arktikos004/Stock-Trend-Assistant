@@ -132,7 +132,7 @@ npm run dev                                     # http://localhost:3000（後端
 
 - 方法論：[實驗記錄](docs/experiment_log.md)、[測試集曝光帳本](docs/test_set_ledger.md)、[洩漏報告](docs/leakage_report.md)、[倖存者偏誤](docs/survivorship_study.md)、[資料源修訂](docs/data_revision_study.md)、[特徵可用時點](docs/feature_availability.md)
 - 模型與回測：[模型比較](docs/model_comparison.md)、[回測報告](docs/backtest_report.md)、[相對強弱](docs/cross_sectional_report.md)、[walk-forward](docs/experiment_walkforward.md)
-- 線上實證：[絕對方向](docs/online_predictions.md)、[線上 Rank IC](docs/online_rank_ic.md)
+- 線上實證：[絕對方向](docs/online_predictions.md)、[線上 Rank IC](docs/online_rank_ic.md)、[預測存證雜湊鏈](https://github.com/arktikos004/Stock-Trend-Assistant/blob/ledger/README.md)（`ledger` 分支；`python backend/stockta/ledger.py verify` 可用公開資料自行驗證）
 - 系統：[架構](docs/architecture.md)、[特徵設計](docs/feature_engineering.md)、[資料探索](docs/data_exploration.md)
 
 ## 授權
