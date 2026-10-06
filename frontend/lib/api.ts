@@ -164,6 +164,56 @@ export interface ScanResponse {
   is_mock: boolean;
 }
 
+// --- 模型監控與例外報表（/api/monitor；規則見 docs/monitor_prereg.md）---
+
+export type ModelStatus = "normal" | "watch" | "breakdown" | "insufficient";
+
+export interface MonitorResponse {
+  base_date: string;
+  rules_version: string;
+  rules_doc: string;
+  model: {
+    version: string | null;
+    status: ModelStatus;
+    n_days: number;
+    n_live_days: number;
+    pending_rows: number;
+    backtest_ic: number | null;
+    mean_ic: number | null;
+    se_nw: number | null; // Newey–West HAC 標準誤
+    t_skill: number | null;
+    t_breakdown: number | null; // < thresholds.breakdown_t＝失效警示
+    recent_mean_ic: number | null;
+    thresholds: { breakdown_t: number; min_days: number; recent_days: number; nw_lags: number; skill_t: number[] };
+    daily: { day: string; ic: number | null; n: number; source: "live" | "pit" }[];
+  };
+  quintile_moves: {
+    from_date: string | null;
+    to_date: string | null;
+    n: number;
+    moves: {
+      ticker: string;
+      name: string;
+      rank_now: number;
+      rank_before: number;
+      q_now: number;
+      q_before: number;
+      tags: ("enter_top" | "leave_top" | "jump")[];
+    }[];
+  };
+  new_highs: { ticker: string; name: string; to_high: number }[];
+  new_lows: { ticker: string; name: string; to_high: number }[];
+  ledger: {
+    available: boolean;
+    entries: number;
+    chained: Record<string, number>;
+    pending: Record<string, number>;
+    ok: boolean | null;
+    problems: string[];
+    last_recorded_at: string | null;
+  };
+}
+
 // --- 篩選器與綜合評分（/api/screener；規則見 docs/screener_prereg.md）：研究用候選清單，不是預測 ---
 
 export type ScreenerComponentKey = "rank" | "momentum" | "valuation" | "revenue" | "chips";
@@ -289,6 +339,7 @@ const liveApi = {
     request<RankResponse>(`/api/rank${date ? `?date=${encodeURIComponent(date)}` : ""}`),
   rankSummary: () => request<RankSummaryResponse>("/api/rank/summary"),
   screener: () => request<ScreenerResponse>("/api/screener"),
+  monitor: () => request<MonitorResponse>("/api/monitor"),
   stockHistory: (ticker: string, start: string, end: string) =>
     request<StockHistoryResponse>(
       `/api/stocks/${encodeURIComponent(ticker)}/history?start=${start}&end=${end}`,
@@ -388,6 +439,7 @@ const staticApi: typeof liveApi = {
   rank: (date) => staticDated("rank", date),
   rankSummary: () => staticGet("/rank/summary.json"),
   screener: () => staticGet("/screener/latest.json"),
+  monitor: () => staticGet("/monitor.json"),
   stockHistory: async (ticker, start, end) => {
     const [meta, full] = await Promise.all([
       siteMeta(),
