@@ -163,6 +163,7 @@ def test_rank_summary_shape(client):
     r = client.get("/api/rank/summary")
     assert r.status_code == 200
     assert "available" in r.json()
+    assert "test_rank_ic_t_nw" in r.json()
 
 
 def test_market_snapshot(client):

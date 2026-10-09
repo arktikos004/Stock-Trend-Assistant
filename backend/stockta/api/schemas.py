@@ -66,7 +66,8 @@ class RankSummaryResponse(BaseModel):
 
     model: str | None = None
     test_rank_ic: float | None = None
-    test_rank_ic_t: float | None = None
+    test_rank_ic_t: float | None = None  # 樸素 t（逐日 IC 視為獨立，會高估顯著性）
+    test_rank_ic_t_nw: float | None = None  # Newey–West t（處理相鄰基準日的報酬重疊）
     val_rank_ic: float | None = None
     holding_days: int | None = None
     net_cum: float | None = None

@@ -2,10 +2,13 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
+from stockta.config import CS_SPLIT_TRAIN_END, CS_SPLIT_VAL_END
 from stockta.features.market import build_market_context
 from stockta.ml.cross_sectional import build_cs_dataset
-from stockta.ml.cs_metrics import portfolio_backtest, quantile_spread, rank_ic
+from stockta.ml.cs_metrics import NW_LAGS, daily_rank_ic, portfolio_backtest, quantile_spread, rank_ic
+from stockta.monitor import newey_west
 
 
 def _two_days(n=20):
@@ -29,6 +32,23 @@ def test_rank_ic_reversed_negative():
     rets = np.concatenate([np.linspace(-0.1, 0.1, 20), np.linspace(-0.1, 0.1, 20)])
     scores = -rets  # 完全反序 → IC = -1
     assert rank_ic(dates, scores, rets)["mean"] < -0.99
+
+
+def test_rank_ic_t_nw_is_newey_west_on_the_daily_series():
+    """顯著性看 Newey–West t：5 日報酬 → 相鄰基準日重疊 4 天 → 落後 4 期。"""
+    rng = np.random.default_rng(3)
+    days = pd.bdate_range("2026-01-05", periods=30)
+    dates = np.repeat(days.values, 12)
+    rets = rng.normal(0, 0.02, len(dates))
+    scores = rets + rng.normal(0, 0.03, len(dates))
+    out = rank_ic(dates, scores, rets)
+    daily = daily_rank_ic(dates, scores, rets)
+    mean, se = newey_west(daily.to_numpy(), lags=NW_LAGS)
+    assert NW_LAGS == 4
+    assert out["n_days"] == len(daily) == 30
+    assert out["mean"] == pytest.approx(daily.mean())
+    assert out["t_nw"] == pytest.approx(mean / se)
+    assert out["t"] == pytest.approx(daily.mean() / daily.std(ddof=1) * np.sqrt(30))
 
 
 def test_quantile_spread_positive_when_score_predicts():
@@ -87,3 +107,15 @@ def test_cs_labels_are_balanced_by_median():
     assert 0.4 < ds.y.mean() < 0.6
     assert np.isfinite(ds.X).all()
     assert ds.is_train.sum() + ds.is_val.sum() + ds.is_test.sum() == len(ds.y)
+
+
+def test_cs_split_stays_on_experiment_8_dates():
+    """3 類模型的 SPLIT_* 在 #9 前移過；CS 模型與回測報告用 #8 當時的切分，不能跟著移。"""
+    assert (CS_SPLIT_TRAIN_END, CS_SPLIT_VAL_END) == ("2024-12-31", "2025-12-31")
+    pool = {f"{2000+i}.TW": _rand_walk(i, periods=700) for i in range(12)}
+    context = build_market_context(_rand_walk(99, periods=700), pool, min_tickers=3)
+    ds = build_cs_dataset(pool, context)
+    dates = pd.DatetimeIndex(ds.dates)
+    assert ds.is_train.any() and ds.is_val.any() and ds.is_test.any()
+    assert dates[ds.is_train].max() <= pd.Timestamp(CS_SPLIT_TRAIN_END) < dates[ds.is_val].min()
+    assert dates[ds.is_val].max() <= pd.Timestamp(CS_SPLIT_VAL_END) < dates[ds.is_test].min()

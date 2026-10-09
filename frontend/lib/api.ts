@@ -129,7 +129,8 @@ export interface RankSummaryResponse {
   available: boolean;
   model: string | null;
   test_rank_ic: number | null;
-  test_rank_ic_t: number | null;
+  test_rank_ic_t: number | null; // 樸素 t
+  test_rank_ic_t_nw?: number | null; // Newey–West t；舊版站上資料沒有這個欄位
   val_rank_ic: number | null;
   holding_days: number | null;
   net_cum: number | null;

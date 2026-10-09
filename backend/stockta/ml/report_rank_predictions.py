@@ -30,7 +30,7 @@ from stockta.config import (
     PREDICTIONS_DB_PATH,
 )
 from stockta.data.cache import ParquetCache
-from stockta.ml.cs_metrics import quantile_spread, rank_ic
+from stockta.ml.cs_metrics import NW_LAGS, quantile_spread, rank_ic
 from stockta.ml.report_predictions import actual_signal
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
@@ -62,31 +62,35 @@ def _load_rows(version: str | None) -> list[tuple]:
 
 def _backtest_ic_text(days_unit: str = "個交易日") -> str:
     """回測測試期 Rank IC 的引用字串，一律讀 artifacts_cs/summary.json——不在文字裡寫死數字，
-    以免回測重跑後報告與 README 各說各話（曾發生：寫死的 +0.0442/134 天 vs 實際 +0.0437/128 天）。"""
+    以免回測重跑後報告與 README 各說各話（曾發生：寫死的 +0.0442/134 天 vs 實際 +0.0437/128 天）。
+    摘要有 Newey–West t 時以它為主、樸素 t 附註（重疊的未來報酬讓樸素 t 高估顯著性）。"""
     try:
         s = json.loads((ARTIFACTS_CS_DIR / "summary.json").read_text(encoding="utf-8"))
         days = s.get("test_rank_ic_days")
         tail = f"、{days} {days_unit}" if days else ""
-        return f"{s['test_rank_ic']:+.4f}, t={s['test_rank_ic_t']:.1f}{tail}"
-    except (OSError, KeyError, ValueError):
+        nw = s.get("test_rank_ic_t_nw")
+        if nw is None:
+            return f"{s['test_rank_ic']:+.4f}, t={s['test_rank_ic_t']:.1f}{tail}"
+        return f"{s['test_rank_ic']:+.4f}, Newey–West t={nw:.2f}（未處理重疊為 {s['test_rank_ic_t']:.1f}）{tail}"
+    except (OSError, KeyError, ValueError, TypeError):
         return "見 docs/cross_sectional_report.md"
 
 
 def _interpret(ic: dict) -> str:
-    """依到期天數與顯著性給出誠實、隨資料自動調整的判讀句（不誇大、不粉飾）。"""
-    n, mean, t = ic["n_days"], ic["mean"], ic["t"]
+    """依到期天數與顯著性給出誠實、隨資料自動調整的判讀句（不誇大、不粉飾）。t 用 Newey–West t。"""
+    n, mean, t = ic["n_days"], ic["mean"], ic["t_nw"]
     if n == 0:
         return "尚無到期樣本，無法判讀。"
-    weak_sample = n < 20  # 天數太少、且線上基準日 forward 窗重疊，t 值不可盡信
-    if weak_sample or abs(t) < 2:
+    weak_sample = n < 20  # 天數太少時，即使處理了重疊，t 值也不可盡信
+    if weak_sample or np.isnan(t) or abs(t) < 2:
         sign = "略正" if mean > 0 else "略負" if mean < 0 else "約零"
         return (
             f"樣本不足（{n} 個到期交易日、窗重疊），線上 Rank IC {sign}且**與 0 無法區分**"
-            f"（|t|={abs(t):.2f}<2），既不佐證也不反駁回測（{_backtest_ic_text()}），僅為起步累積。"
+            f"（Newey–West |t|={abs(t):.2f}<2），既不佐證也不反駁回測（{_backtest_ic_text()}），僅為起步累積。"
         )
     if mean > 0:
-        return f"線上 Rank IC 為正且顯著（t={t:.2f}），與回測方向一致，開始佐證選股技能。"
-    return f"線上 Rank IC 為負且顯著（t={t:.2f}），與回測相左，需檢視模型是否失效或市況反轉。"
+        return f"線上 Rank IC 為正且顯著（Newey–West t={t:.2f}），與回測方向一致，開始佐證選股技能。"
+    return f"線上 Rank IC 為負且顯著（Newey–West t={t:.2f}），與回測相左，需檢視模型是否失效或市況反轉。"
 
 
 def collect_matured(rows: list[tuple], cache) -> tuple[list, list, list, list, int]:
@@ -139,7 +143,11 @@ def main() -> int:
     dts = np.array(dates)
     sc = np.array(scores, dtype=float)
     rt = np.array(rets, dtype=float)
-    ic = rank_ic(dts, sc, rt) if len(dts) else {"mean": float("nan"), "t": float("nan"), "n_days": 0, "by_year": {}}
+    ic = (
+        rank_ic(dts, sc, rt)
+        if len(dts)
+        else {"mean": float("nan"), "t": float("nan"), "t_nw": float("nan"), "n_days": 0, "by_year": {}}
+    )
     spread = quantile_spread(dts, sc, rt, CS_TOP_FRACTION) if len(dts) else float("nan")
 
     # 逐日 IC（與 rank_ic 同一過濾條件：每日 ≥10 名、分數與報酬皆有變異）
@@ -160,7 +168,9 @@ def main() -> int:
         "非絕對漲跌）；逐日 Spearman(分數, 實際報酬)＝當日 Rank IC，平均與 t 值為選股技能指標。",
         "",
         f"**現行 CS production 模型：`{version}`**。判準：**Rank IC 0.02~0.05 可用、"
-        "0.05~0.10 好、0.10 頂尖；t>2 統計顯著**。",
+        "0.05~0.10 好、0.10 頂尖；t>2 統計顯著**。"
+        f"t 一律用 Newey–West 標準誤（落後 {NW_LAGS} 期）：相鄰基準日的 {LABEL_HORIZON_DAYS} 日報酬重疊，"
+        "逐日 IC 會自我相關，樸素 t 會高估顯著性。",
         "",
     ]
 
@@ -168,7 +178,7 @@ def main() -> int:
     if ic["n_days"]:
         lines.append(
             f"## 總覽：已到期 {ic['n_days']} 個交易日、線上 Rank IC **{ic['mean']:+.4f}**"
-            f"（t={ic['t']:.2f}）；待驗證 {len(pend_dates)} 個基準日（{pending} 筆）"
+            f"（Newey–West t={ic['t_nw']:.2f}）；待驗證 {len(pend_dates)} 個基準日（{pending} 筆）"
         )
     else:
         lines.append(
@@ -223,7 +233,8 @@ def main() -> int:
         "- **PIT 重建 vs live**：早期基準日以 point-in-time 重建（與回測同法、非當下即時記錄），"
         "往後由每日排程 live 累積；兩者對固定權重逐位元一致，但 live 段才是嚴格意義的「線上」。",
         f"- **小樣本＋重疊窗**：目前僅 {ic['n_days']} 個到期交易日，且基準日集中於數週內、"
-        f"各自 {LABEL_HORIZON_DAYS} 日 forward 報酬彼此重疊（非獨立），t 值高度敏感、逐日 IC "
+        f"各自 {LABEL_HORIZON_DAYS} 日 forward 報酬彼此重疊（非獨立）；t 已用 Newey–West 標準誤處理重疊，"
+        "但樣本小時仍不穩，逐日 IC "
         "在此melt-up段大幅震盪（見上表 −0.32~+0.53）。此線上切片與 0 無法區分，"
         "**尚不構成佐證亦不構成反證**，僅為起步。",
         f"- 主要統計證據仍是回測（測試期 Rank IC {_backtest_ic_text('天')}）；本線上序列需累積"
@@ -238,7 +249,7 @@ def main() -> int:
     out.write_text("\n".join(lines), encoding="utf-8")
     print(
         f"現行 CS {version}：已到期 {ic['n_days']} 交易日、線上 Rank IC {ic['mean']:+.4f}"
-        f"（t={ic['t']:.2f}）；待驗證 {len(pend_dates)} 基準日；報告已寫入 {out}"
+        f"（Newey–West t={ic['t_nw']:.2f}）；待驗證 {len(pend_dates)} 基準日；報告已寫入 {out}"
     )
     return 0
 

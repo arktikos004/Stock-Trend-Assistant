@@ -11,7 +11,10 @@ export default function StrategySummaryCard({ s }: { s: RankSummaryResponse | nu
       </div>
     );
   }
-  const icGood = (s.test_rank_ic ?? 0) >= 0.02 && (s.test_rank_ic_t ?? 0) >= 2;
+  // 顯著性看 Newey–West t（相鄰基準日的 5 日報酬重疊，樸素 t 會高估）；舊資料沒有時退回樸素 t
+  const nw = s.test_rank_ic_t_nw ?? null;
+  const t = nw ?? s.test_rank_ic_t;
+  const icGood = (s.test_rank_ic ?? 0) >= 0.02 && (t ?? 0) >= 2;
   return (
     <div className="rounded-2xl border border-border bg-surface p-5 shadow-(--shadow-sm)">
       <div className="flex items-center justify-between">
@@ -26,9 +29,14 @@ export default function StrategySummaryCard({ s }: { s: RankSummaryResponse | nu
             <span className="text-2xl font-bold tabular-nums" style={{ color: icGood ? "var(--up)" : "var(--ink)" }}>
               {s.test_rank_ic == null ? "—" : `+${s.test_rank_ic.toFixed(3)}`}
             </span>
-            <span className="text-xs text-ink-3">t={s.test_rank_ic_t?.toFixed(1)}</span>
+            <span className="text-xs text-ink-3">
+              {nw != null ? `NW t=${nw.toFixed(2)}` : `t=${s.test_rank_ic_t?.toFixed(1)}`}
+            </span>
           </div>
-          <div className="text-[10px] text-ink-3">0.02~0.05 可用｜t&gt;2 顯著</div>
+          <div className="text-[10px] text-ink-3">
+            0.02~0.05 可用｜t&gt;2 顯著
+            {nw != null && s.test_rank_ic_t != null && `（未處理重疊的 t 為 ${s.test_rank_ic_t.toFixed(1)}）`}
+          </div>
         </div>
         <div>
           <div className="text-xs text-ink-3">扣成本超額（前 20% vs 全池）</div>
