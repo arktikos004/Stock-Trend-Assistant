@@ -1,11 +1,14 @@
 """線上 Rank IC 報告核心（到期判定 + 逐日 IC）的單元測試。"""
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
 
+from stockta.ml import report_rank_predictions
 from stockta.ml.cs_metrics import rank_ic
-from stockta.ml.report_rank_predictions import collect_matured
+from stockta.ml.report_rank_predictions import _backtest_ic_text, _interpret, collect_matured
 
 
 class _FakeCache:
@@ -59,3 +62,20 @@ def test_collect_matured_feeds_rank_ic_positive_when_score_tracks_return():
     ic = rank_ic(np.array(dates), np.array(scores), np.array(rets))
     assert ic["n_days"] == 1
     assert ic["mean"] > 0.99  # 分數與報酬完全同序
+
+
+def test_backtest_text_leads_with_newey_west_t(tmp_path, monkeypatch):
+    monkeypatch.setattr(report_rank_predictions, "ARTIFACTS_CS_DIR", tmp_path)
+    summary = {"test_rank_ic": 0.0437, "test_rank_ic_t": 2.18, "test_rank_ic_days": 128}
+    (tmp_path / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    assert _backtest_ic_text() == "+0.0437, t=2.2、128 個交易日"  # 還沒補算 NW 的舊摘要
+
+    summary["test_rank_ic_t_nw"] = 1.547
+    (tmp_path / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    assert _backtest_ic_text() == "+0.0437, Newey–West t=1.55（未處理重疊為 2.2）、128 個交易日"
+
+
+def test_interpret_judges_significance_with_newey_west_t():
+    # 樸素 t 過了 2，但處理重疊後沒有 → 不能說顯著
+    assert "無法區分" in _interpret({"n_days": 50, "mean": 0.03, "t": 2.5, "t_nw": 1.2})
+    assert "為正且顯著" in _interpret({"n_days": 50, "mean": 0.03, "t": 2.5, "t_nw": 2.1})

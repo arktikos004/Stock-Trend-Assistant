@@ -2,6 +2,7 @@
 
 - Rank IC：逐日「模型分數 vs 實際報酬」的 Spearman 相關，平均與 t 值——業界衡量
   選股技能的標準指標（Alphalens / Grinold 主動管理基本定律 IR=IC×√Breadth）。
+  相鄰基準日的未來報酬重疊，逐日 IC 會自我相關：顯著性看 Newey–West t（t_nw），樸素 t 只供對照。
 - 分位數多空價差：做多分數前段、放空後段的報酬差（gross）。
 - 組合回測：long-only 前 K 分位、等權、非重疊換股，vs 等權全池基準；同時算
   gross 與扣交易成本後（net），供誠實呈現。
@@ -13,23 +14,35 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from stockta.config import LABEL_HORIZON_DAYS
+from stockta.monitor import newey_west
 
-def rank_ic(dates: np.ndarray, scores: np.ndarray, rets: np.ndarray) -> dict:
-    """逐日 Spearman(分數, 未來報酬)，回傳平均 IC、t 值、有效天數與分年 IC。"""
+NW_LAGS = LABEL_HORIZON_DAYS - 1  # 相鄰基準日的未來報酬重疊 LABEL_HORIZON_DAYS − 1 天
+
+
+def daily_rank_ic(dates: np.ndarray, scores: np.ndarray, rets: np.ndarray) -> pd.Series:
+    """逐日 Spearman(分數, 未來報酬)，依日期排序；當日少於 10 檔、或分數與報酬沒有變異的日子略過。"""
     df = pd.DataFrame({"date": pd.DatetimeIndex(dates), "s": scores, "r": rets})
-    daily = []
+    daily = {}
     for d, g in df.groupby("date"):
         if len(g) < 10 or g["s"].nunique() < 2 or g["r"].nunique() < 2:
             continue
         ic, _ = spearmanr(g["s"], g["r"])
         if not np.isnan(ic):
-            daily.append((d, ic))
-    if not daily:
-        return {"mean": float("nan"), "t": float("nan"), "n_days": 0, "by_year": {}}
-    dd = pd.Series({d: ic for d, ic in daily})
+            daily[d] = ic
+    return pd.Series(daily, dtype=float)
+
+
+def rank_ic(dates: np.ndarray, scores: np.ndarray, rets: np.ndarray) -> dict:
+    """逐日 Rank IC 的平均、樸素 t、Newey–West t（落後 NW_LAGS 期）、有效天數與分年 IC。"""
+    dd = daily_rank_ic(dates, scores, rets)
+    if dd.empty:
+        return {"mean": float("nan"), "t": float("nan"), "t_nw": float("nan"), "n_days": 0, "by_year": {}}
     t = dd.mean() / dd.std(ddof=1) * np.sqrt(len(dd)) if dd.std(ddof=1) > 0 else float("nan")
+    mean, se = newey_west(dd.to_numpy(), lags=NW_LAGS)
+    t_nw = mean / se if se > 0 else float("nan")
     by_year = {int(y): float(dd[dd.index.year == y].mean()) for y in sorted(set(dd.index.year))}
-    return {"mean": float(dd.mean()), "t": float(t), "n_days": len(dd), "by_year": by_year}
+    return {"mean": float(dd.mean()), "t": float(t), "t_nw": float(t_nw), "n_days": len(dd), "by_year": by_year}
 
 
 def quantile_spread(

@@ -8,9 +8,11 @@
     python -m stockta.ml.cross_sectional train --model rf     # 訓練並存 artifacts_cs/rf/
     python -m stockta.ml.cross_sectional train --model xgb
     python -m stockta.ml.cross_sectional report                # 選型(驗證期 Rank IC)+產報告
+    python -m stockta.ml.cross_sectional nw                    # 對既有回測摘要補算 Newey–West t
 
 無前視：特徵只用 ≤t 的資料（build_features）；中位數是標籤側的未來量，屬合法標籤計算。
-選型/持有期只用驗證期(2025)決定，測試期(2026)僅最終驗證。
+選型/持有期只用驗證期(2025)決定，測試期(2026)僅最終驗證。切分用 config 的 CS_SPLIT_*
+（#8 當時的設定）；3 類模型的 SPLIT_* 已在 #9 前移，不可混用。
 """
 
 from __future__ import annotations
@@ -31,14 +33,14 @@ from stockta.config import (
     BACKEND_ROOT,
     CS_COST_BPS,
     CS_HOLDING_DAYS_CANDIDATES,
+    CS_SPLIT_TRAIN_END,
+    CS_SPLIT_VAL_END,
     CS_TOP_FRACTION,
     LABEL_HORIZON_DAYS,
-    SPLIT_TRAIN_END,
-    SPLIT_VAL_END,
     WINDOW_LENGTH_DAYS,
 )
 from stockta.features.pipeline import FEATURE_COLUMNS, build_features
-from stockta.ml.cs_metrics import portfolio_backtest, quantile_spread, rank_ic
+from stockta.ml.cs_metrics import NW_LAGS, daily_rank_ic, portfolio_backtest, quantile_spread, rank_ic
 from stockta.ml.train import load_market_context, load_pool_ohlcv
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
@@ -59,8 +61,8 @@ class CSData:
 
 
 def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataFrame) -> CSData:
-    train_end = pd.Timestamp(SPLIT_TRAIN_END)
-    val_end = pd.Timestamp(SPLIT_VAL_END)
+    train_end = pd.Timestamp(CS_SPLIT_TRAIN_END)
+    val_end = pd.Timestamp(CS_SPLIT_VAL_END)
 
     Xs, dates, tkrs, ret_label = [], [], [], []
     rets_h: dict[int, list] = {h: [] for h in _HORIZONS}
@@ -154,10 +156,11 @@ def train(model_name: str, stride: int = 2) -> None:
         "label_horizon_days": LABEL_HORIZON_DAYS,
         "val_rank_ic": ic["mean"],
         "val_rank_ic_t": ic["t"],
+        "val_rank_ic_t_nw": ic["t_nw"],
         "n_train": len(tr),
     }
     (d / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"  驗證期 Rank IC {ic['mean']:+.4f}（t={ic['t']:.1f}）；已存 {d}")
+    print(f"  驗證期 Rank IC {ic['mean']:+.4f}（Newey–West t={ic['t_nw']:.2f}）；已存 {d}")
 
 
 def load_cs_model(name: str):
@@ -231,6 +234,7 @@ def report() -> None:
         "model": best,
         "val_rank_ic": val_ic["mean"], "val_rank_ic_t": val_ic["t"], "val_rank_ic_days": val_ic["n_days"],
         "test_rank_ic": test_ic["mean"], "test_rank_ic_t": test_ic["t"], "test_rank_ic_days": test_ic["n_days"],
+        "val_rank_ic_t_nw": val_ic["t_nw"], "test_rank_ic_t_nw": test_ic["t_nw"], "rank_ic_nw_lags": NW_LAGS,
         "test_by_year": test_ic["by_year"], "holding_days": best_h,
         "net_cum": bt.get("net_cum"), "bench_cum": bt.get("bench_cum"),
         "net_ann": bt.get("net_ann"), "bench_ann": bt.get("bench_ann"),
@@ -240,8 +244,41 @@ def report() -> None:
     (ARTIFACTS_CS_DIR / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(f"測試期 Rank IC {test_ic['mean']:+.4f}（t={test_ic['t']:.1f}）；報告已寫入 "
+    print(f"測試期 Rank IC {test_ic['mean']:+.4f}（Newey–West t={test_ic['t_nw']:.2f}）；報告已寫入 "
           f"{DOCS_DIR / 'cross_sectional_report.md'}")
+
+
+def backfill_nw() -> None:
+    """對既有回測摘要補算 Newey–West t：不重跑回測，只在 summary.json 加 NW 欄位。
+
+    原報告（2026-07-27）只有樸素 t。這裡用同一模型與切分重算逐日 IC：驗證期取全部，測試期取前
+    test_rank_ic_days 個 IC 日（原報告的樣本，之後的日子不算進來）。價格依現行快取還原，除息後
+    還原價會改寫，平均 IC 與原報告可能有極小差異——一併印出供核對。
+    """
+    path = ARTIFACTS_CS_DIR / "summary.json"
+    summary = json.loads(path.read_text(encoding="utf-8"))
+    ohlcv = load_pool_ohlcv()
+    context = load_market_context(ohlcv)
+    ds = build_cs_dataset(ohlcv, context)
+    model, scaler, _ = load_cs_model(summary["model"])
+    for key, mask in (("val", ds.is_val), ("test", ds.is_test)):
+        dates, rets = ds.dates[mask], ds.ret_label[mask]
+        scores = _score_split(model, scaler, ds, mask)
+        daily = daily_rank_ic(dates, scores, rets)
+        keep = summary[f"{key}_rank_ic_days"]
+        if len(daily) < keep:
+            raise SystemExit(f"{key}：只算得出 {len(daily)} 個 IC 日，少於原報告的 {keep} 日")
+        within = np.asarray(pd.DatetimeIndex(dates) <= daily.index[keep - 1])
+        ic = rank_ic(dates[within], scores[within], rets[within])
+        summary[f"{key}_rank_ic_t_nw"] = ic["t_nw"]
+        print(
+            f"{key}：{daily.index[0].date()}～{daily.index[keep - 1].date()}，{ic['n_days']} 日；"
+            f"平均 {ic['mean']:+.4f}（原報告 {summary[f'{key}_rank_ic']:+.4f}）、"
+            f"樸素 t {ic['t']:.2f}（原報告 {summary[f'{key}_rank_ic_t']:.2f}）、Newey–West t {ic['t_nw']:.2f}"
+        )
+    summary["rank_ic_nw_lags"] = NW_LAGS
+    path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
+    print(f"已寫入 {path}")
 
 
 def _write_report(name, val_ic, test_ic, spread, hold, bt) -> None:
@@ -258,17 +295,18 @@ def _write_report(name, val_ic, test_ic, spread, hold, bt) -> None:
         "非絕對漲跌）；模型分數＝P(贏過中位數)，用於全池排序。",
         "",
         "> **性質**：point-in-time 樣本外（權重僅訓練到 "
-        f"{SPLIT_TRAIN_END}、選型只用驗證期 {SPLIT_VAL_END}，測試期僅驗證）。",
+        f"{CS_SPLIT_TRAIN_END}、選型只用驗證期 {CS_SPLIT_VAL_END}，測試期僅驗證）。",
         "",
         "## Rank IC（選股技能的標準指標）",
         "",
-        "| 期間 | 平均 Rank IC | t 值 | 有效天數 |",
-        "|---|---|---|---|",
-        f"| 驗證期(2025) | {val_ic['mean']:+.4f} | {val_ic['t']:.1f} | {val_ic['n_days']} |",
-        f"| 測試期(2026) | {test_ic['mean']:+.4f} | {test_ic['t']:.1f} | {test_ic['n_days']} |",
+        "| 期間 | 平均 Rank IC | Newey–West t | 樸素 t | 有效天數 |",
+        "|---|---|---|---|---|",
+        f"| 驗證期(2025) | {val_ic['mean']:+.4f} | {val_ic['t_nw']:.2f} | {val_ic['t']:.1f} | {val_ic['n_days']} |",
+        f"| 測試期(2026) | {test_ic['mean']:+.4f} | {test_ic['t_nw']:.2f} | {test_ic['t']:.1f} | {test_ic['n_days']} |",
         "",
         f"測試期分年：{yr}。判準：**IC 0.02~0.05 可用、0.05~0.10 好、0.10 頂尖**；"
-        "t>2 即統計顯著。",
+        f"顯著性看 Newey–West t（相鄰基準日的 {LABEL_HORIZON_DAYS} 日報酬重疊，落後 {NW_LAGS} 期），t>2 為統計顯著。"
+        "樸素 t 把逐日 IC 當成彼此獨立，會高估顯著性，只供對照。",
         "",
         f"前/後 {int(CS_TOP_FRACTION*100)}% 多空價差（gross，每 {LABEL_HORIZON_DAYS} 日）："
         f"{spread:+.2%}。",
@@ -312,9 +350,12 @@ def main() -> None:
     p_tr.add_argument("--model", required=True, choices=["rf", "xgb"])
     p_tr.add_argument("--stride", type=int, default=2)
     sub.add_parser("report")
+    sub.add_parser("nw", help="對既有回測摘要補算 Newey–West t（不重跑回測）")
     args = parser.parse_args()
     if args.cmd == "train":
         train(args.model, args.stride)
+    elif args.cmd == "nw":
+        backfill_nw()
     else:
         report()
 

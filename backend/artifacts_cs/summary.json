@@ -18,5 +18,8 @@
   "win_rate": 0.6111111111111112,
   "years": 1.536986301369863,
   "cost_bps": 58.5,
-  "top_fraction": 0.2
+  "top_fraction": 0.2,
+  "val_rank_ic_t_nw": 1.8834460379384348,
+  "test_rank_ic_t_nw": 1.5470531767515519,
+  "rank_ic_nw_lags": 4
 }

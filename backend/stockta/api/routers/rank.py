@@ -118,6 +118,7 @@ def rank_summary() -> RankSummaryResponse:
         model=s.get("model"),
         test_rank_ic=s.get("test_rank_ic"),
         test_rank_ic_t=s.get("test_rank_ic_t"),
+        test_rank_ic_t_nw=s.get("test_rank_ic_t_nw"),
         val_rank_ic=s.get("val_rank_ic"),
         holding_days=s.get("holding_days"),
         net_cum=s.get("net_cum"),
