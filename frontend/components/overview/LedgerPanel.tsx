@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * 存證面板：鏈節數、最新一節的時間、列數與雜湊，以及自己驗證的方法。
+ * 存證面板：鏈節數、最新一節的時間與寫入列數、雜湊，以及自己驗證的方法。
  * 雜湊直接讀 GitHub 上公開的 ledger 分支；讀不到時只顯示 monitor.json 的摘要。
  */
 
 import { ExternalLink, ShieldCheck, ShieldX } from "lucide-react";
+import { Fragment } from "react";
 import Badge from "@/components/ui/Badge";
 import CopyButton from "@/components/ui/CopyButton";
 import { Skeleton } from "@/components/ui/Feedback";
@@ -14,7 +15,9 @@ import type { LedgerLink, MonitorResponse } from "@/lib/api";
 import { taipeiTime } from "@/lib/format";
 import { LINKS, REPO_URL } from "@/lib/links";
 
-const VERIFY_CMD = "python ledger.py verify --db predictions.db --chain chain.jsonl";
+// 指令只在參數之間換行，不在「--chain」這類參數中間斷開
+const VERIFY_PARTS = ["python ledger.py verify", "--db predictions.db", "--chain chain.jsonl"];
+const VERIFY_CMD = VERIFY_PARTS.join(" ");
 
 function Hash({ label, value }: { label: string; value: string }) {
   return (
@@ -70,7 +73,7 @@ export default function LedgerPanel({
             <div className="flex justify-between gap-2">
               <dt className="text-ink-2">已上鏈</dt>
               <dd className="text-ink">
-                方向 {(ledger.chained.predictions ?? 0).toLocaleString()} 列，排序 {(ledger.chained.rank_predictions ?? 0).toLocaleString()} 列
+                排序 {(ledger.chained.rank_predictions ?? 0).toLocaleString()} 列，方向 {(ledger.chained.predictions ?? 0).toLocaleString()} 列
               </dd>
             </div>
             <div className="flex justify-between gap-2">
@@ -78,12 +81,20 @@ export default function LedgerPanel({
               <dd className="text-ink">{((ledger.pending.predictions ?? 0) + (ledger.pending.rank_predictions ?? 0)).toLocaleString()} 列</dd>
             </div>
             {head && (
-              <div className="flex justify-between gap-2">
-                <dt className="text-ink-2">最新一節</dt>
-                <dd className="text-ink">
-                  第 {head.seq + 1} 節，{taipeiTime(head.recorded_at)} 寫入
-                </dd>
-              </div>
+              <>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-2">最新一節</dt>
+                  <dd className="text-ink">
+                    第 {head.seq + 1} 節，{taipeiTime(head.recorded_at)} 寫入
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-2">本節寫入</dt>
+                  <dd className="text-ink">
+                    排序 {(head.ranges.rank_predictions?.rows ?? 0).toLocaleString()} 列，方向 {(head.ranges.predictions?.rows ?? 0).toLocaleString()} 列
+                  </dd>
+                </div>
+              </>
             )}
           </dl>
 
@@ -100,7 +111,14 @@ export default function LedgerPanel({
           <div className="mt-3 border-t border-border pt-3">
             <p className="text-xs text-ink-2">自己驗證：下載 ledger.py、predictions.db 與 chain.jsonl 後執行</p>
             <div className="mt-1.5 flex items-center gap-1 rounded-md bg-surface-2 py-1 pl-2.5 pr-1">
-              <code className="min-w-0 flex-1 break-words font-mono text-xs leading-relaxed text-ink">{VERIFY_CMD}</code>
+              <code className="min-w-0 flex-1 font-mono text-xs leading-relaxed text-ink">
+                {VERIFY_PARTS.map((part, i) => (
+                  <Fragment key={part}>
+                    {i > 0 && " "}
+                    <span className="whitespace-nowrap">{part}</span>
+                  </Fragment>
+                ))}
+              </code>
               <CopyButton text={VERIFY_CMD} label="驗證指令" />
             </div>
             <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">

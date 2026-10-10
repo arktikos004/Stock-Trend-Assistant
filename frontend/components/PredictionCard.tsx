@@ -16,7 +16,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-baseline gap-3">
-          <span className="text-4xl font-semibold leading-none" style={{ color: `var(${SIGNAL_VAR[prediction.signal]})` }}>
+          <span className="text-2xl font-semibold leading-none" style={{ color: `var(${SIGNAL_VAR[prediction.signal]})` }}>
             {prediction.signal}
           </span>
           {downgraded ? (
@@ -50,7 +50,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
 
       {downgraded && (
         <p className="mt-3 rounded-md bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-2">
-          漲或跌的機率最高，但沒有達到決策門檻，所以依規則轉為「觀望」：寧可少發訊號，也不發錯訊號。
+          漲或跌的機率最高，但沒有達到決策門檻，所以依規則轉為「觀望」。門檻在驗證期校準，用來減少把握不夠的方向訊號。
         </p>
       )}
 

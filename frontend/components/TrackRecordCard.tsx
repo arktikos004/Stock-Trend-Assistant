@@ -59,7 +59,7 @@ export default function TrackRecordCard({
                 <th scope="col" className="py-2 pr-3 font-medium">基準日</th>
                 <th scope="col" className="py-2 pr-3 font-medium">預測</th>
                 <th scope="col" className="hidden py-2 pr-3 text-right font-medium sm:table-cell">信心</th>
-                <th scope="col" className="py-2 pr-3 font-medium">實際</th>
+                <th scope="col" className="py-2 pr-3 font-medium sm:pl-6">實際</th>
                 <th scope="col" className="py-2 pr-3 text-right font-medium">5 日報酬</th>
                 <th scope="col" className="py-2 text-center font-medium">命中</th>
               </tr>
@@ -67,12 +67,12 @@ export default function TrackRecordCard({
             <tbody className="divide-y divide-border">
               {shown.map((r) => (
                 <tr key={`${r.base_date}-${r.model_version}`}>
-                  <td className="py-2 pr-3 text-ink-2">{r.base_date}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-ink-2">{r.base_date}</td>
                   <td className="py-2 pr-3 font-semibold" style={{ color: `var(${SIGNAL_VAR[r.signal]})` }}>
                     {r.signal}
                   </td>
                   <td className="hidden py-2 pr-3 text-right text-ink-2 sm:table-cell">{share(r.confidence)}</td>
-                  <td className="py-2 pr-3 font-semibold" style={{ color: r.actual ? `var(${SIGNAL_VAR[r.actual]})` : "var(--ink-3)" }}>
+                  <td className="py-2 pr-3 font-semibold sm:pl-6" style={{ color: r.actual ? `var(${SIGNAL_VAR[r.actual]})` : "var(--ink-3)" }}>
                     {r.actual ?? "未到期"}
                   </td>
                   <td className="py-2 pr-3 text-right text-ink-2">{pct(r.actual_return, 2)}</td>

@@ -74,8 +74,7 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
       </Panel>
 
       <p className="text-xs leading-relaxed text-ink-3">
-        分數是模型預測「未來 5 個交易日贏過全池中位數」的機率，名次越前代表相對越強；分組以前、後 20% 分為強、弱。
-        歷史查詢是 point-in-time 重算。研究用的排序，不是投資建議。
+        分數是模型預測「未來 5 個交易日贏過全池中位數」的機率，名次越前代表相對越強；分組以前、後 20% 分為強、弱。歷史查詢是 point-in-time 重算。研究用的排序，不是投資建議。
       </p>
     </div>
   );
