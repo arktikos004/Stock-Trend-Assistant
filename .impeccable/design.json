@@ -1,0 +1,776 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-10T12:30:25+00:00",
+  "title": "Design System: 台股相對強弱排序與預測存證平台",
+  "extensions": {
+    "themes": {
+      "default": "light",
+      "selector": "html[data-theme]",
+      "modes": [
+        "light",
+        "dark",
+        "system"
+      ],
+      "note": "colorMeta.<name>.dark 是 :root[data-theme=\"dark\"] 與 system（prefers-color-scheme: dark）的值"
+    },
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "冷灰頁底",
+        "canonical": "#f5f6f8",
+        "oklch": "oklch(97.3% 0.003 264.5)",
+        "cssVar": "--background",
+        "dark": "#0e1116",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232425",
+          "#3f4041",
+          "#5d5e5f",
+          "#7c7d7f",
+          "#a0a1a3",
+          "#c6c7c9",
+          "#edeef0"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "白紙面",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "cssVar": "--surface",
+        "dark": "#151a21",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#a1a1a1",
+          "#c7c7c7",
+          "#eeeeee"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "淺灰層",
+        "canonical": "#f0f2f5",
+        "oklch": "oklch(96.0% 0.005 258.3)",
+        "cssVar": "--surface-2",
+        "dark": "#1c222b",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3e4042",
+          "#5c5e60",
+          "#7c7d80",
+          "#a0a2a4",
+          "#c5c7ca",
+          "#edeff2"
+        ]
+      },
+      "surface-3": {
+        "role": "neutral",
+        "displayName": "骨架灰",
+        "canonical": "#e7eaef",
+        "oklch": "oklch(93.6% 0.007 260.7)",
+        "cssVar": "--surface-3",
+        "dark": "#232a35",
+        "tonalRamp": [
+          "#090b0e",
+          "#222428",
+          "#3d4044",
+          "#5b5e62",
+          "#7b7d82",
+          "#9fa2a6",
+          "#c4c7cc",
+          "#eceff4"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "細線",
+        "canonical": "#dde1e7",
+        "oklch": "oklch(90.8% 0.009 258.3)",
+        "cssVar": "--border",
+        "dark": "#2a313c",
+        "tonalRamp": [
+          "#090b0f",
+          "#212429",
+          "#3d4045",
+          "#5a5e63",
+          "#7a7d83",
+          "#9ea2a7",
+          "#c4c8cd",
+          "#ebeff5"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "強細線",
+        "canonical": "#c5ccd6",
+        "oklch": "oklch(84.3% 0.016 257.2)",
+        "cssVar": "--border-strong",
+        "dark": "#3a4352",
+        "tonalRamp": [
+          "#070b12",
+          "#1f242c",
+          "#3a4048",
+          "#585e67",
+          "#777e87",
+          "#9ba2ac",
+          "#c1c8d2",
+          "#e8eff9"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "墨色",
+        "canonical": "#111827",
+        "oklch": "oklch(21.0% 0.032 264.7)",
+        "cssVar": "--ink",
+        "dark": "#e6eaf0",
+        "tonalRamp": [
+          "#050b18",
+          "#1c2434",
+          "#374051",
+          "#555e70",
+          "#747d91",
+          "#98a2b6",
+          "#bdc8dd",
+          "#e7effe"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "次墨色",
+        "canonical": "#4b5563",
+        "oklch": "oklch(44.6% 0.026 256.8)",
+        "cssVar": "--ink-2",
+        "dark": "#b4bcc8",
+        "tonalRamp": [
+          "#050b16",
+          "#1c2531",
+          "#37404e",
+          "#545e6d",
+          "#737e8d",
+          "#97a2b2",
+          "#bdc8d9",
+          "#e5effe"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "淡墨色",
+        "canonical": "#5f6877",
+        "oklch": "oklch(51.5% 0.026 260.7)",
+        "cssVar": "--ink-3",
+        "dark": "#949dab",
+        "tonalRamp": [
+          "#050b16",
+          "#1d2431",
+          "#38404e",
+          "#555e6d",
+          "#747e8d",
+          "#98a2b2",
+          "#bec8d9",
+          "#e6effe"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "研究藍",
+        "canonical": "#1d4ed8",
+        "oklch": "oklch(48.8% 0.217 264.4)",
+        "cssVar": "--accent",
+        "dark": "#8fb0ff",
+        "tonalRamp": [
+          "#000039",
+          "#010874",
+          "#0222af",
+          "#1b4bd5",
+          "#3970fc",
+          "#749efb",
+          "#adc7fc",
+          "#e7effe"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "研究藍・深",
+        "canonical": "#1e40af",
+        "oklch": "oklch(42.4% 0.181 265.6)",
+        "cssVar": "--accent-hover",
+        "dark": "#a8c1ff",
+        "tonalRamp": [
+          "#010038",
+          "#050079",
+          "#122e9d",
+          "#2c52c2",
+          "#4974e7",
+          "#779ef9",
+          "#afc7fb",
+          "#e7effe"
+        ]
+      },
+      "accent-fg": {
+        "role": "primary",
+        "displayName": "研究藍上的字",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "cssVar": "--accent-fg",
+        "dark": "#0e1116",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#a1a1a1",
+          "#c7c7c7",
+          "#eeeeee"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "研究藍・淡底",
+        "canonical": "#e8eefc",
+        "oklch": "oklch(94.9% 0.020 267.3)",
+        "cssVar": "--accent-soft",
+        "dark": "#1b2a48",
+        "tonalRamp": [
+          "#080b14",
+          "#20242e",
+          "#3b404b",
+          "#595e69",
+          "#787d8a",
+          "#9ca1ae",
+          "#c1c7d5",
+          "#e8eefc"
+        ]
+      },
+      "up": {
+        "role": "secondary",
+        "displayName": "台股紅・漲",
+        "canonical": "#c0262d",
+        "oklch": "oklch(52.7% 0.189 24.7)",
+        "cssVar": "--up",
+        "dark": "#f87171",
+        "tonalRamp": [
+          "#230000",
+          "#4b0006",
+          "#7b0412",
+          "#af0c1f",
+          "#d73f40",
+          "#fb6e69",
+          "#fcb1aa",
+          "#fee9e7"
+        ]
+      },
+      "up-soft": {
+        "role": "secondary",
+        "displayName": "漲・淡底",
+        "canonical": "#fdecec",
+        "oklch": "oklch(95.7% 0.018 17.5)",
+        "cssVar": "--up-soft",
+        "dark": "#3a1d22",
+        "tonalRamp": [
+          "#120808",
+          "#2c2121",
+          "#493c3c",
+          "#685a5a",
+          "#887979",
+          "#ad9d9d",
+          "#d3c3c3",
+          "#fbeaea"
+        ]
+      },
+      "down": {
+        "role": "secondary",
+        "displayName": "台股綠・跌",
+        "canonical": "#13703a",
+        "oklch": "oklch(48.1% 0.119 151.9)",
+        "cssVar": "--down",
+        "dark": "#4ade80",
+        "tonalRamp": [
+          "#001102",
+          "#002d11",
+          "#084d26",
+          "#13703a",
+          "#3d9159",
+          "#63b77c",
+          "#8adea1",
+          "#c8fed5"
+        ]
+      },
+      "down-soft": {
+        "role": "secondary",
+        "displayName": "跌・淡底",
+        "canonical": "#e6f4ea",
+        "oklch": "oklch(95.4% 0.020 154.9)",
+        "cssVar": "--down-soft",
+        "dark": "#13301f",
+        "tonalRamp": [
+          "#050e08",
+          "#1c2720",
+          "#38433b",
+          "#556159",
+          "#748178",
+          "#98a59c",
+          "#becbc2",
+          "#e5f3e9"
+        ]
+      },
+      "hold": {
+        "role": "secondary",
+        "displayName": "觀望灰",
+        "canonical": "#5b6472",
+        "oklch": "oklch(50.1% 0.025 259.2)",
+        "cssVar": "--hold",
+        "dark": "#a3adbb",
+        "tonalRamp": [
+          "#050b16",
+          "#1d2430",
+          "#38404d",
+          "#555e6c",
+          "#757e8d",
+          "#98a2b2",
+          "#bec8d8",
+          "#e5effe"
+        ]
+      },
+      "hold-soft": {
+        "role": "secondary",
+        "displayName": "觀望・淡底",
+        "canonical": "#eef0f3",
+        "oklch": "oklch(95.4% 0.005 258.3)",
+        "cssVar": "--hold-soft",
+        "dark": "#232a35",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3e4042",
+          "#5c5e60",
+          "#7c7d80",
+          "#a0a2a4",
+          "#c5c7ca",
+          "#edeff2"
+        ]
+      },
+      "warn": {
+        "role": "secondary",
+        "displayName": "琥珀警示",
+        "canonical": "#8a4b06",
+        "oklch": "oklch(47.9% 0.111 58.9)",
+        "cssVar": "--warn",
+        "dark": "#e0a23a",
+        "tonalRamp": [
+          "#1a0400",
+          "#391b00",
+          "#603202",
+          "#8a4b06",
+          "#ad6b32",
+          "#d59057",
+          "#fdb67d",
+          "#feeadc"
+        ]
+      },
+      "warn-soft": {
+        "role": "secondary",
+        "displayName": "警示・淡底",
+        "canonical": "#fdf3e2",
+        "oklch": "oklch(96.7% 0.025 81.1)",
+        "cssVar": "--warn-soft",
+        "dark": "#33270f",
+        "tonalRamp": [
+          "#100a02",
+          "#2a2316",
+          "#473f31",
+          "#655c4e",
+          "#857c6d",
+          "#aaa090",
+          "#d0c6b6",
+          "#f7eddc"
+        ]
+      },
+      "series-1": {
+        "role": "tertiary",
+        "displayName": "類別一・排序（藍）",
+        "canonical": "#2a78d6",
+        "oklch": "oklch(57.5% 0.163 255.5)",
+        "cssVar": "--series-1",
+        "dark": "#3987e5",
+        "tonalRamp": [
+          "#000828",
+          "#00224e",
+          "#003d80",
+          "#005bb6",
+          "#2f7ddb",
+          "#5da3fd",
+          "#a3cafd",
+          "#e4f0ff"
+        ]
+      },
+      "series-2": {
+        "role": "tertiary",
+        "displayName": "類別二・動能（橘）",
+        "canonical": "#eb6834",
+        "oklch": "oklch(67.1% 0.175 40.6)",
+        "cssVar": "--series-2",
+        "dark": "#d95926",
+        "tonalRamp": [
+          "#210000",
+          "#431100",
+          "#6f2300",
+          "#9f3601",
+          "#cf4e12",
+          "#f97542",
+          "#ffb297",
+          "#ffe9e2"
+        ]
+      },
+      "series-3": {
+        "role": "tertiary",
+        "displayName": "類別三・評價（紫）",
+        "canonical": "#4a3aa7",
+        "oklch": "oklch(43.3% 0.167 283.6)",
+        "cssVar": "--series-3",
+        "dark": "#9085e9",
+        "tonalRamp": [
+          "#0c0033",
+          "#230069",
+          "#3b2692",
+          "#5649b6",
+          "#736adc",
+          "#9692fd",
+          "#bfc1fe",
+          "#ecedff"
+        ]
+      },
+      "series-4": {
+        "role": "tertiary",
+        "displayName": "類別四・營收（黃）",
+        "canonical": "#eda100",
+        "oklch": "oklch(76.4% 0.161 75.1)",
+        "cssVar": "--series-4",
+        "dark": "#c98500",
+        "tonalRamp": [
+          "#160700",
+          "#341f00",
+          "#573903",
+          "#7d5409",
+          "#a5721a",
+          "#d69208",
+          "#ffb848",
+          "#feebd2"
+        ]
+      },
+      "series-5": {
+        "role": "tertiary",
+        "displayName": "類別五・籌碼（粉）",
+        "canonical": "#e87ba4",
+        "oklch": "oklch(71.6% 0.141 357.4)",
+        "cssVar": "--series-5",
+        "dark": "#d55181",
+        "tonalRamp": [
+          "#20000b",
+          "#490024",
+          "#740c40",
+          "#98335e",
+          "#bd547e",
+          "#e679a2",
+          "#fdacc8",
+          "#ffe8ee"
+        ]
+      },
+      "chart-up": {
+        "role": "secondary",
+        "displayName": "K 線紅",
+        "canonical": "#d93a3a",
+        "oklch": "oklch(58.9% 0.196 25.6)",
+        "cssVar": "--chart-up",
+        "dark": "#f05252",
+        "tonalRamp": [
+          "#220000",
+          "#4c0004",
+          "#7d000c",
+          "#b20018",
+          "#d93a3a",
+          "#fe6c64",
+          "#feb0a8",
+          "#ffe9e6"
+        ]
+      },
+      "chart-down": {
+        "role": "secondary",
+        "displayName": "K 線綠",
+        "canonical": "#14915a",
+        "oklch": "oklch(58.0% 0.132 157.3)",
+        "cssVar": "--chart-down",
+        "dark": "#34c172",
+        "tonalRamp": [
+          "#001004",
+          "#002d17",
+          "#014d2d",
+          "#057043",
+          "#1a945d",
+          "#4cba80",
+          "#76e1a5",
+          "#c6fedb"
+        ]
+      },
+      "chart-grid": {
+        "role": "neutral",
+        "displayName": "圖表格線",
+        "canonical": "rgba(17, 24, 39, 0.06)",
+        "cssVar": "--chart-grid",
+        "dark": "rgba(230, 234, 240, 0.06)"
+      },
+      "selection": {
+        "role": "primary",
+        "displayName": "選取底色",
+        "canonical": "rgba(29, 78, 216, 0.18)",
+        "cssVar": "--selection",
+        "dark": "rgba(143, 176, 255, 0.28)"
+      },
+      "scrim": {
+        "role": "neutral",
+        "displayName": "遮罩",
+        "canonical": "rgba(17, 24, 39, 0.42)",
+        "cssVar": "--scrim",
+        "dark": "rgba(0, 0, 0, 0.55)"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "頁面標題",
+        "purpose": "每頁唯一的 h1；同尺寸（行高 1）也用在個股頁的大數值。"
+      },
+      "figure": {
+        "displayName": "數值",
+        "purpose": "統計卡與摘要列的數值。"
+      },
+      "title": {
+        "displayName": "面板標題",
+        "purpose": "面板標題與站名。"
+      },
+      "body": {
+        "displayName": "內文",
+        "purpose": "內文、表單、按鈕、分段切換；全站預設等寬數字。"
+      },
+      "table": {
+        "displayName": "表格",
+        "purpose": "資料表儲存格（--text-table）。"
+      },
+      "label": {
+        "displayName": "標籤",
+        "purpose": "表頭、狀態列、徽章、說明、註腳、手機分頁列；不用全大寫。"
+      },
+      "mono": {
+        "displayName": "等寬",
+        "purpose": "只給雜湊與驗證指令。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-pop",
+        "value": "0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06)",
+        "dark": "0 14px 34px rgba(0, 0, 0, 0.5)",
+        "purpose": "只給浮層：選單抽屜、搜尋結果清單與提示、監控圖的 hover 提示框。"
+      },
+      {
+        "name": "table-head-rule",
+        "value": "inset 0 -1px 0 var(--border)",
+        "purpose": "sticky 表頭的底線（代替會跟著捲走的 border），不是陰影。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-transition",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "hover／選中的顏色、底色、框線轉換；展開箭頭的旋轉。"
+      },
+      {
+        "name": "skeleton-pulse",
+        "value": "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "purpose": "骨架載入，只在 prefers-reduced-motion: no-preference（motion-safe）時播放。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "note": "搜尋框展開、百分位欄與 RankBar 出現"
+      },
+      {
+        "name": "md",
+        "value": "768px",
+        "note": "頂列分頁出現、底部分頁列隱藏、篩選層級欄出現"
+      },
+      {
+        "name": "lg",
+        "value": "1024px",
+        "note": "2fr／1fr 兩欄、左右內距 24px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px",
+        "note": "站名顯示全名；內容寬度上限"
+      }
+    ],
+    "layout": {
+      "contentMaxWidth": "1280px",
+      "appBarHeight": "56px",
+      "stickyHeaderTop": "56px (top-14)",
+      "mobileTabBarHeight": "64px + env(safe-area-inset-bottom)",
+      "columns": "minmax(0,2fr) minmax(0,1fr)",
+      "gutter": "20px"
+    }
+  },
+  "components": [
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "資料面板：1px 細線框、8px 圓角、不加陰影；標題列與內容之間一條細線。",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-head\"><div><h2 class=\"ds-panel-title\">存證</h2><p class=\"ds-panel-desc\">ledger 分支的雜湊鏈</p></div><span class=\"ds-panel-badge\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"/><path d=\"m9 12 2 2 4-4\"/></svg>驗證通過</span></header><dl class=\"ds-panel-body\"><div><dt>鏈節</dt><dd>2 節</dd></div><div><dt>等待上鏈</dt><dd>0 列</dd></div></dl></section>",
+      "css": ".ds-panel { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 14px; line-height: 1.6; font-variant-numeric: tabular-nums; max-width: 360px; } .ds-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); } .ds-panel-title { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.375; } .ds-panel-desc { margin: 2px 0 0; font-size: 12px; color: var(--ink-3); } .ds-panel-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; line-height: 1; } .ds-panel-body { margin: 0; padding: 16px; display: grid; gap: 8px; } .ds-panel-body div { display: flex; justify-content: space-between; } .ds-panel-body dt { color: var(--ink-2); } .ds-panel-body dd { margin: 0; font-weight: 600; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge-neutral",
+      "description": "狀態徽章：色調依語意，文字一定在。強／中／弱用 up／hold／down，T1–T3 用 neutral，失效用 solid。",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge ds-badge-up\">強</span><span class=\"ds-badge ds-badge-hold\">中</span><span class=\"ds-badge ds-badge-down\">弱</span><span class=\"ds-badge ds-badge-neutral\">T2</span><span class=\"ds-badge ds-badge-accent\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"/><path d=\"m9 12 2 2 4-4\"/></svg>正常</span><span class=\"ds-badge ds-badge-warn\">留意</span><span class=\"ds-badge ds-badge-solid\">失效警示</span></div>",
+      "css": ".ds-badges { display: flex; flex-wrap: wrap; gap: 8px; } .ds-badge { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; border: 1px solid transparent; border-radius: 6px; padding: 2px 6px; font-size: 12px; font-weight: 600; line-height: 1; } .ds-badge-neutral { background: var(--surface-2); color: var(--ink-2); border-color: var(--border); } .ds-badge-accent { background: var(--accent-soft); color: var(--accent); } .ds-badge-up { background: var(--up-soft); color: var(--up); } .ds-badge-down { background: var(--down-soft); color: var(--down); } .ds-badge-hold { background: var(--hold-soft); color: var(--hold); } .ds-badge-warn { background: var(--warn-soft); color: var(--warn); } .ds-badge-solid { background: var(--ink); color: var(--surface); }"
+    },
+    {
+      "name": "Segmented",
+      "kind": "chip",
+      "refersTo": "segmented",
+      "description": "分段切換：互斥選項，選中項是白底加 border-strong ring，以 aria-pressed 標示。",
+      "html": "<div class=\"ds-seg\" role=\"group\" aria-label=\"排序表範圍\"><button type=\"button\" class=\"ds-seg-opt\" aria-pressed=\"true\">前 10 名</button><button type=\"button\" class=\"ds-seg-opt\" aria-pressed=\"false\">自選 3</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); } .ds-seg-opt { min-height: 32px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-seg-opt:hover { color: var(--ink); } .ds-seg-opt[aria-pressed=\"true\"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border-strong); } .ds-seg-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "細線框按鈕，例如頂列的「選單」與個股頁的「加入自選」；介面沒有實心主要按鈕。",
+      "html": "<button type=\"button\" class=\"ds-btn\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg>選單</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink-2); font: inherit; font-size: 14px; cursor: pointer; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-btn:hover { background: var(--surface-2); color: var(--ink); } .ds-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "代號搜尋：靜止時淺灰底，focus 時白底加藍框；結果清單是唯一帶 --shadow-pop 的下拉層之一。",
+      "html": "<div class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input type=\"search\" class=\"ds-search-input\" placeholder=\"搜尋代號或名稱，如 2330\" aria-label=\"搜尋台灣 50 成分股\"><ul class=\"ds-search-list\" role=\"listbox\"><li class=\"ds-search-opt is-active\"><span>台積電</span><span class=\"ds-search-code\">2330</span></li><li class=\"ds-search-opt\"><span>鴻海</span><span class=\"ds-search-code\">2317</span></li></ul></div>",
+      "css": ".ds-search { position: relative; width: 256px; color: var(--ink-3); } .ds-search svg { position: absolute; left: 10px; top: 18px; transform: translateY(-50%); pointer-events: none; } .ds-search-input { width: 100%; height: 36px; padding: 0 12px 0 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--ink); caret-color: var(--accent); font: inherit; font-size: 14px; outline: none; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-search-input::placeholder { color: var(--ink-3); } .ds-search-input:focus { border-color: var(--accent); background: var(--surface); } .ds-search-list { margin: 4px 0 0; padding: 4px 0; list-style: none; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-pop); } .ds-search-opt { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; font-size: 14px; color: var(--ink-2); cursor: pointer; } .ds-search-opt.is-active, .ds-search-opt:hover { background: var(--surface-2); color: var(--ink); } .ds-search-code { font-size: 12px; color: var(--ink-3); }"
+    },
+    {
+      "name": "App Bar",
+      "kind": "nav",
+      "refersTo": "app-bar",
+      "description": "56px 頂列：站名、分頁（目前頁面為 2px 藍底線）、選單；下方接全站狀態列。",
+      "html": "<header class=\"ds-appbar\"><a class=\"ds-brand\" href=\"#\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect width=\"24\" height=\"24\" rx=\"6\" fill=\"var(--accent)\"/><rect x=\"5\" y=\"6\" width=\"14\" height=\"2.6\" rx=\"1.3\" fill=\"var(--accent-fg)\"/><rect x=\"5\" y=\"10.7\" width=\"10.5\" height=\"2.6\" rx=\"1.3\" fill=\"var(--accent-fg)\" opacity=\"0.85\"/><rect x=\"5\" y=\"15.4\" width=\"7\" height=\"2.6\" rx=\"1.3\" fill=\"var(--accent-fg)\" opacity=\"0.7\"/></svg>台股排序存證</a><nav class=\"ds-tabs\"><a href=\"#\" class=\"ds-tab\" aria-current=\"page\">總覽</a><a href=\"#\" class=\"ds-tab\">排序</a><a href=\"#\" class=\"ds-tab\">篩選</a><a href=\"#\" class=\"ds-tab\">監控</a></nav></header><dl class=\"ds-strip\"><div><dt>基準日</dt><dd>2026-10-08</dd></div><div><dt>存證鏈</dt><dd>2 節 <span class=\"ds-strip-ok\">驗證通過</span></dd></div><div><dt>模型監控</dt><dd>正常</dd></div></dl>",
+      "css": ".ds-appbar { display: flex; align-items: center; gap: 24px; height: 56px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--border); } .ds-brand { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; } .ds-tabs { display: flex; height: 100%; } .ds-tab { position: relative; display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: var(--ink-2); text-decoration: none; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-tab:hover { color: var(--ink); } .ds-tab[aria-current=\"page\"] { color: var(--ink); font-weight: 600; } .ds-tab[aria-current=\"page\"]::after { content: \"\"; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 9999px; background: var(--accent); } .ds-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } .ds-strip { display: flex; gap: 16px; margin: 0; padding: 8px 24px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; } .ds-strip div { display: flex; gap: 6px; padding-left: 16px; border-left: 1px solid var(--border); } .ds-strip div:first-child { padding-left: 0; border-left: 0; } .ds-strip dt { color: var(--ink-3); } .ds-strip dd { margin: 0; font-weight: 600; color: var(--ink); } .ds-strip-ok { font-weight: 400; color: var(--ink-2); }"
+    },
+    {
+      "name": "Mobile Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab-bar",
+      "description": "md 以下固定在底部的五鈕分頁列：總覽、排序、篩選、監控、選單；選中項為藍色。",
+      "html": "<nav class=\"ds-tabbar\" aria-label=\"主要頁面\"><a href=\"#\" class=\"ds-tabbar-item\" aria-current=\"page\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg>總覽</a><a href=\"#\" class=\"ds-tabbar-item\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M10 12h11M10 18h11M10 6h11M4 10h2M4 6h1v4M6 18H4c0-1 2-2 2-3s-1-1.5-2-1\"/></svg>排序</a><a href=\"#\" class=\"ds-tabbar-item\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M3 6h18M7 12h10M10 18h4\"/></svg>篩選</a><a href=\"#\" class=\"ds-tabbar-item\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2\"/></svg>監控</a><button type=\"button\" class=\"ds-tabbar-item\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg>選單</button></nav>",
+      "css": ".ds-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); height: 64px; width: 390px; background: var(--surface); border-top: 1px solid var(--border); } .ds-tabbar-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 0; background: none; font: inherit; font-size: 12px; color: var(--ink-2); text-decoration: none; cursor: pointer; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-tabbar-item[aria-current=\"page\"] { color: var(--accent); font-weight: 600; } .ds-tabbar-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Rank Table with RankBar",
+      "kind": "custom",
+      "refersTo": "table-cell",
+      "description": "相對強弱排序表：13px 儲存格、sticky 表頭（top 56px）、整列可點；分數條以 0.5 為中線，高於往右藍、低於往左 ink-3。",
+      "html": "<table class=\"ds-table\"><thead><tr><th class=\"num\">名次</th><th>股票</th><th>分數</th><th class=\"num\">百分位</th><th class=\"ctr\">分組</th></tr></thead><tbody><tr><td class=\"num strong\">1</td><td><a href=\"#\">欣興</a> <span class=\"ds-code\">3037</span></td><td><span class=\"ds-rankbar\"><span class=\"ds-rankbar-fill pos\" style=\"width:50%\"></span><span class=\"ds-rankbar-mid\"></span></span> 0.617</td><td class=\"num\">100%</td><td class=\"ctr\"><span class=\"ds-tb ds-tb-up\">強</span></td></tr><tr><td class=\"num strong\">25</td><td><a href=\"#\">台積電</a> <span class=\"ds-code\">2330</span></td><td><span class=\"ds-rankbar\"><span class=\"ds-rankbar-fill neg\" style=\"width:14%\"></span><span class=\"ds-rankbar-mid\"></span></span> 0.483</td><td class=\"num\">50%</td><td class=\"ctr\"><span class=\"ds-tb ds-tb-hold\">中</span></td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.4; font-variant-numeric: tabular-nums; color: var(--ink-2); background: var(--surface); } .ds-table thead { position: sticky; top: 56px; background: var(--surface-2); } .ds-table th { padding: 8px 12px; font-size: 12px; font-weight: 500; text-align: left; color: var(--ink-3); box-shadow: inset 0 -1px 0 var(--border); } .ds-table td { padding: 8px 12px; border-top: 1px solid var(--border); } .ds-table tbody tr { cursor: pointer; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-table tbody tr:hover { background: var(--surface-2); } .ds-table .num { text-align: right; } .ds-table .ctr { text-align: center; } .ds-table .strong { font-weight: 600; color: var(--ink); } .ds-table a { color: var(--ink); font-weight: 500; text-decoration: none; } .ds-table a:hover { text-decoration: underline; } .ds-table a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } .ds-code { font-size: 12px; color: var(--ink-3); } .ds-rankbar { position: relative; display: inline-block; vertical-align: middle; width: 96px; height: 6px; margin-right: 8px; border-radius: 9999px; background: var(--surface-3); } .ds-rankbar-fill { position: absolute; top: 0; bottom: 0; } .ds-rankbar-fill.pos { left: 50%; background: var(--accent); border-radius: 0 9999px 9999px 0; } .ds-rankbar-fill.neg { right: 50%; background: var(--ink-3); border-radius: 9999px 0 0 9999px; } .ds-rankbar-mid { position: absolute; left: 50%; top: -2px; width: 1px; height: 10px; background: var(--border-strong); } .ds-tb { display: inline-flex; padding: 2px 6px; border-radius: 6px; font-size: 12px; font-weight: 600; line-height: 1; } .ds-tb-up { background: var(--up-soft); color: var(--up); } .ds-tb-hold { background: var(--hold-soft); color: var(--hold); }"
+    },
+    {
+      "name": "Score Bar",
+      "kind": "custom",
+      "refersTo": "rank-bar",
+      "description": "篩選器綜合評分的堆疊條：五個組成依 series-1..5 順序，剩餘到 100 用 surface-3；旁邊一定有文字分數。",
+      "html": "<div class=\"ds-score\"><div class=\"ds-scorebar\" role=\"img\" aria-label=\"綜合評分 75\"><span style=\"flex:29.4 1 0;background:var(--series-1)\"></span><span style=\"flex:17.3 1 0;background:var(--series-2)\"></span><span style=\"flex:3 1 0;background:var(--series-3)\"></span><span style=\"flex:18 1 0;background:var(--series-4)\"></span><span style=\"flex:7.3 1 0;background:var(--series-5)\"></span><span style=\"flex:25 1 0;background:var(--surface-3)\"></span></div><p class=\"ds-score-legend\"><span><i style=\"background:var(--series-1)\"></i>排序 98</span><span><i style=\"background:var(--series-2)\"></i>動能 87</span><span><i style=\"background:var(--series-3)\"></i>評價 20</span><span><i style=\"background:var(--series-4)\"></i>營收 90</span><span><i style=\"background:var(--series-5)\"></i>籌碼 49</span></p></div>",
+      "css": ".ds-score { width: 320px; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; } .ds-scorebar { display: flex; gap: 1px; height: 10px; overflow: hidden; border-radius: 9999px; } .ds-score-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; } .ds-score-legend span { display: inline-flex; align-items: center; gap: 6px; } .ds-score-legend i { display: inline-block; width: 16px; height: 10px; border-radius: 2px; }"
+    },
+    {
+      "name": "Verify Command",
+      "kind": "custom",
+      "refersTo": "code-block",
+      "description": "等寬字只出現在這裡與雜湊：可複製的驗證指令區塊。",
+      "html": "<div class=\"ds-cmd\"><code>python ledger.py verify --db predictions.db --chain chain.jsonl</code><button type=\"button\" class=\"ds-cmd-copy\" aria-label=\"複製驗證指令\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><rect x=\"8\" y=\"8\" width=\"14\" height=\"14\" rx=\"2\"/><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/></svg></button></div>",
+      "css": ".ds-cmd { display: flex; align-items: center; gap: 4px; max-width: 360px; padding: 4px 4px 4px 10px; border-radius: 6px; background: var(--surface-2); } .ds-cmd code { flex: 1; min-width: 0; font-family: ui-monospace, \"SF Mono\", \"Cascadia Mono\", Consolas, monospace; font-size: 12px; line-height: 1.625; color: var(--ink); } .ds-cmd-copy { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-3); cursor: pointer; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-cmd-copy:hover { background: var(--surface-3); color: var(--ink); } .ds-cmd-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "收盤後的研究台帳",
+    "overview": "這是一套業界標準的產品介面，以財報狗、TradingView 選股器的完成度為標準，不加任何世界觀元素。冷灰中性底、一個藍色強調色、細線分隔的表格與面板；資訊密度高但不擁擠，表格緊湊、表頭固定、數字靠右並用等寬數字。版面的重心是「排序表＋旁邊的證據面板」：左欄約 2/3 放清單，右欄約 1/3 由上而下疊面板，手機時依同一個 DOM 順序變成單欄。\n\n顏色只負責方向與狀態，從不單獨承載語意。台股慣例的漲紅跌綠只用在漲跌方向，等級、狀態、命中與否一律另附文字或中性圖形；「正常」不用綠（綠是跌），失效警示用實心深色底而不是紅（紅是漲）。預設淺色主題（白天辦公室與投影幕），選單可切深色或跟隨系統，兩套主題共用同一組 token 名稱。\n\n深度靠細線與底色層次，不靠陰影；陰影只出現在浮在內容上方的層（抽屜、搜尋清單、圖表提示框）。動態只有 150ms 的顏色轉換與載入骨架的脈動，且骨架只在 `motion-safe` 時脈動。",
+    "keyCharacteristics": [
+      "冷灰中性底（background → surface → surface-2 → surface-3）加一個藍色強調色",
+      "1px 細線框、8px 圓角的面板，不加陰影",
+      "系統字體與等寬數字（`tabular-nums`）；等寬字體只給雜湊與指令",
+      "漲紅跌綠只表示方向，且一律搭配文字",
+      "固定在 56px 頂列下方的表頭；頂列下一條全站狀態列；手機底部五鈕分頁列"
+    ],
+    "rules": [
+      {
+        "name": "The 紅漲綠跌只說方向 Rule",
+        "section": "colors",
+        "body": "`up` 與 `down` 只表示漲跌方向（含分組強弱、方向訊號），而且旁邊一定有文字。等級（T1／T2／T3）用中性徽章；模型「正常」用藍、「留意」用琥珀、「失效警示」用實心墨色底，都不用紅綠。"
+      },
+      {
+        "name": "The 一個藍 Rule",
+        "section": "colors",
+        "body": "介面只有一個強調色。可點的連結、目前位置、焦點與「通過／正常」都用它；沒有第二個品牌色。"
+      },
+      {
+        "name": "The 類別色不碰漲跌 Rule",
+        "section": "colors",
+        "body": "`series-1..5` 只給篩選器的五個組成，順序不可調換，也不可拿來表示方向；需要新的類別時先重跑色覺驗證。"
+      },
+      {
+        "name": "The 數字一律等寬 Rule",
+        "section": "typography",
+        "body": "`body` 層級就開了 `font-variant-numeric: tabular-nums`，任何元件都不要關掉它；數值欄靠右。負號用 U+2212（−），與正號等寬；缺值一律顯示「—」。"
+      },
+      {
+        "name": "The 等寬字只給機器 Rule",
+        "section": "typography",
+        "body": "`font-mono` 只用在雜湊與指令這類要被複製、比對的字串，不拿來營造「科技感」。"
+      },
+      {
+        "name": "The 表頭釘在頂列下 Rule",
+        "section": "layout",
+        "body": "長資料表的表頭 `sticky` 在 `top-14`（56px，頂列正下方），底線用 `inset 0 -1px 0 var(--border)`。這些表格外面不包水平捲動容器，因為捲動容器會讓 sticky 失效；窄螢幕靠隱藏欄位解決寬度。只有限高、自己捲動的明細表（逐日數值、回放明細）把表頭 sticky 在自己容器的 `top-0`。"
+      },
+      {
+        "name": "The 細線不浮 Rule",
+        "section": "elevation",
+        "body": "嵌在版面裡的東西不加陰影；只有會疊在其他內容上方的抽屜、下拉清單與提示框使用 `--shadow-pop`。遮罩用 `scrim`。"
+      }
+    ],
+    "dos": [
+      "**Do** 把漲跌方向交給 `up`（紅）與 `down`（綠），並在旁邊寫出「漲／跌／強／弱」或帶正負號的數字。",
+      "**Do** 用 `accent` 表示「通過／正常」，用實心 `ink` 徽章表示「不符／失效警示」。",
+      "**Do** 保持 `tabular-nums`，數值欄靠右，負號用 U+2212，缺值用「—」。",
+      "**Do** 把長資料表的表頭 sticky 在 `top-14`，並以隱藏欄位處理窄螢幕，而不是包水平捲動容器。",
+      "**Do** 面板用 1px `border`、8px 圓角、`surface` 底，標題列與內容之間一條細線。",
+      "**Do** 讓 DOM 順序等於視覺順序；兩欄只靠 grid 欄位排列，不用 `order-*` 重排。",
+      "**Do** 每個狀態都同時有圖示與文字，焦點一律是 2px `accent` outline。"
+    ],
+    "donts": [
+      "**Don't** 用綠色表示「正常」或「通過」，也不要用紅色表示錯誤、失效或警示；台股的紅綠已經是漲跌。",
+      "**Don't** 引進第二個強調色，或把 `series-1..5` 用在篩選器組成以外的地方。",
+      "**Don't** 在嵌入版面的面板、表格、卡片加陰影；`--shadow-pop` 只給抽屜、下拉清單與提示框。",
+      "**Don't** 用 `font-mono` 排一般數字或標題；它只給雜湊與指令。",
+      "**Don't** 用流動字級（clamp）或展示字體；字級是固定的。",
+      "**Don't** 在 sticky 表頭的表格外面包 `overflow-x-auto`。"
+    ]
+  }
+}
