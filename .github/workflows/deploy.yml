@@ -32,6 +32,8 @@ jobs:
 
       - name: 放入上一版網站資料
         run: |
+          # frontend/public 在 repo 裡沒有追蹤的檔案（git 不保留空目錄），先建好再複製
+          mkdir -p frontend/public
           cp -r _state/site-data frontend/public/data
           # 舊版 site-data 的 K 線是 yfinance 價格（依 Yahoo 條款不得對外散布）：來源不是證交所就整批移除，
           # 前端會顯示「K 線改用證交所開放資料」的說明，等下一次每日排程匯出證交所版本
