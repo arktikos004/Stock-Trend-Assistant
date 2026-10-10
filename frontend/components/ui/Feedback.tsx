@@ -39,7 +39,7 @@ export function EmptyState({
   );
 }
 
-/** 錯誤與提醒：寫出發生什麼、怎麼處理。 */
+/** 錯誤與提醒：寫出發生什麼、怎麼處理。錯誤不用紅色（台股紅＝漲），改用加深的邊框與墨色，並以 role="alert" 通報。 */
 export function Notice({
   tone = "neutral",
   icon: Icon = CircleAlert,
@@ -53,11 +53,11 @@ export function Notice({
 }) {
   const style =
     tone === "error"
-      ? "border-up/30 bg-up-soft text-ink"
+      ? "border-border-strong bg-surface-2 text-ink"
       : tone === "warn"
         ? "border-warn/30 bg-warn-soft text-ink"
         : "border-border bg-surface-2 text-ink-2";
-  const iconColor = tone === "error" ? "text-up" : tone === "warn" ? "text-warn" : "text-ink-3";
+  const iconColor = tone === "error" ? "text-ink" : tone === "warn" ? "text-warn" : "text-ink-3";
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm ${style}`}>
       <Icon size={17} className={`mt-0.5 shrink-0 ${iconColor}`} aria-hidden="true" />

@@ -155,7 +155,7 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 
-  /* 固定字級（產品介面不用流動字級）：12 說明、13 表格、14 內文、16、20、24、32 */
+  /* 固定字級（產品介面不用流動字級）：12 說明與標籤、13 表格、14 內文、15 面板標題、18 統計數值、24 頁面標題與主要數值 */
   --text-table: 0.8125rem;
   --text-table--line-height: 1.4;
 }
