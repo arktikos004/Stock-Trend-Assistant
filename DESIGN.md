@@ -2,37 +2,38 @@
 name: 台股相對強弱排序與預測存證平台
 description: 收盤後的研究工具：今天的相對強弱排序、它的存證狀態與到期成績並列。
 colors:
-  background: "#f5f6f8"
-  surface: "#ffffff"
-  surface-2: "#f0f2f5"
-  surface-3: "#e7eaef"
-  border: "#dde1e7"
-  border-strong: "#c5ccd6"
-  ink: "#111827"
-  ink-2: "#4b5563"
-  ink-3: "#5f6877"
-  accent: "#1d4ed8"
-  accent-hover: "#1e40af"
-  accent-fg: "#ffffff"
-  accent-soft: "#e8eefc"
-  up: "#c0262d"
-  up-soft: "#fdecec"
-  down: "#13703a"
-  down-soft: "#e6f4ea"
-  hold: "#5b6472"
-  hold-soft: "#eef0f3"
-  warn: "#8a4b06"
-  warn-soft: "#fdf3e2"
-  series-1: "#2a78d6"
-  series-2: "#eb6834"
-  series-3: "#4a3aa7"
-  series-4: "#eda100"
-  series-5: "#e87ba4"
-  chart-up: "#d93a3a"
-  chart-down: "#14915a"
-  chart-grid: "rgba(17, 24, 39, 0.06)"
-  selection: "rgba(29, 78, 216, 0.18)"
-  scrim: "rgba(17, 24, 39, 0.42)"
+  background: "#0a0f1a"
+  surface: "#0f1623"
+  surface-2: "#151e2e"
+  surface-3: "#1c2739"
+  border: "#1e2a3c"
+  border-strong: "#2d3c54"
+  ink: "#e7eef8"
+  ink-2: "#a3b3c9"
+  ink-3: "#8494ab"
+  accent: "#3d8bff"
+  accent-hover: "#6aa6ff"
+  accent-fg: "#050b16"
+  accent-soft: "#0e2142"
+  accent-glow: "rgba(61, 139, 255, 0.45)"
+  up: "#f85a6e"
+  up-soft: "#2e121b"
+  down: "#0ecb81"
+  down-soft: "#0b2a20"
+  hold: "#8f9db3"
+  hold-soft: "#1c2739"
+  warn: "#f0b90b"
+  warn-soft: "#2b2208"
+  series-1: "#3987e5"
+  series-2: "#d95926"
+  series-3: "#9085e9"
+  series-4: "#c98500"
+  series-5: "#d55181"
+  chart-up: "#f6465d"
+  chart-down: "#0ecb81"
+  chart-grid: "rgba(122, 156, 214, 0.08)"
+  selection: "rgba(61, 139, 255, 0.3)"
+  scrim: "rgba(2, 6, 14, 0.62)"
 typography:
   headline:
     fontFamily: "system-ui, -apple-system, \"Segoe UI\", \"PingFang TC\", \"Microsoft JhengHei\", \"Noto Sans TC\", sans-serif"
@@ -180,6 +181,14 @@ components:
   button-secondary-hover:
     backgroundColor: "{colors.surface-2}"
     textColor: "{colors.ink}"
+  button-primary:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-fg}"
+    rounded: "{rounded.md}"
+    height: "36px"
+    padding: "0 16px"
+  button-primary-hover:
+    backgroundColor: "{colors.accent-hover}"
   input-search:
     backgroundColor: "{colors.surface-2}"
     textColor: "{colors.ink}"
@@ -207,50 +216,57 @@ components:
 
 **Creative North Star: "收盤後的研究台帳"**
 
-這是一套業界標準的產品介面，以財報狗、TradingView 選股器的完成度為標準，不加任何世界觀元素。冷灰中性底、一個藍色強調色、細線分隔的表格與面板；資訊密度高但不擁擠，表格緊湊、表頭固定、數字靠右並用等寬數字。版面的重心是「排序表＋旁邊的證據面板」：左欄約 2/3 放清單，右欄約 1/3 由上而下疊面板，手機時依同一個 DOM 順序變成單欄。
+這是一套業界標準的產品介面，以財報狗、TradingView 選股器的完成度為標準，不加任何世界觀元素；預設穿上「深色交易終端」的配色。深藍黑中性底、一個電光藍強調色、交易所式鮮明紅綠、細線分隔的表格與面板；資訊密度高但不擁擠，表格緊湊、表頭固定、數字靠右並用等寬數字。版面的重心是「排序表＋旁邊的證據面板」：左欄約 2/3 放清單，右欄約 1/3 由上而下疊面板，手機時依同一個 DOM 順序變成單欄。
 
-顏色只負責方向與狀態，從不單獨承載語意。台股慣例的漲紅跌綠只用在漲跌方向，等級、狀態、命中與否一律另附文字或中性圖形；「正常」不用綠（綠是跌），失效警示用實心深色底而不是紅（紅是漲）。預設淺色主題（白天辦公室與投影幕），選單可切深色或跟隨系統，兩套主題共用同一組 token 名稱。
+顏色只負責方向與狀態，從不單獨承載語意。台股慣例的漲紅跌綠只用在漲跌方向，等級、狀態、命中與否一律另附文字或中性圖形；「正常」不用綠（綠是跌），失效警示用實心墨色底而不是紅（紅是漲）。預設深色主題（使用者要求更有科技感後選定）；選單可切淺色（投影環境較亮時用），或跟隨系統（作業系統為淺色時用淺色，否則深色）。三種模式共用同一組 token 名稱，由 `html[data-theme]` 決定，開機腳本在首次繪製前套用，沒選過就是深色。
 
-深度靠細線與底色層次，不靠陰影；陰影只出現在浮在內容上方的層（抽屜、搜尋清單、圖表提示框）。動態只有 150ms 的顏色轉換與載入骨架的脈動，且骨架只在 `motion-safe` 時脈動。
+深度靠細線與底色層次，不靠陰影；陰影只出現在浮在內容上方的層（抽屜、搜尋清單、圖表提示框）。「科技感」只靠配色與一道克制的電光藍光暈，而光暈只出現在兩個地方：目前所在的分頁與鍵盤焦點框；面板、表格、按鈕、數值一律不發光。動態只有 150ms 的顏色轉換與載入骨架的脈動，且骨架只在 `motion-safe` 時脈動。
 
 **Key Characteristics:**
-- 冷灰中性底（background → surface → surface-2 → surface-3）加一個藍色強調色
-- 1px 細線框、8px 圓角的面板，不加陰影
+- 深藍黑中性底（background → surface → surface-2 → surface-3）加一個電光藍強調色
+- 1px 細線框、8px 圓角的面板，不加陰影也不加光暈
+- 電光藍光暈只給選中分頁與焦點框
 - 系統字體與等寬數字（`tabular-nums`）；等寬字體只給雜湊與指令
 - 漲紅跌綠只表示方向，且一律搭配文字
 - 固定在 56px 頂列下方的表頭；頂列下一條全站狀態列；手機底部五鈕分頁列
 
 ## Colors
 
-冷灰的中性階層撐起整個介面，藍色是唯一的互動與「正常」色，紅綠被保留給漲跌方向。
+深藍黑的中性階層撐起整個介面，電光藍是唯一的互動與「正常」色，交易所式的鮮明紅綠被保留給漲跌方向。每個文字色在四層深色底（background、surface、surface-2、surface-3）上都至少 4.5:1。
 
 ### Primary
-- **研究藍**（`accent`）：連結、目前頁籤底線、手機分頁列的選中項、焦點框（2px outline、offset 2px）、輸入游標、RankBar 高於 0.5 的那一半、「驗證通過」與模型「正常」的徽章與圖示、站標底色。深色主題改用 #8fb0ff，前景字改為 #0e1116。
-- **研究藍・深**（`accent-hover`）：強調色的 hover 狀態。
-- **研究藍・淡底**（`accent-soft`）：accent 徽章的底色。
+- **電光藍**（`accent`）：連結、目前頁籤底線、手機分頁列的選中項、焦點框（2px outline、offset 2px）、輸入游標、RankBar 高於 0.5 的那一半、「驗證通過」與模型「正常」的徽章與圖示、站標底色。淺色主題改用 #1d4ed8。
+- **電光藍・亮**（`accent-hover`）：強調色的 hover 狀態（深色往亮走；淺色主題為 #1e40af，往深走）。
+- **電光藍上的字**（`accent-fg`）：電光藍實心底上的字與站標橫條，用近黑色，因為白字在電光藍上只有 3.3:1。淺色主題為 #ffffff。
+- **電光藍・淡底**（`accent-soft`）：accent 徽章的底色。淺色主題為 #e8eefc。
+- **電光藍光暈**（`accent-glow`）：只給選中分頁與焦點框的光暈色（見 Elevation & Depth）。淺色主題為 `transparent`，所以淺色沒有光暈。
 
 ### Secondary
-- **台股紅・漲**（`up` / `up-soft`）：上漲方向、排序分組「強」、方向訊號「漲」。深色主題為 #f87171 / #3a1d22。
-- **台股綠・跌**（`down` / `down-soft`）：下跌方向、分組「弱」、方向訊號「跌」。深色主題為 #4ade80 / #13301f。
+- **交易所紅・漲**（`up` / `up-soft`）：上漲方向、排序分組「強」、方向訊號「漲」。比 K 線紅稍亮，最淺的 surface-3 上仍達 4.5:1。淺色主題為 #c0262d / #fdecec。
+- **交易所綠・跌**（`down` / `down-soft`）：下跌方向、分組「弱」、方向訊號「跌」。淺色主題為 #13703a / #e6f4ea。
 - **觀望灰**（`hold` / `hold-soft`）：觀望與中性分組「中」。
 - **琥珀警示**（`warn` / `warn-soft`）：資料可能過期、模型「留意」、示意資料提醒、自選星號。
-- **K 線紅綠**（`chart-up` / `chart-down`）：只給 lightweight-charts 的 K 棒與成交量（成交量用 0.3 透明度的同色），比 `up`/`down` 更亮，因為它們是圖形而不是文字。
+- **K 線紅綠**（`chart-up` / `chart-down`）：只給 lightweight-charts 的 K 棒與成交量（成交量用同色、深色 0.35、淺色 0.3 透明度）。深色用交易所原色，紅比文字用的 `up` 稍暗，因為它們是圖形而不是文字；淺色主題為 #d93a3a / #14915a，比文字用的紅綠亮。
+- **圖表格線**（`chart-grid`）：帶藍調的極淡格線；淺色主題為 rgba(17, 24, 39, 0.06)。
 
 ### Tertiary
-- **類別色 series-1..5**（藍、橘、紫、黃、粉）：只給篩選器綜合評分的五個組成（排序、動能、評價、營收、籌碼），順序固定等於堆疊順序。兩種主題都以 dataviz 的 `validate_palette` 驗過色覺辨識；五色刻意避開紅、綠與青綠，不會被讀成漲跌。黃、粉在淺色底低於 3:1，所以組成分數一律另以文字列出。
+- **類別色 series-1..5**（藍、橘、紫、黃、粉）：只給篩選器綜合評分的五個組成（排序、動能、評價、營收、籌碼），順序固定等於堆疊順序。兩種主題都以 dataviz 的 `validate_palette` 驗過色覺辨識（深色在 surface 上重驗）；五色刻意避開紅、綠與青綠，不會被讀成漲跌。黃、粉在淺色底低於 3:1，所以組成分數一律另以文字列出。
 
 ### Neutral
-- **冷灰頁底**（`background`）：頁面底色。
-- **白紙面**（`surface`）：頂列、面板、抽屜、底部分頁列、浮層。
-- **淺灰層**（`surface-2`）：狀態列、表頭、表格 hover、分段切換的軌道、搜尋框靜止狀態、指令區塊。
-- **骨架灰**（`surface-3`）：骨架、RankBar 與機率條的軌道、ScoreBar 剩餘段。
+- **深藍黑頁底**（`background`）：頁面底色，也是 `themeColor`。
+- **面板藍黑**（`surface`）：頂列、面板、抽屜、底部分頁列、浮層。
+- **抬升層**（`surface-2`）：狀態列、表頭、表格 hover、分段切換的軌道、搜尋框靜止狀態、指令區塊。
+- **骨架層**（`surface-3`）：骨架、RankBar 與機率條的軌道、ScoreBar 剩餘段；`hold-soft` 與它同值。
 - **細線**（`border`）與**強細線**（`border-strong`）：所有框線與分隔線；強細線給分段切換選中項的 ring、RankBar 中線與捲軸。
-- **墨色三階**（`ink` / `ink-2` / `ink-3`）：主要文字與數值／次要文字與說明／標籤、表頭、註腳。每個文字色在所有底色上都達 WCAG AA。
+- **墨色三階**（`ink` / `ink-2` / `ink-3`）：主要文字與數值／次要文字與說明／標籤、表頭、註腳。深色時是冷白到藍灰，淺色時回到深墨色；兩種主題下每個文字色在所有底色上都達 WCAG AA。
+- 淺色主題的中性階層：#f5f6f8 頁底、#ffffff 面板、#f0f2f5／#e7eaef 兩層灰、#dde1e7／#c5ccd6 細線、#111827／#4b5563／#5f6877 墨色。
 
 ### Named Rules
 **The 紅漲綠跌只說方向 Rule.** `up` 與 `down` 只表示漲跌方向（含分組強弱、方向訊號），而且旁邊一定有文字。等級（T1／T2／T3）用中性徽章；模型「正常」用藍、「留意」用琥珀、「失效警示」用實心墨色底，都不用紅綠。
 
 **The 一個藍 Rule.** 介面只有一個強調色。可點的連結、目前位置、焦點與「通過／正常」都用它；沒有第二個品牌色。
+
+**The 電光藍上用深字 Rule.** 電光藍實心底上的字與圖形一律用 `accent-fg` token，不寫死白色；深色主題的 `accent-fg` 是近黑，因為白字在電光藍上只有 3.3:1。
 
 **The 類別色不碰漲跌 Rule.** `series-1..5` 只給篩選器的五個組成，順序不可調換，也不可拿來表示方向；需要新的類別時先重跑色覺驗證。
 
@@ -292,27 +308,32 @@ components:
 
 ## Elevation & Depth
 
-扁平系統。面板、表格、狀態列都靠 1px 細線與 `background`／`surface`／`surface-2` 的底色層次分出前後，靜止時沒有任何陰影。陰影只屬於浮在內容上方、會蓋住別的東西的層。
+扁平系統。面板、表格、狀態列都靠 1px 細線與 `background`／`surface`／`surface-2` 的底色層次分出前後，靜止時沒有任何陰影。陰影只屬於浮在內容上方、會蓋住別的東西的層。唯一的發光是 `accent-glow` 的電光藍光暈，它標示「你在哪裡」與「鍵盤在哪裡」，不表示層次。
 
 ### Shadow Vocabulary
-- **浮層**（`--shadow-pop`；淺色 `0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06)`，深色 `0 14px 34px rgba(0, 0, 0, 0.5)`）：選單抽屜、代號搜尋的結果清單與「找不到」提示、監控頁 Rank IC 圖的 hover 提示框。
+- **浮層**（`--shadow-pop`；深色 `0 14px 34px rgba(0, 0, 0, 0.55)`，淺色 `0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06)`）：選單抽屜、代號搜尋的結果清單與「找不到」提示、監控頁 Rank IC 圖的 hover 提示框。
 - **表頭底線**（`inset 0 -1px 0 var(--border)`）：不是陰影，是 sticky 表頭的分隔線（一般 border 在 sticky 時會跟著捲走）。
+- **分頁光暈**（`box-shadow: 0 0 10px var(--accent-glow)`）：只加在桌機頂列目前分頁的 2px 電光藍底線上。
+- **分頁圖示光暈**（`filter: drop-shadow(0 0 6px var(--accent-glow))`）：只加在手機底部分頁列選中項的圖示上。
+- **焦點光暈**（`box-shadow: 0 0 12px var(--accent-glow)`）：與 2px `accent` outline 一起構成全站的 `:focus-visible` 焦點框。
 
 ### Named Rules
-**The 細線不浮 Rule.** 嵌在版面裡的東西不加陰影；只有會疊在其他內容上方的抽屜、下拉清單與提示框使用 `--shadow-pop`。遮罩用 `scrim`。
+**The 細線不浮 Rule.** 嵌在版面裡的東西不加陰影也不加光暈；只有會疊在其他內容上方的抽屜、下拉清單與提示框使用 `--shadow-pop`。遮罩用 `scrim`。
+
+**The 光暈只給位置與焦點 Rule.** `accent-glow` 只有三個用處：桌機目前分頁的底線、手機選中分頁的圖示、`:focus-visible` 焦點框。面板、卡片、徽章、按鈕、數值、圖表與 hover 狀態都不發光；淺色主題的光暈是 `transparent`，介面在沒有光暈時也必須完整可讀。
 
 ## Shapes
 
-小而一致的圓角：面板、提示框（Notice）與摘要列 8px；按鈕、輸入框、徽章、分段切換軌道、浮層與指令區塊 6px；分段切換內的選項 5px，剛好內縮於 2px 的軌道；骨架與狀態列的小元素 4px；堆疊條的小色塊與命中色帶 2px；RankBar、機率條與 ScoreBar 用全圓。框線一律 1px。站標是 6px 圓角的藍色方塊，內有三條由長到短的白色橫條（代表排序）。
+小而一致的圓角：面板、提示框（Notice）與摘要列 8px；按鈕、輸入框、徽章、分段切換軌道、浮層與指令區塊 6px；分段切換內的選項 5px，剛好內縮於 2px 的軌道；骨架與狀態列的小元素 4px；堆疊條的小色塊與命中色帶 2px；RankBar、機率條與 ScoreBar 用全圓。框線一律 1px。站標是 6px 圓角的電光藍方塊，內有三條由長到短的 `accent-fg` 橫條（代表排序；深色時是近黑、淺色時是白）。
 
 ## Components
 
 ### Buttons
 - **Shape:** 6px 圓角，高 36px（圖示按鈕 36–40px 見方）。
 - **Secondary（主要形式）:** `surface` 底、1px `border`、`ink-2` 文字、左右 12px，例如頂列的「選單」、個股頁的「加入自選」。
-- **Hover / Focus:** hover 換成 `surface-2` 底與 `ink` 文字，150ms 顏色轉換；焦點一律是 2px `accent` outline、offset 2px。
+- **Hover / Focus:** hover 換成 `surface-2` 底與 `ink` 文字，150ms 顏色轉換；焦點一律是 2px `accent` outline、offset 2px，外加 12px 的 `accent-glow` 光暈。
 - **Ghost 圖示按鈕:** 無框，`ink-2` 圖示，hover 同上。
-- 介面沒有實心的主要按鈕；主要動作是點表格列與連結。唯一的實心藍底是「跳到主要內容」連結。
+- **Primary（只給送出查詢）:** 電光藍實心底、`accent-fg` 字、600、左右 16px，hover 換成 `accent-hover`。只用在表單的送出鈕（排序頁的「查詢」、個股頁歷史回放的「重算這段區間」），另一個實心藍底是「跳到主要內容」連結。其他主要動作是點表格列與連結。
 
 ### Chips（徽章）
 - **Style:** 12px、600、行高 1，左右 6px、上下 2px，6px 圓角，可帶 13px 圖示。neutral 有 1px `border`，其餘色調框線透明。
@@ -331,9 +352,9 @@ components:
 - **Search popover:** 下方 4px 浮出，`surface` 底、6px 圓角、細線框加 `--shadow-pop`，最多 8 筆；選中項 `surface-2` 底。
 
 ### Navigation
-- **頂列（桌機）:** `surface` 底、底部細線、高 56px。分頁文字 14px `ink-2`，hover 變 `ink`；目前頁面為半粗 `ink`，底部一條 2px 全圓角的 `accent` 底線。
+- **頂列（桌機）:** `surface` 底、底部細線、高 56px。分頁文字 14px `ink-2`，hover 變 `ink`；目前頁面為半粗 `ink`，底部一條 2px 全圓角的 `accent` 底線，底線帶 10px 的 `accent-glow` 光暈。
 - **狀態列:** 頂列下方，`surface-2` 底、12px；標籤 `ink-3`、值半粗 `ink`，項目之間以左側細線分隔。可點項目 hover 加底線。過期資料以 `warn` 加三角圖示與文字標出。
-- **底部分頁列（手機）:** 五等分、高 64px，20px 圖示疊 12px 文字；選中項 `accent`、半粗、圖示筆畫加粗到 2.2，其餘 `ink-2`。第五鈕開選單抽屜。
+- **底部分頁列（手機）:** 五等分、高 64px，20px 圖示疊 12px 文字；選中項 `accent`、半粗、圖示筆畫加粗到 2.2 並帶 6px 的 `accent-glow` 光暈，其餘 `ink-2`。第五鈕開選單抽屜。
 - **選單抽屜:** 原生 `<dialog>`，從右側滑入、寬 min(22rem, 100vw)、全高，左側細線加 `--shadow-pop`，背後 `scrim` 遮罩；內有主題切換（三格分段）與規則文件連結。
 
 ### Segmented（分段切換）
@@ -363,12 +384,16 @@ components:
 - **Do** 把長資料表的表頭 sticky 在 `top-14`，並以隱藏欄位處理窄螢幕，而不是包水平捲動容器。
 - **Do** 面板用 1px `border`、8px 圓角、`surface` 底，標題列與內容之間一條細線。
 - **Do** 讓 DOM 順序等於視覺順序；兩欄只靠 grid 欄位排列，不用 `order-*` 重排。
-- **Do** 每個狀態都同時有圖示與文字，焦點一律是 2px `accent` outline。
+- **Do** 每個狀態都同時有圖示與文字，焦點一律是 2px `accent` outline 加 12px `accent-glow` 光暈。
+- **Do** 在電光藍實心底上用 `accent-fg` 的字（深色主題為近黑）。
+- **Do** 新增顏色時，先確認文字色在四層深色底與淺色底上都達 4.5:1。
 
 ### Don't:
 - **Don't** 用綠色表示「正常」或「通過」，也不要用紅色表示錯誤、失效或警示；台股的紅綠已經是漲跌。
 - **Don't** 引進第二個強調色，或把 `series-1..5` 用在篩選器組成以外的地方。
 - **Don't** 在嵌入版面的面板、表格、卡片加陰影；`--shadow-pop` 只給抽屜、下拉清單與提示框。
+- **Don't** 把 `accent-glow` 用在選中分頁與焦點框以外的地方（面板、徽章、按鈕、數值、hover 都不發光）。
+- **Don't** 在電光藍實心底上寫死白字；深色主題下白字只有 3.3:1。
 - **Don't** 用 `font-mono` 排一般數字或標題；它只給雜湊與指令。
 - **Don't** 用流動字級（clamp）或展示字體；字級是固定的。
 - **Don't** 在 sticky 表頭的表格外面包 `overflow-x-auto`。
