@@ -11,8 +11,8 @@ import { LINKS } from "@/lib/links";
 import { setThemeMode, useThemeMode, type ThemeMode } from "@/lib/theme";
 
 const THEMES: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "淺色", icon: Sun },
   { value: "dark", label: "深色", icon: Moon },
+  { value: "light", label: "淺色", icon: Sun },
   { value: "system", label: "跟隨系統", icon: Monitor },
 ];
 

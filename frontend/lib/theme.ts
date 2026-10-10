@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * 主題：淺色（預設）、深色、跟隨系統。存在 localStorage 的 "theme"，套在 <html data-theme>；
+ * 主題：深色（預設）、淺色、跟隨系統。存在 localStorage 的 "theme"，套在 <html data-theme>；
  * 首次繪製前由 layout 的開機腳本（lib/theme-boot.ts）先套用，這裡負責之後的切換與訂閱。
  */
 export type ThemeMode = "light" | "dark" | "system";
@@ -13,7 +13,7 @@ const EVENT = "themechange";
 
 function read(): ThemeMode {
   const mode = document.documentElement.getAttribute("data-theme");
-  return mode === "dark" || mode === "system" ? mode : "light";
+  return mode === "light" || mode === "system" ? mode : "dark";
 }
 
 function subscribe(onChange: () => void) {
@@ -37,7 +37,7 @@ export function setThemeMode(mode: ThemeMode) {
 }
 
 export function useThemeMode(): ThemeMode {
-  return useSyncExternalStore(subscribe, read, () => "light");
+  return useSyncExternalStore(subscribe, read, () => "dark");
 }
 
 /** 實際生效的明暗（「跟隨系統」時看作業系統設定），給需要具體色值的圖表訂閱 */
@@ -46,9 +46,9 @@ export function useResolvedTheme(): "light" | "dark" {
     subscribe,
     () => {
       const mode = read();
-      if (mode === "system") return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      if (mode === "system") return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
       return mode;
     },
-    () => "light",
+    () => "dark",
   );
 }
