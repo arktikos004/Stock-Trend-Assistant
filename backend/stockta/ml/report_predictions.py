@@ -16,6 +16,7 @@ import json
 import sqlite3
 from collections import Counter, defaultdict
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 
@@ -29,10 +30,10 @@ from stockta.config import (
     LABEL_UP_THRESHOLD,
     PREDICTIONS_DB_PATH,
     PRODUCTION_MODEL,
-    SIGNAL_CONFIDENCE_THRESHOLDS,
     STOCK_POOL,
 )
 from stockta.data.cache import ParquetCache
+from stockta.inference.predictor import model_version
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
 
@@ -57,15 +58,12 @@ def actual_signal(cache: ParquetCache, ticker: str, base_date: str) -> tuple[str
     return "觀望", ret
 
 
-def current_production_version() -> str | None:
-    """現行 production 模型的版本字串（與 inference.predictor.Predictor.version 同一構成，
-    不載入模型權重，僅讀 metadata.json）。"""
-    meta_path = ARTIFACTS_DIR / PRODUCTION_MODEL / "metadata.json"
+def current_production_version(artifacts_dir: Path = ARTIFACTS_DIR) -> str | None:
+    """現行 production 模型的版本字串（與 Predictor.version 同一個 model_version；不載入權重，只讀 metadata.json）。"""
+    meta_path = artifacts_dir / PRODUCTION_MODEL / "metadata.json"
     if not meta_path.exists():
         return None
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    suffix = "+cal" if SIGNAL_CONFIDENCE_THRESHOLDS else ""
-    return f"{meta['model_name']}-{meta['trained_at'][:10]}{suffix}"
+    return model_version(json.loads(meta_path.read_text(encoding="utf-8")))
 
 
 def main() -> None:

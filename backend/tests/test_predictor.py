@@ -1,9 +1,12 @@
 """resolve_signal 決策規則與版本字串的單元測試。"""
 
+import json
+
 import numpy as np
 
-from stockta.config import LABEL_CLASSES, SIGNAL_CONFIDENCE_THRESHOLDS
+from stockta.config import LABEL_CLASSES, PRODUCTION_MODEL, SIGNAL_CONFIDENCE_THRESHOLDS
 from stockta.inference.predictor import Predictor, resolve_signal
+from stockta.ml.report_predictions import current_production_version
 
 DOWN, HOLD, UP = 0, 1, 2
 
@@ -46,6 +49,16 @@ def test_version_marks_calibrated_rule():
         model=None, scaler=None, metadata={"model_name": "gru", "trained_at": "2026-07-11T00:00:00"}
     )
     assert predictor.version == "gru-2026-07-11+cal"
+
+
+def test_report_reads_the_same_version_as_the_predictor(tmp_path):
+    # predictions.db 以版本字串區分模型：線上記錄（Predictor）與報告（只讀 metadata.json）必須組出同一個字串
+    metadata = {"model_name": "gru", "trained_at": "2026-08-14T06:30:00+00:00"}
+    (tmp_path / PRODUCTION_MODEL).mkdir()
+    (tmp_path / PRODUCTION_MODEL / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    predictor = Predictor(model=None, scaler=None, metadata=metadata)
+    assert current_production_version(tmp_path) == predictor.version == "gru-2026-08-14+cal"
+    assert current_production_version(tmp_path / "missing") is None
 
 
 def test_label_order_assumed_by_rule():

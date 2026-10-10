@@ -6,6 +6,7 @@ Predictor 不碰網路——OHLCV 由呼叫端經 DataProvider 取得後傳入�
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -26,6 +27,15 @@ from stockta.ml import registry
 
 class InsufficientDataError(RuntimeError):
     """暖機後資料不足一個滑動視窗，無法推論。"""
+
+
+def model_version(metadata: Mapping[str, Any]) -> str:
+    """artifact metadata → 版本字串；predictions.db 以它區分模型，線上記錄與報告都必須用這一個函式。
+
+    有信心門檻時加註 +cal：同一模型在校準前後的訊號分佈不同，新舊決策規則的紀錄不能混在一起。
+    """
+    suffix = "+cal" if SIGNAL_CONFIDENCE_THRESHOLDS else ""
+    return f"{metadata['model_name']}-{metadata['trained_at'][:10]}{suffix}"
 
 
 @dataclass
@@ -49,10 +59,7 @@ class Predictor:
 
     @property
     def version(self) -> str:
-        # 有信心門檻時加註 +cal：同一模型在校準前後的訊號分佈不同，
-        # predictions.db 以版本字串區分，避免新舊決策規則的紀錄混在一起
-        suffix = "+cal" if SIGNAL_CONFIDENCE_THRESHOLDS else ""
-        return f"{self.metadata['model_name']}-{self.metadata['trained_at'][:10]}{suffix}"
+        return model_version(self.metadata)
 
     def predict(self, ohlcv: pd.DataFrame, context: pd.DataFrame) -> Prediction:
         """context 為市場情境（build_market_context 產物），與訓練共用同一條特徵路徑。"""
