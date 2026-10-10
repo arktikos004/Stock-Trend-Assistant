@@ -60,6 +60,11 @@ python backend/stockta/ledger.py verify --db backend/predictions.db --chain chai
 cd backend && python -m stockta.export_static --out ../frontend/public/data
 cd ../frontend && NEXT_PUBLIC_STATIC_DATA=1 npm run build && npx wrangler pages dev out
 
+# 只改前端時：用 state 分支上一版的網站資料預覽（與 deploy.yml 相同，不跑 Python）
+git fetch github state && mkdir -p frontend/public/data
+git archive github/state site-data | tar -x -C frontend/public/data --strip-components=1
+cd frontend && NEXT_PUBLIC_STATIC_DATA=1 NEXT_PUBLIC_NEWS_API_BASE=https://news.sekinv.com npm run build && npx serve out
+
 # 重訓換模型：上傳新的 Release（新 tag）→ 更新 backend/models.lock 的 tag 與 sha256
 ```
 

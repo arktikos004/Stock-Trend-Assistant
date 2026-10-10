@@ -16,7 +16,7 @@
 | caniuse-lite | CC-BY-4.0 | 瀏覽器相容性資料 | 否 | 只在建置時讀取 |
 | argparse（npm） | Python-2.0 | 開發工具的相依 | 否 | 開發工具 |
 | lightweight-charts | Apache-2.0（另有署名要求） | 網站 K 線圖 | 是 | 依其授權要求，網站頁尾放上 TradingView 連結，圖上保留 TradingView 標誌；NOTICE 原文見文末 |
-| 字型 Geist、Geist Mono | SIL Open Font License 1.1 | 網站字型 | 是 | 由 `next/font` 在建置時下載並隨網站提供，未修改 |
+| lucide-react | ISC | 網站圖示 | 是 | 用到的圖示在建置時打包成 SVG 隨網站提供，未修改。網站文字改用使用者裝置的系統字體，不再隨附字型檔 |
 
 ## Python 套件（後端 API、每日排程與模型訓練；不隨網站散布）
 
@@ -109,6 +109,7 @@
 | detect-libc | 2.1.2 | Apache-2.0 |
 | fancy-canvas | 2.1.0 | MIT |
 | lightweight-charts | 5.2.0 | Apache-2.0 |
+| lucide-react | 1.55.0 | ISC |
 | nanoid | 3.3.15 | MIT |
 | next | 16.2.10 | MIT |
 | picocolors | 1.1.1 | ISC |
