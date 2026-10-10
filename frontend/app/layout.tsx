@@ -1,42 +1,30 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import DataFreshness from "@/components/DataFreshness";
+import type { Metadata, Viewport } from "next";
+import AppShell from "@/components/shell/AppShell";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme-boot";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "台股趨勢預測助理",
-  description: "基於深度學習之股價趨勢預測與投資助理系統（研究原型）",
+  title: { default: "台股相對強弱排序與預測存證平台", template: "%s｜台股排序存證" },
+  description:
+    "台灣 50 成分股的每日相對強弱排序。每筆預測先寫入雜湊鏈存證，到期後公開成績，並依預先聲明的規則監控模型是否失效。研究工具，不構成投資建議。",
 };
 
-// 於 hydration 前套用已儲存主題，避免深色/淺色閃爍（FOUC）
-const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f6f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1116" },
+  ],
+};
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="zh-Hant"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="zh-Hant" data-theme="light" suppressHydrationWarning className="h-full antialiased">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* 首次繪製前套用已儲存的主題，避免深淺閃爍 */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col">
-        {children}
-        <DataFreshness />
+      <body className="flex min-h-full flex-col">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

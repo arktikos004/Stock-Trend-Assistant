@@ -1,334 +1,256 @@
 "use client";
 
 /**
- * 全池掃描：對台灣 50 全池即時推論（或查歷史某日的 point-in-time 重算 + 實際命中）。
- * 訊號分佈 headline + 可依信心/訊號排序、依訊號篩選的表格。
+ * 排序：相對強弱排名（主模型，預設）與方向訊號兩種模式。模式與查詢日期寫在網址
+ * （/scan?mode=signal&date=2026-10-01），可以分享、重新整理不會跑掉。
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import NavTabs from "@/components/NavTabs";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import DateQuery from "@/components/DateQuery";
 import RankView from "@/components/RankView";
-import ThemeToggle from "@/components/ThemeToggle";
-import { api, ApiError, type ScanResponse, type ScanResult, type Signal } from "@/lib/api";
+import { HitMark } from "@/components/TrackRecordCard";
+import Badge from "@/components/ui/Badge";
+import { Notice, Skeleton, TableSkeleton } from "@/components/ui/Feedback";
+import PageHeader from "@/components/ui/PageHeader";
+import Panel from "@/components/ui/Panel";
+import Segmented from "@/components/ui/Segmented";
+import { api, datedSessions, siteMeta, STATIC_DATA, type ScanResponse, type ScanResult, type Signal } from "@/lib/api";
+import { code, pct, share } from "@/lib/format";
+import { errorText, useAsync } from "@/lib/useAsync";
 
-type Mode = "signal" | "rank";
-
+type Mode = "rank" | "signal";
 const SIGNAL_VAR: Record<Signal, string> = { 漲: "--up", 跌: "--down", 觀望: "--hold" };
+const ORDER: Signal[] = ["漲", "觀望", "跌"];
 type SortKey = "confidence" | "signal" | "name";
-type SigFilter = "all" | Signal;
 
-function DistributionBar({ up, hold, down }: { up: number; hold: number; down: number }) {
-  const total = up + hold + down || 1;
+/** 規則降級：觀望的機率低於漲或跌，只因信心不足才轉為觀望 */
+const downgraded = (r: ScanResult) => r.signal === "觀望" && r.proba["觀望"] < Math.max(r.proba["漲"], r.proba["跌"]);
+
+function Distribution({ data }: { data: ScanResponse }) {
+  const total = data.up + data.hold + data.down || 1;
   const segs = [
-    { key: "漲" as Signal, n: up },
-    { key: "觀望" as Signal, n: hold },
-    { key: "跌" as Signal, n: down },
+    { key: "漲" as Signal, n: data.up },
+    { key: "觀望" as Signal, n: data.hold },
+    { key: "跌" as Signal, n: data.down },
   ];
   return (
     <div>
-      <div className="flex h-8 w-full gap-0.5 overflow-hidden rounded-lg">
-        {segs.map((s) =>
-          s.n === 0 ? null : (
-            <div
-              key={s.key}
-              className="flex items-center justify-center text-xs font-semibold text-white"
-              style={{ width: `${(s.n / total) * 100}%`, background: `var(${SIGNAL_VAR[s.key]})`, minWidth: "32px" }}
-              title={`${s.key} ${s.n} 檔`}
-            >
-              {s.key} {s.n}
-            </div>
-          ),
-        )}
+      <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full" role="img" aria-label={segs.map((s) => `${s.key} ${s.n} 檔`).join("、")}>
+        {segs.map((s) => (s.n === 0 ? null : <div key={s.key} style={{ flex: `${s.n} 1 0`, background: `var(${SIGNAL_VAR[s.key]})` }} />))}
       </div>
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+        {segs.map((s) => (
+          <li key={s.key} className="flex items-center gap-1.5">
+            <span className="inline-block size-2.5 rounded-sm" style={{ background: `var(${SIGNAL_VAR[s.key]})` }} aria-hidden="true" />
+            <span className="font-semibold" style={{ color: `var(${SIGNAL_VAR[s.key]})` }}>
+              {s.key}
+            </span>
+            <span className="text-ink-2">
+              {s.n} 檔（{share(s.n / total)}）
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
-export default function ScanPage() {
-  const [mode, setMode] = useState<Mode>("signal");
-  const [data, setData] = useState<ScanResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dateInput, setDateInput] = useState("");
+function SignalView({ date, onDate }: { date: string | null; onDate: (d: string | null) => void }) {
+  const data = useAsync(`scan|${date ?? "latest"}`, () => api.scan(date ?? undefined));
+  const sessions = useAsync("scan-sessions", () => datedSessions("scan"));
+  const meta = useAsync(STATIC_DATA ? "meta" : null, siteMeta);
+  const [filter, setFilter] = useState<"all" | Signal>("all");
   const [sortKey, setSortKey] = useState<SortKey>("confidence");
-  const [filter, setFilter] = useState<SigFilter>("all");
-
-  const run = useCallback(async (date?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await api.scan(date));
-    } catch (e) {
-      setData(null);
-      setError(e instanceof ApiError ? e.message : "發生未知錯誤");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    run();
-  }, [run]);
 
   const rows = useMemo(() => {
-    if (!data) return [];
-    const filtered = filter === "all" ? data.results : data.results.filter((r) => r.signal === filter);
-    const sorted = [...filtered];
-    if (sortKey === "confidence") sorted.sort((a, b) => b.confidence - a.confidence);
-    else if (sortKey === "signal") {
-      const order: Record<Signal, number> = { 漲: 0, 觀望: 1, 跌: 2 };
-      sorted.sort((a, b) => order[a.signal] - order[b.signal] || b.confidence - a.confidence);
-    } else sorted.sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
-    return sorted;
-  }, [data, filter, sortKey]);
+    if (!data.data) return [];
+    const list = filter === "all" ? [...data.data.results] : data.data.results.filter((r) => r.signal === filter);
+    if (sortKey === "confidence") list.sort((a, b) => b.confidence - a.confidence);
+    else if (sortKey === "signal") list.sort((a, b) => ORDER.indexOf(a.signal) - ORDER.indexOf(b.signal) || b.confidence - a.confidence);
+    else list.sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
+    return list;
+  }, [data.data, filter, sortKey]);
+
+  const d = data.data;
+  // 休市日（例如補假）排程仍會產生預測，但沒有新的收盤資料：標明實際用到哪一天的資料
+  const asOf = meta.data?.data_as_of;
+  const staleBase = d && !d.is_historical && asOf && d.base_date > asOf;
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-(--shadow-md)">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 3v18h18" />
-              <path d="M19 9l-5 5-4-4-3 3" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">台股趨勢預測助理</h1>
-            <p className="mt-0.5 text-sm text-ink-3">
-              全池掃描 · {mode === "signal" ? "台灣 50 全池模型訊號總覽" : "相對強弱排序（cross-sectional）"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <NavTabs current="scan" />
-          <ThemeToggle />
-        </div>
-      </header>
-
-      {/* 檢視模式切換（自頂部移入內容區，避免與導覽鈕擠在一起）：訊號總覽 vs 相對強弱排序 */}
-      <div className="mb-5 flex w-fit gap-1 rounded-lg bg-surface-2 p-1">
-        {(["signal", "rank"] as Mode[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            className="rounded-md px-3 py-1.5 text-sm font-medium transition"
-            style={
-              mode === m
-                ? { background: "var(--surface)", color: "var(--ink)", boxShadow: "var(--shadow-sm)" }
-                : { color: "var(--ink-3)" }
-            }
-          >
-            {m === "signal" ? "訊號" : "相對強弱排名"}
-          </button>
-        ))}
-      </div>
-
-      {mode === "rank" && <RankView />}
-
-      {mode === "signal" && (
-      <>
-      {/* 日期查詢列 */}
-      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4 shadow-(--shadow-sm)">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-ink-3">查詢日期（留空＝即時）</label>
-          <input
-            type="date"
-            value={dateInput}
-            onChange={(e) => setDateInput(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => run(dateInput || undefined)}
-          className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg shadow-(--shadow-sm) transition hover:opacity-90"
-        >
-          查詢
-        </button>
-        {dateInput && (
-          <button
-            type="button"
-            onClick={() => {
-              setDateInput("");
-              run();
-            }}
-            className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
-          >
-            回到即時
-          </button>
+    <Panel
+      title={d ? `${d.base_date} 的方向訊號（${d.results.length} 檔）` : "方向訊號"}
+      description={
+        d
+          ? d.is_historical
+            ? `歷史回放：point-in-time 重算，模型 ${d.model_version}`
+            : `最新收盤${staleBase ? `（${d.base_date} 沒有新的收盤資料，使用截至 ${asOf} 的資料）` : ""}，模型 ${d.model_version}`
+          : undefined
+      }
+      bodyClassName="p-0"
+    >
+      <div className="space-y-4 border-b border-border px-4 py-3">
+        <DateQuery value={date} sessions={sessions.data ?? null} onChange={onDate} />
+        {d && d.results.length > 0 && <Distribution data={d} />}
+        {d?.is_historical && d.matured > 0 && (
+          <p className="text-sm text-ink-2">
+            這一天已到期 {d.matured} 檔，命中 {share(d.hits / d.matured)}。
+          </p>
         )}
-        {data && (
-          <span className="ml-auto text-xs text-ink-3">
-            {data.is_historical ? "歷史回放" : "即時"} · 基準日 {data.base_date} · {data.model_version}
-          </span>
+        {d && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Segmented
+              label="只看某種訊號"
+              size="sm"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: "all", label: "全部" },
+                { value: "漲", label: "漲" },
+                { value: "觀望", label: "觀望" },
+                { value: "跌", label: "跌" },
+              ]}
+            />
+            <Segmented
+              label="排序方式"
+              size="sm"
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: "confidence", label: "依信心" },
+                { value: "signal", label: "依訊號" },
+                { value: "name", label: "依名稱" },
+              ]}
+            />
+          </div>
         )}
       </div>
 
-      {error && (
-        <div
-          className="mb-5 rounded-xl border px-4 py-3 text-sm"
-          style={{ borderColor: "var(--up)", background: "var(--up-soft)", color: "var(--up)" }}
-        >
-          {error}
+      {data.error ? (
+        <div className="p-4">
+          <Notice tone="error">{errorText(data.error, "這一天的方向訊號沒有產生。")}</Notice>
         </div>
-      )}
-
-      {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-2xl border border-border text-sm text-ink-3">
-          全池推論中…（{data?.is_historical ? "歷史回放" : "即時"}約數秒）
+      ) : data.loading ? (
+        <div className="p-4">
+          <TableSkeleton rows={12} label="方向訊號讀取中" />
         </div>
-      ) : data && data.results.length > 0 ? (
-        <>
-          {/* 分佈 headline */}
-          <section className="mb-5 rounded-2xl border border-border bg-surface p-5 shadow-(--shadow-sm)">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-ink-2">
-                模型訊號分佈（{data.results.length} 檔）
-              </h2>
-              {data.is_historical && data.matured > 0 && (
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                >
-                  當日已到期 {data.matured} 檔・命中率 {Math.round((data.hits / data.matured) * 100)}%
-                </span>
-              )}
-            </div>
-            <DistributionBar up={data.up} hold={data.hold} down={data.down} />
-          </section>
-
-          {/* 控制列 */}
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <div className="flex gap-1.5">
-              {(["all", "漲", "觀望", "跌"] as SigFilter[]).map((f) => {
-                const active = filter === f;
-                const v = f === "all" ? "--accent" : SIGNAL_VAR[f as Signal];
-                return (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setFilter(f)}
-                    className="rounded-full px-2.5 py-1 text-xs font-medium transition"
-                    style={
-                      active
-                        ? { background: `var(${v})`, color: "#fff" }
-                        : { background: "var(--surface-2)", color: "var(--ink-2)" }
-                    }
-                  >
-                    {f === "all" ? "全部" : f}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="ml-auto flex items-center gap-1.5 text-xs text-ink-3">
-              <span>排序</span>
-              {(["confidence", "signal", "name"] as SortKey[]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setSortKey(k)}
-                  className="rounded-md px-2 py-1 font-medium transition"
-                  style={
-                    sortKey === k
-                      ? { background: "var(--accent-soft)", color: "var(--accent)" }
-                      : { background: "var(--surface-2)", color: "var(--ink-2)" }
-                  }
-                >
-                  {k === "confidence" ? "信心" : k === "signal" ? "訊號" : "名稱"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 表格 */}
-          <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-(--shadow-sm)">
-            <table className="w-full min-w-[560px] text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-ink-3">
-                  <th className="px-4 py-2.5 font-medium">標的</th>
-                  <th className="px-4 py-2.5 font-medium">訊號</th>
-                  <th className="px-4 py-2.5 font-medium">信心</th>
-                  <th className="px-4 py-2.5 font-medium">三類機率</th>
-                  {data.is_historical && <th className="px-4 py-2.5 font-medium">實際</th>}
-                  {data.is_historical && <th className="px-4 py-2.5 text-center font-medium">命中</th>}
+      ) : d?.is_mock ? (
+        <p className="p-6 text-center text-sm text-ink-3">模型還沒有載入，無法產生方向訊號。</p>
+      ) : d ? (
+        <div className="relative overflow-x-auto">
+          <table className="w-full min-w-[22rem] text-table">
+            <thead className="sticky top-0 bg-surface-2">
+              <tr className="border-b border-border text-left text-xs text-ink-3">
+                <th scope="col" className="px-3 py-2 font-medium">股票</th>
+                <th scope="col" className="px-3 py-2 font-medium">訊號</th>
+                <th scope="col" className="px-3 py-2 font-medium">三類機率（漲／觀望／跌）</th>
+                {d.is_historical && <th scope="col" className="px-3 py-2 font-medium">實際</th>}
+                {d.is_historical && <th scope="col" className="hidden px-3 py-2 text-right font-medium sm:table-cell">5 日報酬</th>}
+                {d.is_historical && <th scope="col" className="px-3 py-2 text-center font-medium">命中</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => (
+                <tr key={r.ticker} className="transition-colors duration-150 hover:bg-surface-2">
+                  <td className="px-3 py-2">
+                    <Link href={`/stock?t=${encodeURIComponent(r.ticker)}`} className="font-medium text-ink hover:underline">
+                      {r.name}
+                    </Link>
+                    <span className="ml-2 text-xs text-ink-3">{code(r.ticker)}</span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-semibold" style={{ color: `var(${SIGNAL_VAR[r.signal]})` }}>
+                        {r.signal}
+                      </span>
+                      {downgraded(r) && <Badge tone="hold">規則降級</Badge>}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-ink-2">
+                    {ORDER.map((s, i) => (
+                      <span key={s} className={r.signal === s ? "font-semibold text-ink" : ""}>
+                        {i > 0 && <span className="mx-1 text-ink-3">／</span>}
+                        {share(r.proba[s])}
+                      </span>
+                    ))}
+                  </td>
+                  {d.is_historical && (
+                    <td className="px-3 py-2 font-semibold" style={{ color: r.actual ? `var(${SIGNAL_VAR[r.actual]})` : "var(--ink-3)" }}>
+                      {r.actual ?? "未到期"}
+                    </td>
+                  )}
+                  {d.is_historical && <td className="hidden px-3 py-2 text-right text-ink-2 sm:table-cell">{pct(r.actual_return)}</td>}
+                  {d.is_historical && (
+                    <td className="px-3 py-2 text-center">
+                      <HitMark hit={r.hit} />
+                    </td>
+                  )}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((r) => (
-                  <Row key={r.ticker} r={r} historical={data.is_historical} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      ) : data && data.is_mock ? (
-        <div className="rounded-2xl border border-border p-8 text-center text-sm text-ink-3">
-          模型尚未載入，無法掃描。
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : null}
-      </>
-      )}
 
-      <footer className="mt-8 text-center text-xs text-ink-3">
-        全池掃描與模型走同一條 build_features 推論路徑；歷史查詢為 point-in-time 重算，特徵僅用當日與更早資料。
-      </footer>
-    </main>
+      <p className="border-t border-border px-4 py-3 text-xs leading-relaxed text-ink-3">
+        方向訊號：未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望。信心未達決策門檻時轉為觀望（標「規則降級」）。
+        全池掃描與模型走同一條特徵管線；歷史查詢只用當日與更早的資料重算。
+      </p>
+    </Panel>
   );
 }
 
-function Row({ r, historical }: { r: ScanResult; historical: boolean }) {
-  const pct = Math.round(r.confidence * 100);
+function ScanView() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const mode: Mode = params.get("mode") === "signal" ? "signal" : "rank";
+  const date = params.get("date");
+
+  const update = (next: { mode?: Mode; date?: string | null }) => {
+    const q = new URLSearchParams(params.toString());
+    if (next.mode) {
+      if (next.mode === "rank") q.delete("mode");
+      else q.set("mode", next.mode);
+    }
+    if (next.date !== undefined) {
+      if (next.date) q.set("date", next.date);
+      else q.delete("date");
+    }
+    const s = q.toString();
+    router.replace(s ? `/scan?${s}` : "/scan", { scroll: false });
+  };
+
   return (
-    <tr className="transition hover:bg-surface-2">
-      <td className="px-4 py-2.5">
-        <div className="font-medium text-ink">{r.name}</div>
-        <div className="text-[11px] text-ink-3">{r.ticker}</div>
-      </td>
-      <td className="px-4 py-2.5">
-        <span
-          className="rounded-md px-2 py-0.5 text-xs font-semibold"
-          style={{ color: `var(${SIGNAL_VAR[r.signal]})`, background: `var(${SIGNAL_VAR[r.signal]}-soft)` }}
-        >
-          {r.signal}
-        </span>
-      </td>
-      <td className="px-4 py-2.5 tabular-nums text-ink-2">{pct}%</td>
-      <td className="px-4 py-2.5">
-        <div className="flex h-2 w-28 overflow-hidden rounded-full">
-          {(["漲", "觀望", "跌"] as Signal[]).map((s) => (
-            <div key={s} style={{ width: `${(r.proba[s] ?? 0) * 100}%`, background: `var(${SIGNAL_VAR[s]})` }} />
-          ))}
-        </div>
-      </td>
-      {historical && (
-        <td className="px-4 py-2.5">
-          {r.actual ? (
-            <span className="font-medium" style={{ color: `var(${SIGNAL_VAR[r.actual]})` }}>
-              {r.actual}
-              {r.actual_return != null && (
-                <span className="ml-1 text-[11px] text-ink-3">
-                  {r.actual_return >= 0 ? "+" : ""}
-                  {(r.actual_return * 100).toFixed(1)}%
-                </span>
-              )}
-            </span>
-          ) : (
-            <span className="text-ink-3">未到期</span>
-          )}
-        </td>
+    <>
+      <PageHeader
+        title="排序"
+        description="台灣 50 全池的相對強弱排名（主模型）與方向訊號。可以查最近 60 個交易日的歷史結果。"
+        actions={
+          <Segmented
+            label="檢視模式"
+            value={mode}
+            onChange={(m) => update({ mode: m, date: null })}
+            options={[
+              { value: "rank", label: "相對強弱排名" },
+              { value: "signal", label: "方向訊號" },
+            ]}
+          />
+        }
+      />
+      {mode === "rank" ? (
+        <RankView key={`rank-${date ?? ""}`} date={date} onDate={(d) => update({ date: d })} />
+      ) : (
+        <SignalView key={`signal-${date ?? ""}`} date={date} onDate={(d) => update({ date: d })} />
       )}
-      {historical && (
-        <td className="px-4 py-2.5 text-center">
-          {r.hit == null ? (
-            <span className="text-ink-3">…</span>
-          ) : r.hit ? (
-            <span style={{ color: "var(--down)" }}>✓</span>
-          ) : (
-            <span style={{ color: "var(--up)" }}>✗</span>
-          )}
-        </td>
-      )}
-    </tr>
+    </>
+  );
+}
+
+export default function ScanPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+      <ScanView />
+    </Suspense>
   );
 }

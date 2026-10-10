@@ -1,161 +1,82 @@
 "use client";
 
 /**
- * 全池相對強弱排名檢視：策略摘要卡 + 依 CS 分數排序的表格（可查歷史日期）。
- * 與訊號模式並存於 /scan；資料來自 /api/rank 與 /api/rank/summary。
+ * 全池相對強弱排序：回測摘要、查詢日期（最近 60 個交易日）與可排序的 49 檔排序表，可下載 CSV。
+ * 資料來自 /api/rank 與 /api/rank/summary（靜態站讀 rank/*.json）。
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { Download } from "lucide-react";
+import { useMemo } from "react";
+import RankTable from "@/components/rank/RankTable";
 import StrategySummaryCard from "@/components/StrategySummaryCard";
-import { api, ApiError, type RankResponse, type RankSummaryResponse } from "@/lib/api";
+import { Notice, TableSkeleton } from "@/components/ui/Feedback";
+import Panel from "@/components/ui/Panel";
+import { api, datedSessions } from "@/lib/api";
+import { code } from "@/lib/format";
+import { downloadCsv } from "@/lib/csv";
+import { errorText, useAsync } from "@/lib/useAsync";
+import { useWatchlist } from "@/lib/watchlist";
+import DateQuery from "./DateQuery";
 
-const Q_STYLE: Record<string, { text: string; varName: string }> = {
-  top: { text: "強", varName: "--up" },
-  mid: { text: "中", varName: "--hold" },
-  bottom: { text: "弱", varName: "--down" },
-};
-
-export default function RankView() {
-  const [data, setData] = useState<RankResponse | null>(null);
-  const [summary, setSummary] = useState<RankSummaryResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dateInput, setDateInput] = useState("");
-
-  const run = useCallback(async (date?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await api.rank(date));
-    } catch (e) {
-      setData(null);
-      setError(e instanceof ApiError ? e.message : "發生未知錯誤");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    run();
-    api.rankSummary().then(setSummary).catch(() => setSummary(null));
-  }, [run]);
-
-  const maxScore = data ? Math.max(...data.results.map((r) => r.score), 0.6) : 1;
+export default function RankView({ date, onDate }: { date: string | null; onDate: (d: string | null) => void }) {
+  const summary = useAsync("rank-summary", () => api.rankSummary());
+  const sessions = useAsync("rank-sessions", () => datedSessions("rank"));
+  const screener = useAsync("screener", () => api.screener());
+  const data = useAsync(`rank|${date ?? "latest"}`, () => api.rank(date ?? undefined));
+  const watchlist = useWatchlist();
+  const tiers = useMemo(() => new Map(screener.data?.stocks.map((s) => [s.ticker, s.tier]) ?? []), [screener.data]);
+  const rows = data.data?.results ?? [];
 
   return (
-    <>
-      <div className="mb-5">
-        <StrategySummaryCard s={summary} />
-      </div>
+    <div className="space-y-5">
+      <Panel title="回測摘要" description={summary.data?.model ? `模型 ${summary.data.model}` : undefined}>
+        {summary.error ? <p className="text-sm text-ink-3">回測摘要讀不到。</p> : <StrategySummaryCard s={summary.data ?? null} />}
+      </Panel>
 
-      {/* 日期查詢列 */}
-      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4 shadow-(--shadow-sm)">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-ink-3">查詢日期（留空＝即時）</label>
-          <input
-            type="date"
-            value={dateInput}
-            onChange={(e) => setDateInput(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => run(dateInput || undefined)}
-          className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg shadow-(--shadow-sm) transition hover:opacity-90"
-        >
-          查詢
-        </button>
-        {dateInput && (
+      <Panel
+        title={data.data ? `${data.data.base_date} 的排序（${rows.length} 檔）` : "全池排序"}
+        description={data.data ? (data.data.is_historical ? "歷史查詢：point-in-time 重算" : "最新收盤的排序") : undefined}
+        actions={
           <button
             type="button"
-            onClick={() => {
-              setDateInput("");
-              run();
-            }}
-            className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
+            disabled={rows.length === 0}
+            onClick={() =>
+              downloadCsv(
+                `rank-${data.data?.base_date ?? "latest"}.csv`,
+                ["名次", "代號", "名稱", "分數", "百分位", "篩選層級"],
+                rows.map((r) => [r.rank, code(r.ticker), r.name, r.score.toFixed(4), r.percentile.toFixed(4), tiers.get(r.ticker) ?? ""]),
+              )
+            }
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink disabled:opacity-50"
           >
-            回到即時
+            <Download size={14} aria-hidden="true" />
+            下載 CSV
           </button>
+        }
+        bodyClassName="p-0"
+      >
+        <div className="border-b border-border px-4 py-3">
+          <DateQuery value={date} sessions={sessions.data ?? null} onChange={onDate} />
+        </div>
+        {data.error ? (
+          <div className="p-4">
+            <Notice tone="error">{errorText(data.error, "這一天的排序沒有產生。")}</Notice>
+          </div>
+        ) : data.loading ? (
+          <div className="p-4">
+            <TableSkeleton rows={12} label="排序讀取中" />
+          </div>
+        ) : data.data?.is_mock ? (
+          <p className="p-6 text-center text-sm text-ink-3">相對強弱模型還沒有載入。</p>
+        ) : (
+          <RankTable rows={rows} tiers={tiers} watchlist={watchlist} sortable />
         )}
-        {data && (
-          <span className="ml-auto text-xs text-ink-3">
-            {data.is_historical ? "歷史" : "即時"} · 基準日 {data.base_date} · {data.model}
-          </span>
-        )}
-      </div>
+      </Panel>
 
-      {error && (
-        <div
-          className="mb-5 rounded-xl border px-4 py-3 text-sm"
-          style={{ borderColor: "var(--up)", background: "var(--up-soft)", color: "var(--up)" }}
-        >
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-2xl border border-border text-sm text-ink-3">
-          全池評分排序中…
-        </div>
-      ) : data && data.results.length > 0 ? (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-(--shadow-sm)">
-          <table className="w-full min-w-[520px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-ink-3">
-                <th className="px-4 py-2.5 font-medium">排名</th>
-                <th className="px-4 py-2.5 font-medium">標的</th>
-                <th className="px-4 py-2.5 font-medium">相對強弱分數</th>
-                <th className="px-4 py-2.5 font-medium">百分位</th>
-                <th className="px-4 py-2.5 text-center font-medium">分組</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {data.results.map((r) => {
-                const q = Q_STYLE[r.quantile];
-                return (
-                  <tr key={r.ticker} className="transition hover:bg-surface-2">
-                    <td className="px-4 py-2.5 tabular-nums font-semibold text-ink">{r.rank}</td>
-                    <td className="px-4 py-2.5">
-                      <div className="font-medium text-ink">{r.name}</div>
-                      <div className="text-[11px] text-ink-3">{r.ticker}</div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-28 overflow-hidden rounded-full bg-surface-2">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${(r.score / maxScore) * 100}%`, background: `var(${q.varName})` }}
-                          />
-                        </div>
-                        <span className="tabular-nums text-xs text-ink-2">{r.score.toFixed(3)}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5 tabular-nums text-ink-3">{Math.round(r.percentile * 100)}%</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span
-                        className="rounded-md px-2 py-0.5 text-xs font-semibold"
-                        style={{ color: `var(${q.varName})`, background: `var(${q.varName}-soft)` }}
-                      >
-                        {q.text}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : data && data.is_mock ? (
-        <div className="rounded-2xl border border-border p-8 text-center text-sm text-ink-3">
-          相對強弱模型尚未載入。
-        </div>
-      ) : null}
-
-      <p className="mt-4 text-[11px] leading-relaxed text-ink-3">
-        分數＝模型預測「未來 5 日贏過全池中位數」的機率；排名越前＝相對越強。歷史查詢為 point-in-time 重算。
-        僅供研究參考，非投資建議。
+      <p className="text-xs leading-relaxed text-ink-3">
+        分數是模型預測「未來 5 個交易日贏過全池中位數」的機率，名次越前代表相對越強；分組以前、後 20% 分為強、弱。
+        歷史查詢是 point-in-time 重算。研究用的排序，不是投資建議。
       </p>
-    </>
+    </div>
   );
 }

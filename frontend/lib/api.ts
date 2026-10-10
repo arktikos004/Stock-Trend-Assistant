@@ -372,6 +372,20 @@ interface DatedIndex {
 const staticGet = <T>(path: string) => request<T>(path, DATA_BASE);
 const enc = encodeURIComponent;
 
+// 每天只更新一次的檔案，一次瀏覽內只抓一次：狀態列與各頁共用同一個請求；失敗不快取，下次重試
+const onceCache = new Map<string, Promise<unknown>>();
+function staticOnce<T>(path: string): Promise<T> {
+  let pending = onceCache.get(path) as Promise<T> | undefined;
+  if (!pending) {
+    pending = staticGet<T>(path).catch((e) => {
+      onceCache.delete(path);
+      throw e;
+    });
+    onceCache.set(path, pending);
+  }
+  return pending;
+}
+
 let metaPromise: Promise<SiteMeta> | null = null;
 export function siteMeta(): Promise<SiteMeta> {
   metaPromise ??= staticGet<SiteMeta>("/meta.json").catch((e) => {
@@ -391,11 +405,18 @@ function assertOrdered(start: string, end: string) {
   if (start >= end) throw new ApiError(422, "INVALID_RANGE", `起日需早於迄日：${start} ~ ${end}`);
 }
 
+/** 靜態站保留的交易日（scan、rank 各自的 index.json）；給日期欄設上下限。本機 API 模式回 null。 */
+export async function datedSessions(kind: "scan" | "rank"): Promise<string[] | null> {
+  if (!STATIC_DATA) return null;
+  const idx = await staticOnce<DatedIndex>(`/${kind}/index.json`);
+  return idx.sessions;
+}
+
 /** scan/rank 查歷史某日：同 API，≥ 錨點日走即時；否則對齊到 ≤ 查詢日的最後一個交易日。 */
 async function staticDated<T>(kind: "scan" | "rank", date?: string): Promise<T> {
-  if (!date) return staticGet<T>(`/${kind}/latest.json`);
-  const [meta, idx] = await Promise.all([siteMeta(), staticGet<DatedIndex>(`/${kind}/index.json`)]);
-  if (date >= meta.last_trading_day) return staticGet<T>(`/${kind}/latest.json`);
+  if (!date) return staticOnce<T>(`/${kind}/latest.json`);
+  const [meta, idx] = await Promise.all([siteMeta(), staticOnce<DatedIndex>(`/${kind}/index.json`)]);
+  if (date >= meta.last_trading_day) return staticOnce<T>(`/${kind}/latest.json`);
   const session = [...idx.sessions].reverse().find((d) => d <= date);
   if (!session) {
     throw new ApiError(422, "OUT_OF_RANGE", `靜態站保留最近 ${idx.sessions.length} 個交易日（${idx.sessions[0]} 起）`);
@@ -407,7 +428,7 @@ async function staticDated<T>(kind: "scan" | "rank", date?: string): Promise<T> 
 }
 
 const staticApi: typeof liveApi = {
-  stocks: () => staticGet("/stocks.json"),
+  stocks: () => staticOnce("/stocks.json"),
   candles: async (ticker, range, start, end) => {
     const meta = await siteMeta();
     // 只顯示證交所開放資料；還沒有資料（或舊版 site-data 的 yfinance K 線已被移除）時回空清單，由頁面顯示說明
@@ -431,16 +452,16 @@ const staticApi: typeof liveApi = {
     return { ticker: full.ticker, candles: full.candles.filter((c) => c.time >= lo && c.time <= hi) };
   },
   prediction: (ticker) => staticGet(`/stocks/${enc(ticker)}/prediction.json`),
-  modelInfo: () => staticGet("/model.json"),
+  modelInfo: () => staticOnce("/model.json"),
   indicators: (ticker) => staticGet(`/stocks/${enc(ticker)}/indicators.json`),
-  market: () => staticGet("/market.json"),
+  market: () => staticOnce("/market.json"),
   predictionHistory: (ticker) => staticGet(`/stocks/${enc(ticker)}/predictions.json`),
-  trackRecord: () => staticGet("/track-record.json"),
+  trackRecord: () => staticOnce("/track-record.json"),
   scan: (date) => staticDated("scan", date),
   rank: (date) => staticDated("rank", date),
-  rankSummary: () => staticGet("/rank/summary.json"),
-  screener: () => staticGet("/screener/latest.json"),
-  monitor: () => staticGet("/monitor.json"),
+  rankSummary: () => staticOnce("/rank/summary.json"),
+  screener: () => staticOnce("/screener/latest.json"),
+  monitor: () => staticOnce("/monitor.json"),
   stockHistory: async (ticker, start, end) => {
     const [meta, full] = await Promise.all([
       siteMeta(),
@@ -468,3 +489,32 @@ const staticApi: typeof liveApi = {
 };
 
 export const api = STATIC_DATA ? staticApi : liveApi;
+
+// --- 存證鏈最新一節（直接讀 GitHub 上公開的 ledger 分支；讀不到時頁面改用 monitor.json 的摘要）---
+
+export const LEDGER_CHAIN_URL = "https://raw.githubusercontent.com/arktikos004/Stock-Trend-Assistant/ledger/chain.jsonl";
+
+export interface LedgerLink {
+  seq: number; // 從 0 起算
+  recorded_at: string; // ISO UTC
+  ranges: Record<string, { rows: number }>;
+  rows_sha256: string;
+  prev_hash: string;
+  hash: string;
+  run_id?: string; // 寫入這一節的 GitHub Actions 執行編號
+}
+
+let ledgerPromise: Promise<LedgerLink | null> | null = null;
+export function ledgerHead(): Promise<LedgerLink | null> {
+  ledgerPromise ??= fetch(LEDGER_CHAIN_URL)
+    .then(async (res) => {
+      if (!res.ok) throw new ApiError(res.status, "LEDGER_UNAVAILABLE", "讀不到存證鏈檔");
+      const lines = (await res.text()).trim().split("\n").filter(Boolean);
+      return lines.length ? (JSON.parse(lines[lines.length - 1]) as LedgerLink) : null;
+    })
+    .catch((e) => {
+      ledgerPromise = null;
+      throw e;
+    });
+  return ledgerPromise;
+}
