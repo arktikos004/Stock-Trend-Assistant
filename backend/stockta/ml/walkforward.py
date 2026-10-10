@@ -47,6 +47,7 @@ from stockta.data.provider import DataProviderError, YFinanceProvider
 from stockta.features.market import build_market_context
 from stockta.ml.calibrate import apply_thresholds, best_thresholds
 from stockta.ml.dataset import build_dataset
+from stockta.ml.labeling import LABEL_DOWN, LABEL_HOLD, LABEL_UP
 from stockta.ml.train import create_model
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
@@ -108,9 +109,9 @@ def _score(proba: np.ndarray, y: np.ndarray, down: float, up: float) -> dict[str
     return {
         "raw_accuracy": float((proba.argmax(axis=1) == y).mean()),
         "accuracy": float((pred == y).mean()),
-        "down_precision": precision(0),
-        "up_precision": precision(2),
-        "down_share": float((pred == 0).mean()) if n else float("nan"),
+        "down_precision": precision(LABEL_DOWN),
+        "up_precision": precision(LABEL_UP),
+        "down_share": float((pred == LABEL_DOWN).mean()) if n else float("nan"),
     }
 
 
@@ -309,8 +310,8 @@ def write_report(results: list[FoldResult], model_name: str, stride: int) -> Non
         "- 折數只有 4，平均值本身也是小樣本統計；本表用來看**趨勢方向**與**喊跌偏誤是否收斂**。",
         "- 每折都重新校準門檻，故「重訓組」量到的是「重訓＋重校準」的合計效果，"
         "沒有再拆開單獨歸因。",
-        f"- 標籤定義同正式流程：未來 5 個交易日累積報酬 >+2% 為「{LABEL_CLASSES[2]}」、"
-        f"<-2% 為「{LABEL_CLASSES[0]}」，其餘「{LABEL_CLASSES[1]}」。",
+        f"- 標籤定義同正式流程：未來 5 個交易日累積報酬 >+2% 為「{LABEL_CLASSES[LABEL_UP]}」、"
+        f"<-2% 為「{LABEL_CLASSES[LABEL_DOWN]}」，其餘「{LABEL_CLASSES[LABEL_HOLD]}」。",
         "",
         "> 由 `python -m stockta.ml.walkforward` 產生。",
         "",

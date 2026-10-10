@@ -11,11 +11,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from stockta.config import LABEL_DOWN_THRESHOLD, LABEL_HORIZON_DAYS, LABEL_UP_THRESHOLD
+from stockta.config import LABEL_CLASSES, LABEL_DOWN_THRESHOLD, LABEL_HORIZON_DAYS, LABEL_UP_THRESHOLD
 
-LABEL_DOWN = 0
-LABEL_HOLD = 1
-LABEL_UP = 2
+# 類別索引由 config.LABEL_CLASSES 推出：順序只在 config 定義一次，這裡不另外寫死數字
+LABEL_DOWN = LABEL_CLASSES.index("跌")
+LABEL_HOLD = LABEL_CLASSES.index("觀望")
+LABEL_UP = LABEL_CLASSES.index("漲")
 
 
 def make_labels(close: pd.Series, horizon: int = LABEL_HORIZON_DAYS) -> pd.Series:

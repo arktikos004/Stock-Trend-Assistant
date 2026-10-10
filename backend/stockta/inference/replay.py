@@ -14,15 +14,18 @@ import pandas as pd
 
 from stockta.config import (
     INDICATOR_WARMUP_DAYS,
+    LABEL_CLASSES,
+    LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
+    STOCK_POOL,
     WINDOW_LENGTH_DAYS,
 )
 from stockta.data.calendar import calendar_lookback_days
 from stockta.data.provider import DataProvider, DataProviderError
 from stockta.features.market import build_market_context
 from stockta.features.pipeline import build_features
-from stockta.inference.predictor import Predictor, resolve_signal
-from stockta.config import STOCK_POOL
+from stockta.inference.decision import resolve_signal
+from stockta.inference.predictor import Predictor
 
 _CONTEXT_EXTRA_DAYS = 40
 
@@ -66,8 +69,6 @@ def scan_asof(
 
 def signal_of(proba: np.ndarray) -> str:
     """機率 → 正式決策規則（含信心門檻）的訊號字串。"""
-    from stockta.config import LABEL_CLASSES
-
     return LABEL_CLASSES[resolve_signal(proba)]
 
 
@@ -81,7 +82,6 @@ def history_series(
     """單一標的在 (start, end] 每個已到期交易日的 point-in-time 預測 vs 實際。
     僅回傳已到期（基準日後滿 LABEL_HORIZON_DAYS 個交易日）的樣本。
     """
-    from stockta.config import LABEL_CLASSES, LABEL_HORIZON_DAYS
     from stockta.ml.backtest import collect_probas
 
     proba, y_true, dates = collect_probas(predictor, ohlcv, context, start)

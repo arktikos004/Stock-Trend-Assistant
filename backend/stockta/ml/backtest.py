@@ -40,6 +40,7 @@ from stockta.data.calendar import last_completed_trading_day
 from stockta.data.provider import DataProviderError, YFinanceProvider
 from stockta.features.market import build_market_context
 from stockta.features.pipeline import build_features
+from stockta.inference.decision import apply_thresholds
 from stockta.inference.predictor import Predictor
 from stockta.ml.labeling import make_labels
 
@@ -67,16 +68,6 @@ def collect_probas(
 
     proba = predictor._model.predict_proba(windows[mask])
     return proba, y[mask].astype(int), end_dates[mask].values
-
-
-def apply_thresholds_batch(proba: np.ndarray) -> np.ndarray:
-    """resolve_signal 的向量化版本：對 (n,3) 機率套用正式決策規則。"""
-    pred = proba.argmax(axis=1)
-    hold = LABEL_CLASSES.index("觀望")
-    for name, tau in SIGNAL_CONFIDENCE_THRESHOLDS.items():
-        k = LABEL_CLASSES.index(name)
-        pred[(pred == k) & (proba[:, k] < tau)] = hold
-    return pred
 
 
 def signal_table(y_true: np.ndarray, y_pred: np.ndarray) -> list[str]:
@@ -136,7 +127,7 @@ def main() -> int:
     y_true = np.concatenate(actuals)
     end_dt = pd.DatetimeIndex(np.concatenate(dates))
     pred_raw = proba.argmax(axis=1)
-    pred_cal = apply_thresholds_batch(proba)
+    pred_cal = apply_thresholds(proba)
     n = len(y_true)
     hit_raw = float((pred_raw == y_true).mean())
     hit_cal = float((pred_cal == y_true).mean())

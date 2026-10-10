@@ -20,23 +20,12 @@ from stockta.config import (
     SIGNAL_CONFIDENCE_THRESHOLDS,
     WINDOW_LENGTH_DAYS,
 )
+from stockta.inference.decision import resolve_signal
 from stockta.ml import registry
 
 
 class InsufficientDataError(RuntimeError):
     """暖機後資料不足一個滑動視窗，無法推論。"""
-
-
-def resolve_signal(proba: np.ndarray) -> int:
-    """機率 → 類別索引的唯一決策規則（Predictor 與回測共用）。
-
-    argmax 為方向訊號（漲/跌）但信心低於 SIGNAL_CONFIDENCE_THRESHOLDS 時
-    降級為「觀望」——門檻由驗證期校準（見 config 該設定的註解）。
-    """
-    idx = int(np.argmax(proba))
-    if proba[idx] < SIGNAL_CONFIDENCE_THRESHOLDS.get(LABEL_CLASSES[idx], 0.0):
-        return LABEL_CLASSES.index("觀望")
-    return idx
 
 
 @dataclass

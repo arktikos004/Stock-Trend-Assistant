@@ -23,8 +23,9 @@ from stockta.features.pipeline import (
     build_features,
     feature_columns_for,
 )
-from stockta.ml.calibrate import HOLD, apply_thresholds, best_thresholds
+from stockta.ml.calibrate import apply_thresholds, best_thresholds
 from stockta.ml.dataset import build_dataset
+from stockta.ml.labeling import LABEL_HOLD as HOLD
 
 
 @pytest.fixture

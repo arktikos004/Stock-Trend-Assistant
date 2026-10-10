@@ -29,25 +29,20 @@ from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day
 from stockta.data.provider import DataProviderError, YFinanceProvider
 from stockta.features.market import build_market_context
+from stockta.inference import decision
 from stockta.inference.predictor import Predictor
 from stockta.ml.backtest import collect_probas
-
-HOLD = 1  # LABEL_CLASSES.index("觀望")
 
 # 門檻網格：低於門檻的方向訊號降級為觀望
 THRESHOLD_GRID = np.arange(0.34, 0.72, 0.01)
 
 
 def apply_thresholds(proba: np.ndarray, down: float, up: float) -> np.ndarray:
-    """把機率轉成訊號：argmax 後，信心不足的「跌／漲」一律降級為「觀望」。
+    """以（跌, 漲）兩個候選門檻套用正式決策規則；規則本身在 inference/decision.py。
 
-    這是決策規則的唯一實作；predictor.resolve_signal 是它的單筆版本，
-    calibrate 與 walkforward 都必須走這裡，否則校準出來的門檻與線上行為不一致。
+    best_thresholds 與 walk-forward 用這個簽名搜尋門檻，與線上走的是同一條規則。
     """
-    pred = proba.argmax(axis=1)
-    pred[(pred == 0) & (proba[:, 0] < down)] = HOLD
-    pred[(pred == 2) & (proba[:, 2] < up)] = HOLD
-    return pred
+    return decision.apply_thresholds(proba, {"跌": down, "漲": up})
 
 
 def best_thresholds(
