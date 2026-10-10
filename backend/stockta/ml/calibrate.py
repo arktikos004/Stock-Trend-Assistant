@@ -19,7 +19,6 @@ import pandas as pd
 from stockta.config import (
     AUTO_ADJUST,
     DATA_CACHE_DIR,
-    LABEL_CLASSES,
     MARKET_INDEX_TICKER,
     PRODUCTION_MODEL,
     SPLIT_TRAIN_END,

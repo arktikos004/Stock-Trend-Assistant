@@ -1,7 +1,6 @@
 """resolve_signal 決策規則與版本字串的單元測試。"""
 
 import numpy as np
-import pytest
 
 from stockta.config import LABEL_CLASSES, SIGNAL_CONFIDENCE_THRESHOLDS
 from stockta.inference.predictor import Predictor, resolve_signal

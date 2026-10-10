@@ -427,7 +427,7 @@ async function staticDated<T>(kind: "scan" | "rank", date?: string): Promise<T> 
   return staticGet<T>(`/${kind}/${session}.json`);
 }
 
-const staticApi: typeof liveApi = {
+export const staticApi: typeof liveApi = {
   stocks: () => staticOnce("/stocks.json"),
   candles: async (ticker, range, start, end) => {
     const meta = await siteMeta();

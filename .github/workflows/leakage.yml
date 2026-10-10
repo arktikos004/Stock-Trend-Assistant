@@ -1,11 +1,11 @@
-# 洩漏回歸測試 CI（GitHub Actions；2026-09 推上 GitHub 後開始實際執行）。
+# 後端測試 CI（GitHub Actions）：先跑洩漏回歸測試（打亂標籤、無前視偏差），再跑其餘全部測試。
 # 本機仍保留 scripts/githooks/pre-push 作為推送前的第一道把關（安裝方式見 scripts/install_hooks.ps1）。
-# 只在 master 的 push 與 PR 觸發：每日排程的機器人只推 state 分支，不會觸發這裡。
+# master 與 cleanup/** 分支的 push、PR 觸發：每日排程的機器人只推 state 分支，不會觸發這裡。
 name: leakage
 
 on:
   push:
-    branches: [master]
+    branches: [master, "cleanup/**"]
   pull_request:
 
 jobs:
@@ -32,3 +32,6 @@ jobs:
 
       - name: 打亂標籤測試與無前視偏差測試
         run: python -m pytest -m leakage -v
+
+      - name: 其餘測試
+        run: python -m pytest -m "not leakage"

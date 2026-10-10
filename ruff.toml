@@ -1,0 +1,6 @@
+# ruff 設定（CI：.github/workflows/lint.yml）。目前只開 pyflakes（F）：未使用的 import 與變數、
+# 未定義的名稱、沒有佔位符的 f-string。其他規則等之後的整理階段再逐步加入。
+target-version = "py311"
+
+[lint]
+select = ["F"]

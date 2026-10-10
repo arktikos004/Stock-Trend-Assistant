@@ -1,0 +1,49 @@
+# 靜態檢查與前端單元測試：ruff（Python；規則見 ruff.toml）、eslint、vitest。
+# 觸發條件與 leakage.yml 相同；這裡只檢查、不部署（部署由 daily.yml／deploy.yml 在 master 上負責）。
+name: lint
+
+on:
+  push:
+    branches: [master, "cleanup/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    runs-on: ubuntu-24.04 # 固定版本：ubuntu-latest 自 2026-10-19 起改為 Ubuntu 26
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.10"
+
+      - name: ruff（版本鎖定）
+        run: |
+          pip install ruff==0.17.0
+          ruff check .
+
+  frontend:
+    runs-on: ubuntu-24.04 # 固定版本：ubuntu-latest 自 2026-10-19 起改為 Ubuntu 26
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝相依
+        run: npm ci --no-audit --no-fund
+
+      - name: eslint
+        run: npm run lint
+
+      - name: 單元測試（vitest）
+        run: npm test

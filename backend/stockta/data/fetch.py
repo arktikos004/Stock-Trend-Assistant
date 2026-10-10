@@ -13,8 +13,6 @@ from __future__ import annotations
 import time
 from datetime import timedelta
 
-import pandas as pd
-
 from stockta.config import (
     AUTO_ADJUST,
     BACKEND_ROOT,
