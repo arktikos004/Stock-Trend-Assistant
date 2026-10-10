@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 前端：台股相對強弱排序與預測存證平台
 
-## Getting Started
+Next.js 16（App Router）＋ TypeScript ＋ Tailwind v4，K 線用 TradingView Lightweight Charts v5，圖示用 lucide-react。
+這一版 Next.js 的 API 與慣例和舊版不同，寫程式前先看 `node_modules/next/dist/docs/` 裡對應的說明（見 [AGENTS.md](AGENTS.md)）。
 
-First, run the development server:
+## 兩種執行方式
+
+本機開發接即時後端：
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000，後端 uvicorn 要先在 :8000 啟動（見根目錄 README）
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+公開站是靜態輸出，資料讀 `public/data/*.json`（每日排程匯出，不進版控）：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+NEXT_PUBLIC_STATIC_DATA=1 NEXT_PUBLIC_NEWS_API_BASE=https://news.sekinv.com npm run build   # 輸出到 out/
+npx serve out      # 或 npx wrangler pages dev out
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`public/data` 的取得方式與部署流程見 [docs/deploy.md](../docs/deploy.md)。
 
-## Learn More
+## 檢查
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+npx tsc --noEmit
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 結構
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| 位置 | 內容 |
+| --- | --- |
+| `app/` | 五個頁面：`/` 總覽、`/stock` 個股、`/scan` 排序、`/screener` 篩選器、`/monitor` 監控 |
+| `components/shell/` | 全站外框：頂列與手機底部分頁列、狀態列、選單抽屜、代號搜尋 |
+| `components/ui/` | 共用元件：面板、頁首、徽章、分段切換、骨架與空狀態 |
+| `lib/api.ts` | API client；靜態站模式下由瀏覽器端切片 JSON，規則逐一對照後端路由 |
+| `app/globals.css` | 設計 token（淺色、深色、跟隨系統） |
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+介面的定位與視覺依據見根目錄的 [PRODUCT.md](../PRODUCT.md) 與 [DESIGN.md](../DESIGN.md)。

@@ -6,7 +6,7 @@
 
 | 工具 | 提供者 | 用在哪個階段 | 用途 |
 | --- | --- | --- | --- |
-| Claude Code（Claude 系列模型） | Anthropic（美國） | 開發 | 撰寫與重構程式碼、測試與技術文件；依開發者指定的方向實作實驗腳本；程式碼審查 |
+| Claude Code（Claude 系列模型） | Anthropic（美國） | 開發 | 撰寫與重構程式碼、測試與技術文件；依開發者指定的方向實作實驗腳本；程式碼審查；網站介面設計與文案潤飾（依公開的 skill 指引：frontend-design、impeccable、humanizer、Humanizer-zh；設計方向與取捨由開發者決定） |
 
 - 用 AI 協助完成的 commit 都以 `Co-Authored-By: Claude …` 標註，可在 git 歷史逐筆查到。
 - 協作流程記錄在 [docs/agents/](docs/agents/)：由一個主工作階段規劃工作項目，再交給多個各自獨立的工作階段平行實作、審查與整合。
