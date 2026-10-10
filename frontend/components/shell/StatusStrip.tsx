@@ -86,7 +86,7 @@ export default function StatusStrip() {
                     驗證通過
                   </span>
                 ) : (
-                  <span className="flex items-center gap-0.5 text-up">
+                  <span className="flex items-center gap-0.5 rounded-sm bg-ink px-1 text-surface">
                     <ShieldX size={13} aria-hidden="true" />
                     驗證不符
                   </span>
