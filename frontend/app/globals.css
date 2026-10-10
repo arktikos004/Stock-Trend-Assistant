@@ -1,9 +1,56 @@
 @import "tailwindcss";
 
-/* ── 設計 token：業界標準的產品介面（見 PRODUCT.md 的 Brand Commitments、DESIGN.md）──────────
-   預設淺色（研究員白天在辦公室使用、決賽用投影幕）；選單可切深色或跟隨系統，html[data-theme] 決定。
-   漲紅跌綠只表示方向，等級與狀態一律另附文字；每個文字色在所有底色上都 ≥ 4.5:1（WCAG AA）。 */
+/* ── 設計 token：深色交易終端（見 PRODUCT.md 的 Brand Commitments、DESIGN.md）──────────
+   預設深色（使用者 2026-10-10 指定）：深藍黑底、單一電光藍強調色、交易所式鮮明紅綠；選單可切淺色或跟隨系統，
+   html[data-theme] 決定。漲紅跌綠只表示方向，等級與狀態一律另附文字；每個文字色在所有底色上都 ≥ 4.5:1（WCAG AA）。
+   光暈只用在選中分頁與鍵盤焦點框，面板不加光暈也不加陰影。 */
 :root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0a0f1a;
+  --surface: #0f1623;
+  --surface-2: #151e2e;
+  --surface-3: #1c2739;
+  --border: #1e2a3c;
+  --border-strong: #2d3c54;
+  --ink: #e7eef8;
+  --ink-2: #a3b3c9;
+  --ink-3: #8494ab;
+
+  --accent: #3d8bff; /* 電光藍：選中分頁、連結、分數條、焦點框 */
+  --accent-hover: #6aa6ff;
+  --accent-fg: #050b16; /* 電光藍底上的字用深色（白字只有 3.3:1） */
+  --accent-soft: #0e2142;
+  --accent-glow: rgba(61, 139, 255, 0.45); /* 只給選中分頁與焦點框 */
+
+  --up: #f85a6e; /* 漲：交易所紅（比 #f6465d 稍亮，最淺的面板上仍 ≥ 4.5:1） */
+  --up-soft: #2e121b;
+  --down: #0ecb81; /* 跌：交易所綠 */
+  --down-soft: #0b2a20;
+  --hold: #8f9db3; /* 觀望、中性 */
+  --hold-soft: #1c2739;
+  --warn: #f0b90b;
+  --warn-soft: #2b2208;
+
+  /* 類別色（篩選器綜合評分的五個組成：排序、動能、評價、營收、籌碼）。避開紅綠；
+     順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過（深色在 #0f1623 上重驗） */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #9085e9;
+  --series-4: #c98500;
+  --series-5: #d55181;
+
+  --chart-up: #f6465d;
+  --chart-down: #0ecb81;
+  --chart-up-vol: rgba(246, 70, 93, 0.35);
+  --chart-down-vol: rgba(14, 203, 129, 0.35);
+  --chart-grid: rgba(122, 156, 214, 0.08);
+
+  --selection: rgba(61, 139, 255, 0.3);
+  --scrim: rgba(2, 6, 14, 0.62);
+  --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+
 :root[data-theme="light"] {
   color-scheme: light;
   --background: #f5f6f8;
@@ -20,6 +67,7 @@
   --accent-hover: #1e40af;
   --accent-fg: #ffffff;
   --accent-soft: #e8eefc;
+  --accent-glow: transparent; /* 淺色主題不加光暈 */
 
   --up: #c0262d; /* 漲：台股紅 */
   --up-soft: #fdecec;
@@ -49,82 +97,52 @@
   --shadow-pop: 0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06);
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --background: #0e1116;
-  --surface: #151a21;
-  --surface-2: #1c222b;
-  --surface-3: #232a35;
-  --border: #2a313c;
-  --border-strong: #3a4352;
-  --ink: #e6eaf0;
-  --ink-2: #b4bcc8;
-  --ink-3: #949dab;
-  --accent: #8fb0ff;
-  --accent-hover: #a8c1ff;
-  --accent-fg: #0e1116;
-  --accent-soft: #1b2a48;
-  --up: #f87171;
-  --up-soft: #3a1d22;
-  --down: #4ade80;
-  --down-soft: #13301f;
-  --hold: #a3adbb;
-  --hold-soft: #232a35;
-  --warn: #e0a23a;
-  --warn-soft: #33270f;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #9085e9;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --chart-up: #f05252;
-  --chart-down: #34c172;
-  --chart-up-vol: rgba(240, 82, 82, 0.32);
-  --chart-down-vol: rgba(52, 193, 114, 0.32);
-  --chart-grid: rgba(230, 234, 240, 0.06);
-  --selection: rgba(143, 176, 255, 0.28);
-  --scrim: rgba(0, 0, 0, 0.55);
-  --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.5);
-}
-
-/* 「跟隨系統」：與上面的深色值相同 */
-@media (prefers-color-scheme: dark) {
+/* 「跟隨系統」：作業系統是淺色時用上面的淺色值，否則沿用預設的深色 */
+@media (prefers-color-scheme: light) {
   :root[data-theme="system"] {
-    color-scheme: dark;
-    --background: #0e1116;
-    --surface: #151a21;
-    --surface-2: #1c222b;
-    --surface-3: #232a35;
-    --border: #2a313c;
-    --border-strong: #3a4352;
-    --ink: #e6eaf0;
-    --ink-2: #b4bcc8;
-    --ink-3: #949dab;
-    --accent: #8fb0ff;
-    --accent-hover: #a8c1ff;
-    --accent-fg: #0e1116;
-    --accent-soft: #1b2a48;
-    --up: #f87171;
-    --up-soft: #3a1d22;
-    --down: #4ade80;
-    --down-soft: #13301f;
-    --hold: #a3adbb;
-    --hold-soft: #232a35;
-    --warn: #e0a23a;
-    --warn-soft: #33270f;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #9085e9;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --chart-up: #f05252;
-    --chart-down: #34c172;
-    --chart-up-vol: rgba(240, 82, 82, 0.32);
-    --chart-down-vol: rgba(52, 193, 114, 0.32);
-    --chart-grid: rgba(230, 234, 240, 0.06);
-    --selection: rgba(143, 176, 255, 0.28);
-    --scrim: rgba(0, 0, 0, 0.55);
-    --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.5);
+    color-scheme: light;
+    --background: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #f0f2f5;
+    --surface-3: #e7eaef;
+    --border: #dde1e7;
+    --border-strong: #c5ccd6;
+    --ink: #111827;
+    --ink-2: #4b5563;
+    --ink-3: #5f6877;
+
+    --accent: #1d4ed8;
+    --accent-hover: #1e40af;
+    --accent-fg: #ffffff;
+    --accent-soft: #e8eefc;
+    --accent-glow: transparent; /* 淺色主題不加光暈 */
+
+    --up: #c0262d; /* 漲：台股紅 */
+    --up-soft: #fdecec;
+    --down: #13703a; /* 跌：台股綠 */
+    --down-soft: #e6f4ea;
+    --hold: #5b6472; /* 觀望、中性 */
+    --hold-soft: #eef0f3;
+    --warn: #8a4b06;
+    --warn-soft: #fdf3e2;
+
+    /* 類別色（篩選器綜合評分的五個組成：排序、動能、評價、營收、籌碼）。避開紅綠；
+       順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過。黃、粉在淺色底低於 3:1，所以組成分數另以文字列出 */
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #4a3aa7;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+
+    --chart-up: #d93a3a;
+    --chart-down: #14915a;
+    --chart-up-vol: rgba(217, 58, 58, 0.3);
+    --chart-down-vol: rgba(20, 145, 90, 0.3);
+    --chart-grid: rgba(17, 24, 39, 0.06);
+
+    --selection: rgba(29, 78, 216, 0.18);
+    --scrim: rgba(17, 24, 39, 0.42);
+    --shadow-pop: 0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06);
   }
 }
 
@@ -194,6 +212,7 @@
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+    box-shadow: 0 0 12px var(--accent-glow);
   }
 
   dialog::backdrop {

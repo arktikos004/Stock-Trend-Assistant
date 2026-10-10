@@ -47,7 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   aria-current={active ? "page" : undefined}
                   className={`relative flex h-full items-center px-3 text-sm transition-colors duration-150 ${
                     active
-                      ? "font-semibold text-ink after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent"
+                      ? "font-semibold text-ink after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent after:shadow-[0_0_10px_var(--accent-glow)]"
                       : "text-ink-2 hover:text-ink"
                   }`}
                 >
@@ -138,7 +138,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     active ? "font-semibold text-accent" : "text-ink-2"
                   }`}
                 >
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.8} aria-hidden="true" />
+                  <Icon
+                    size={20}
+                    strokeWidth={active ? 2.2 : 1.8}
+                    className={active ? "drop-shadow-[0_0_6px_var(--accent-glow)]" : undefined}
+                    aria-hidden="true"
+                  />
                   {label}
                 </Link>
               </li>

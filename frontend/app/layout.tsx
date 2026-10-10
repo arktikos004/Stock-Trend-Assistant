@@ -9,16 +9,14 @@ export const metadata: Metadata = {
     "台灣 50 成分股的每日相對強弱排序。每筆預測先寫入雜湊鏈存證，到期後公開成績，並依預先聲明的規則監控模型是否失效。研究工具，不構成投資建議。",
 };
 
+// 預設是深色主題（與作業系統設定無關），瀏覽器外框跟著用深藍黑
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f6f8" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e1116" },
-  ],
+  themeColor: "#0a0f1a",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-Hant" data-theme="light" suppressHydrationWarning className="h-full antialiased">
+    <html lang="zh-Hant" data-theme="dark" suppressHydrationWarning className="h-full antialiased">
       <head>
         {/* 首次繪製前套用已儲存的主題，避免深淺閃爍 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
