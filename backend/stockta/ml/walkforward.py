@@ -2,8 +2,8 @@
 
 CLI：python -m stockta.ml.walkforward [--model lstm] [--stride 2] [--arms both|base|regime]
 
-**問題**：正式模型的訓練資料止於 `SPLIT_TRAIN_END`（2024-12-31），此後再也沒重訓，
-線上等於帶著一年半的概念漂移在跑；2026 多頭段「喊跌」只有 23.5% 命中即是症狀。
+**問題**（實驗 #9 於 2026-08 設計時的背景）：當時正式模型的訓練資料止於 2024-12-31，此後再也沒重訓，
+線上等於帶著一年半的概念漂移在跑；當時 2026 多頭段「喊跌」只有 23.5% 命中即是症狀。
 2026 年的文獻對此收斂到兩招：**walk-forward 週期性重訓**（持續在最新資料上重訓以維持
 準確度）與 **regime-aware 條件化**（偵測市場狀態後條件化模型）。本實驗兩招都測。
 
@@ -194,6 +194,26 @@ def _mean(values: list[float]) -> float:
     return float(np.mean(values)) if values else float("nan")
 
 
+def _drift_cost_lines(results: list[FoldResult]) -> list[str]:
+    """每個 arm 一行：第一個與最後一個有凍結結果的折上，凍結組比重訓組落後幾個百分點。"""
+    lines = []
+    for arm in sorted({r.arm for r in results}):
+        by_key = {(r.fold, r.mode): r for r in results if r.arm == arm}
+        folds = [fold for fold, *_ in FOLDS if (fold, "frozen") in by_key and (fold, "retrained") in by_key]
+        if len(folds) < 2:
+            continue
+
+        def gap(fold: str, field: str) -> float:
+            return (getattr(by_key[(fold, "retrained")], field) - getattr(by_key[(fold, "frozen")], field)) * 100
+
+        first, last = folds[0], folds[-1]
+        lines.append(
+            f"- **{arm}**：{first} 時凍結組落後 {gap(first, 'accuracy'):.1f} 個百分點，"
+            f"到 {last} 落後 {gap(last, 'accuracy'):.1f} 個百分點、喊跌精度落後 {gap(last, 'down_precision'):.1f} 個百分點"
+        )
+    return lines
+
+
 def write_report(results: list[FoldResult], model_name: str, stride: int) -> None:
     by_key: dict[tuple[str, str], list[FoldResult]] = {}
     for r in results:
@@ -206,8 +226,8 @@ def write_report(results: list[FoldResult], model_name: str, stride: int) -> Non
         "",
         "## 問題",
         "",
-        "正式模型的訓練資料止於 `2024-12-31` 後就沒再重訓，線上帶著一年半的概念漂移；"
-        "2026 多頭段**喊跌命中率僅 23.5%**。2026 年文獻對此的標準解是"
+        "實驗 #9（2026-08）設計時，正式模型的訓練資料止於 `2024-12-31` 後就沒再重訓，線上帶著一年半的概念漂移；"
+        "當時 2026 多頭段**喊跌命中率僅 23.5%**。2026 年文獻對此的標準解是"
         "**walk-forward 週期性重訓**與 **regime-aware 條件化**。本實驗兩者都測，"
         "並用「凍結組 vs 重訓組」直接量出漂移的代價。",
         "",
@@ -300,8 +320,9 @@ def write_report(results: list[FoldResult], model_name: str, stride: int) -> Non
         "python -m stockta.ml.backtest",
         "```",
         "",
-        "**不重訓的代價是會累積的**：F2 時凍結組只落後 0.5 個百分點，到 F4 已落後 6.1 個"
-        "百分點、喊跌精度落後 16.9 個百分點——這正是線上實證看到的「多頭段狂喊跌」。",
+        "**不重訓的代價**（凍結組相對重訓組的落後幅度，正值＝凍結組較差）：",
+        "",
+        *(_drift_cost_lines(results) or ["- 有凍結結果的折不足兩個，算不出變化。"]),
         "",
         "## 誠實邊界",
         "",

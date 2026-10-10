@@ -8,7 +8,13 @@ import pytest
 
 from stockta.ml import report_rank_predictions
 from stockta.ml.cs_metrics import rank_ic
-from stockta.ml.report_rank_predictions import _backtest_ic_text, _interpret, collect_matured
+from stockta.ml.report_rank_predictions import (
+    _backtest_ic_text,
+    _ic_range_text,
+    _indistinguishable_from_zero,
+    _interpret,
+    collect_matured,
+)
 
 
 class _FakeCache:
@@ -79,3 +85,21 @@ def test_interpret_judges_significance_with_newey_west_t():
     # 樸素 t 過了 2，但處理重疊後沒有 → 不能說顯著
     assert "無法區分" in _interpret({"n_days": 50, "mean": 0.03, "t": 2.5, "t_nw": 1.2})
     assert "為正且顯著" in _interpret({"n_days": 50, "mean": 0.03, "t": 2.5, "t_nw": 2.1})
+
+
+def test_ic_range_is_read_from_the_daily_table_not_hard_coded():
+    # 報告過去寫死「−0.32~+0.53」，資料更新後就與表格不符；現在從逐日 IC 算
+    per_day = [
+        (pd.Timestamp("2026-09-01"), 49, -0.45, "pit"),
+        (pd.Timestamp("2026-09-02"), 6, None, "pit"),  # 名數不足、沒有 IC 的日子不算
+        (pd.Timestamp("2026-09-03"), 49, 0.527, "live"),
+    ]
+    assert _ic_range_text(per_day) == "-0.45~+0.53"
+    assert _ic_range_text(per_day[1:2]) == ""
+
+
+def test_indistinguishable_from_zero_needs_enough_days_and_newey_west_t():
+    assert _indistinguishable_from_zero({"n_days": 19, "t_nw": 3.0})  # 天數太少
+    assert _indistinguishable_from_zero({"n_days": 50, "t_nw": 1.9})
+    assert _indistinguishable_from_zero({"n_days": 50, "t_nw": float("nan")})
+    assert not _indistinguishable_from_zero({"n_days": 50, "t_nw": -2.1})

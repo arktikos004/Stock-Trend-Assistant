@@ -9,10 +9,10 @@ CI 那條（tests/test_label_shuffle.py）用小合成池換取速度——3 秒
 1. **跑多個置換種子**（--repeats），得到打亂標籤下的**經驗虛無分佈**，而不是單一數字。
    單跑一次只能得到一個點，落在 0.53 還是 0.55 完全可能是抽樣噪音；有了分佈才
    說得出「真標籤的成績是否超出虛無分佈」。
-2. **預設不使用正式切分**。正式切分（SPLIT_VAL_END=2026-06-30）之後只剩約一個半月
-   交易日，測試樣本僅數百筆，macro AUC 的標準誤達 0.03~0.04——跟判定門檻同一個量級，
-   跑出來的紅綠燈沒有意義。故預設把切分點前移，換一個夠長的測試期。
-   要看正式切分的結果就傳 --production-split（報告會標注樣本數不足的限制）。
+2. **預設不使用正式切分**。正式切分會隨重訓前移，之後的測試期往往只有幾個月、樣本數百筆，
+   macro AUC 的標準誤可達 0.03~0.04——跟判定門檻同一個量級，跑出來的紅綠燈沒有意義。
+   故預設把切分點前移，換一個夠長的測試期；報告會寫出正式切分當下實際有幾個月的資料。
+   要看正式切分的結果就傳 --production-split（樣本不足時報告會標注限制）。
 
 判準與設計理由（抓得到什麼、抓不到什麼）見 stockta/ml/leakage.py。
 """
@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import argparse
 import time
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
 
 import numpy as np
 
@@ -44,10 +45,40 @@ from stockta.ml.train import create_model, load_market_context, load_pool_ohlcv
 
 DEFAULT_SEED = 20260816
 
-# 預設切分：把切分點前移，換一個夠長（約兩年）的測試期。正式切分的測試期目前
-# 只有約一個半月，樣本數不足以支撐 0.03 的判定門檻（見模組 docstring）。
+# 預設切分：把切分點前移，換一個夠長的測試期。正式切分的測試期常常很短，
+# 樣本數不足以支撐 0.03 的判定門檻（見模組 docstring）。
 POWER_TRAIN_END = "2023-06-30"
 POWER_VAL_END = "2024-06-30"
+
+MIN_TEST_ROWS = 1000  # 測試樣本少於此數時，macro AUC 的標準誤與判定門檻同一量級
+_DAYS_PER_MONTH = 30.44
+
+
+@dataclass(frozen=True)
+class SplitInfo:
+    """本次跑法的切分與測試期實際涵蓋的範圍；報告的期間長度由此算出，不寫死。"""
+
+    train_end: str
+    val_end: str
+    production_split: bool
+    n_test: int
+    data_end: date | None  # 測試樣本最後一個基準日（資料末端）；沒有測試樣本時為 None
+
+    @property
+    def test_months(self) -> float:
+        """本次測試期有幾個月（驗證期之後到資料末端）。"""
+        return _months_between(self.val_end, self.data_end)
+
+    @property
+    def production_test_months(self) -> float:
+        """若改用正式切分，測試期會有幾個月（SPLIT_VAL_END 之後到資料末端）。"""
+        return _months_between(SPLIT_VAL_END, self.data_end)
+
+
+def _months_between(start: str, end: date | None) -> float:
+    if end is None:
+        return 0.0
+    return max(0.0, (end - date.fromisoformat(start)).days / _DAYS_PER_MONTH)
 
 
 def _run(
@@ -106,15 +137,39 @@ def _null_summary(nulls: list[PipelineScore], real: PipelineScore) -> list[str]:
     ]
 
 
+def _split_notice(split: SplitInfo) -> list[str]:
+    """報告開頭的切分說明；期間長度與筆數由資料算出。"""
+    if split.production_split:
+        if split.n_test < MIN_TEST_ROWS:
+            return [
+                f"> ⚠️ **本次使用正式切分，統計效力不足。** 測試期只有約 {split.test_months:.1f} 個月、"
+                f"{split.n_test:,} 筆（SPLIT_VAL_END={SPLIT_VAL_END}），",
+                "> macro AUC 的標準誤與判定門檻同一量級，紅綠燈不可信。",
+                "> 結論請以預設切分（測試期較長）的那份報告為準。",
+                "",
+            ]
+        return [
+            f"> 本次使用正式切分（SPLIT_VAL_END={SPLIT_VAL_END}）：測試期約 {split.test_months:.1f} 個月、"
+            f"{split.n_test:,} 筆。",
+            "",
+        ]
+    return [
+        f"> 本報告刻意**不使用正式切分**（訓練 ≤{SPLIT_TRAIN_END}、驗證 ≤{SPLIT_VAL_END}）：",
+        f"> 正式切分之後目前只有約 {split.production_test_months:.1f} 個月的資料。測試樣本只有數百筆時，",
+        "> macro AUC 的標準誤可達 0.03~0.04，與判定門檻同一量級，跑出來的紅綠燈沒有意義。洩漏是**管線的",
+        "> 性質**、不是某個切分點的性質，改用較早的切分點換取足夠長的測試期，",
+        "> 檢定力才夠。要看正式切分的結果：`--production-split`。",
+        "",
+    ]
+
+
 def _write_report(
     results: dict[str, dict],
     n_tickers: int,
     stride: int,
     seed: int,
     repeats: int,
-    train_end: str,
-    val_end: str,
-    production_split: bool,
+    split: SplitInfo,
 ) -> None:
     from stockta.config import BACKEND_ROOT
 
@@ -123,30 +178,13 @@ def _write_report(
         "",
         f"- 產生時間：{datetime.now(timezone.utc).isoformat(timespec='seconds')}",
         f"- 股票池：{n_tickers} 檔（近 {HISTORY_YEARS} 年）、stride={stride}",
-        f"- 切分：訓練 ≤{train_end}、驗證 ≤{val_end}、其後測試",
+        f"- 切分：訓練 ≤{split.train_end}、驗證 ≤{split.val_end}、其後測試",
         f"- 置換種子 {seed} 起連續 {repeats} 個，構成虛無分佈",
         f"- 判定門檻：macro AUC 超出隨機 > {AUC_TOLERANCE}，或準確率超出多數類基線 "
         f"> {ACCURACY_TOLERANCE}，即判定洩漏",
         "",
+        *_split_notice(split),
     ]
-
-    if production_split:
-        lines += [
-            "> ⚠️ **本次使用正式切分，統計效力不足。** 正式切分的測試期只剩約一個半月",
-            f"> （SPLIT_VAL_END={SPLIT_VAL_END}，2026-08-14 實驗 #9 前移切分所致），",
-            "> 測試樣本僅數百筆，macro AUC 的標準誤與判定門檻同一量級，紅綠燈不可信。",
-            "> 結論請以預設切分（測試期約兩年）的那份報告為準。",
-            "",
-        ]
-    else:
-        lines += [
-            f"> 本報告刻意**不使用正式切分**（訓練 ≤{SPLIT_TRAIN_END}、驗證 ≤{SPLIT_VAL_END}）：",
-            "> 正式切分之後只剩約一個半月交易日，測試樣本數百筆，macro AUC 的標準誤",
-            "> 達 0.03~0.04，與判定門檻同一量級，跑出來的紅綠燈沒有意義。洩漏是**管線的",
-            "> 性質**、不是某個切分點的性質，改用較早的切分點換取足夠長的測試期，",
-            "> 檢定力才夠。要看正式切分的結果：`--production-split`。",
-            "",
-        ]
 
     lines += [
         "## 這條測試抓得到什麼、抓不到什麼",
@@ -247,16 +285,16 @@ def main() -> None:
         train_end, val_end = SPLIT_TRAIN_END, SPLIT_VAL_END
     else:
         train_end, val_end = POWER_TRAIN_END, POWER_VAL_END
-    split = {"train_end": train_end, "val_end": val_end, "stride": args.stride}
+    split_args = {"train_end": train_end, "val_end": val_end, "stride": args.stride}
 
     print(f"載入 {len(args.tickers or STOCK_POOL)} 檔股票資料…")
     ohlcv = load_pool_ohlcv(args.tickers)
     context = load_market_context(ohlcv)
 
     print(f"建立資料集（stride={args.stride}、訓練 ≤{train_end}、驗證 ≤{val_end}）…")
-    real = build_dataset(ohlcv, context, **split)
+    real = build_dataset(ohlcv, context, **split_args)
     fakes = [
-        build_dataset(ohlcv, context, label_permutation_seed=args.seed + i, **split)
+        build_dataset(ohlcv, context, label_permutation_seed=args.seed + i, **split_args)
         for i in range(args.repeats)
     ]
     # 錯誤虛無假設的對照：留在報告裡當證據，說明為什麼預設是 pooled
@@ -265,10 +303,10 @@ def main() -> None:
         context,
         label_permutation_seed=args.seed,
         label_permutation_scope="per_ticker",
-        **split,
+        **split_args,
     )
     print(f"train={len(real.y_train)} val={len(real.y_val)} test={len(real.y_test)}")
-    if len(real.y_test) < 1000:
+    if len(real.y_test) < MIN_TEST_ROWS:
         print(
             f"⚠️ 測試樣本只有 {len(real.y_test)} 筆，macro AUC 標準誤與判定門檻同量級，"
             "紅綠燈參考價值有限"
@@ -305,15 +343,14 @@ def main() -> None:
 
         results[model_name] = {"rows": rows, "nulls": nulls, "real": real_row[1]}
 
+    data_end = real.dates_test.max().astype("datetime64[D]").item() if len(real.dates_test) else None
     _write_report(
         results,
         len(ohlcv),
         args.stride,
         args.seed,
         args.repeats,
-        train_end,
-        val_end,
-        args.production_split,
+        SplitInfo(train_end, val_end, args.production_split, len(real.y_test), data_end),
     )
 
 

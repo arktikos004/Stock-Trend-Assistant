@@ -76,13 +76,24 @@ def _backtest_ic_text(days_unit: str = "個交易日") -> str:
         return "見 docs/cross_sectional_report.md"
 
 
+def _indistinguishable_from_zero(ic: dict) -> bool:
+    """線上 Rank IC 與 0 無法區分：Newey–West |t| < 2，或到期日少於 20 天（天數太少時 t 值也不可盡信）。"""
+    t = ic["t_nw"]
+    return ic["n_days"] < 20 or np.isnan(t) or abs(t) < 2
+
+
+def _ic_range_text(per_day: list[tuple]) -> str:
+    """逐日 IC 的實際範圍（例如「-0.45~+0.53」），由報告的逐日表算出；沒有可算的日子時回空字串。"""
+    ics = [ic for _d, _n, ic, _src in per_day if ic is not None]
+    return f"{min(ics):+.2f}~{max(ics):+.2f}" if ics else ""
+
+
 def _interpret(ic: dict) -> str:
     """依到期天數與顯著性給出誠實、隨資料自動調整的判讀句（不誇大、不粉飾）。t 用 Newey–West t。"""
     n, mean, t = ic["n_days"], ic["mean"], ic["t_nw"]
     if n == 0:
         return "尚無到期樣本，無法判讀。"
-    weak_sample = n < 20  # 天數太少時，即使處理了重疊，t 值也不可盡信
-    if weak_sample or np.isnan(t) or abs(t) < 2:
+    if _indistinguishable_from_zero(ic):
         sign = "略正" if mean > 0 else "略負" if mean < 0 else "約零"
         return (
             f"樣本不足（{n} 個到期交易日、窗重疊），線上 Rank IC {sign}且**與 0 無法區分**"
@@ -225,6 +236,13 @@ def main() -> int:
             "",
         ]
 
+    ic_range = _ic_range_text(per_day)
+    swing = f"，逐日 IC 落在 {ic_range}（見上表）" if ic_range else ""
+    standing = (
+        "此線上切片與 0 無法區分，**尚不構成佐證亦不構成反證**，僅為起步。"
+        if _indistinguishable_from_zero(ic)
+        else "Newey–West |t| 已達 2，但樣本仍小，結論需隨資料累積持續複核。"
+    )
     lines += [
         "## 誠實警告（勿誇大）",
         "",
@@ -234,9 +252,7 @@ def main() -> int:
         "往後由每日排程 live 累積；兩者對固定權重逐位元一致，但 live 段才是嚴格意義的「線上」。",
         f"- **小樣本＋重疊窗**：目前僅 {ic['n_days']} 個到期交易日，且基準日集中於數週內、"
         f"各自 {LABEL_HORIZON_DAYS} 日 forward 報酬彼此重疊（非獨立）；t 已用 Newey–West 標準誤處理重疊，"
-        "但樣本小時仍不穩，逐日 IC "
-        "在此melt-up段大幅震盪（見上表 −0.32~+0.53）。此線上切片與 0 無法區分，"
-        "**尚不構成佐證亦不構成反證**，僅為起步。",
+        f"但樣本小時仍不穩{swing}。{standing}",
         f"- 主要統計證據仍是回測（測試期 Rank IC {_backtest_ic_text('天')}）；本線上序列需累積"
         "數週、待 live 段變厚才有獨立說服力。多空價差為 gross、未計滑價借券，僅概念參考。",
         "",

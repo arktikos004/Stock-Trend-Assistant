@@ -1,6 +1,6 @@
 """歷史回測（模擬部署）：python -m stockta.ml.backtest
 
-以 production 模型對測試期（SPLIT_VAL_END 之後，預設 2024-01 起）每個交易日
+以 production 模型對測試期（預設為 SPLIT_VAL_END 之後）每個交易日
 逐日推論，與實際 5 日趨勢標籤對照，產出 docs/backtest_report.md。
 同時對照「原始 argmax」與「信心門檻校準後」（正式決策規則，與線上 API 一致）。
 
@@ -192,6 +192,8 @@ def main() -> int:
     lines += [
         "",
         "## 優化歷程",
+        "",
+        "以下為歷次調整的時序紀錄；目前的切分與最新實驗見 docs/experiment_log.md。",
         "",
         "- **信心門檻校準（已採用）**：argmax 直接當訊號會過度偏「跌」；門檻僅以驗證期",
         "  網格搜尋選出、測試期驗證，是本報告「正式決策規則」表格的來源。",

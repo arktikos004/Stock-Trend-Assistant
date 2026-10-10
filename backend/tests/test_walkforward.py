@@ -26,6 +26,7 @@ from stockta.features.pipeline import (
 from stockta.ml.calibrate import apply_thresholds, best_thresholds
 from stockta.ml.dataset import build_dataset
 from stockta.ml.labeling import LABEL_HOLD as HOLD
+from stockta.ml.walkforward import FoldResult, _drift_cost_lines
 
 
 @pytest.fixture
@@ -180,3 +181,28 @@ def test_best_thresholds_prefers_downgrading_a_wrong_direction():
     assert acc == 1.0
     assert 0.40 < down <= 0.70  # 門檻要落在能擋掉錯誤那筆、又保留正確那筆的區間
     assert (apply_thresholds(proba, down, up) == y).all()
+
+
+# --- 報告：不重訓的代價由逐折結果算出，不寫死 ---
+
+
+def _fold(fold: str, mode: str, accuracy: float, down_precision: float) -> FoldResult:
+    return FoldResult(
+        fold=fold, arm="base", mode=mode, n_train=1, n_test=1, thresholds=(0.4, 0.4), val_accuracy=0.5,
+        raw_accuracy=accuracy, accuracy=accuracy, down_precision=down_precision, up_precision=0.5,
+        down_share=0.3, train_seconds=0.0,
+    )
+
+
+def test_drift_cost_is_computed_from_fold_results():
+    results = [
+        _fold("F1", "retrained", 0.470, 0.400),
+        _fold("F2", "retrained", 0.470, 0.400),
+        _fold("F2", "frozen", 0.465, 0.380),
+        _fold("F4", "retrained", 0.452, 0.453),
+        _fold("F4", "frozen", 0.391, 0.284),
+    ]
+    assert _drift_cost_lines(results) == [
+        "- **base**：F2 時凍結組落後 0.5 個百分點，到 F4 落後 6.1 個百分點、喊跌精度落後 16.9 個百分點"
+    ]
+    assert _drift_cost_lines(results[:3]) == []  # 只有一折有凍結結果：算不出變化
