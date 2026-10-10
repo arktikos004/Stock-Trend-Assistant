@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
@@ -56,7 +59,24 @@ def test_candles_invalid_format_returns_422(client):
 def test_candles_invalid_range_returns_422(client):
     r = client.get("/api/stocks/2330.TW/candles?range=bogus")
     assert r.status_code == 422
-    assert r.json()["error"]["code"] == "INVALID_RANGE"
+    assert r.json()["error"] == {"code": "INVALID_RANGE", "message": "不支援的 range 參數: bogus"}
+
+
+def test_candles_bad_date_format_names_the_parameter(client):
+    r = client.get("/api/stocks/2330.TW/candles?start=2026-13-01&end=2026-12-31")
+    assert r.status_code == 422
+    error = r.json()["error"]
+    assert error["code"] == "INVALID_RANGE"
+    assert "start='2026-13-01'" in error["message"] and "range 參數" not in error["message"]
+
+
+@pytest.mark.parametrize("path", ["/api/rank?date=bogus", "/api/scan?date=bogus"])
+def test_bad_query_date_returns_422(client_with_model, path):
+    r = client_with_model.get(path)
+    assert r.status_code == 422
+    error = r.json()["error"]
+    assert error["code"] == "INVALID_RANGE"
+    assert "date='bogus'" in error["message"]
 
 
 def test_prediction_mock_response_shape(client):
@@ -111,7 +131,8 @@ def test_history_mock_mode(client):
 def test_history_bad_range(client_with_model):
     r = client_with_model.get("/api/stocks/2330.TW/history?start=2026-06-01&end=2026-05-01")
     assert r.status_code == 422
-    assert r.json()["error"]["code"] == "INVALID_RANGE"
+    # 錯的是日期，不是 range 參數：訊息不能冠上「不支援的 range 參數」
+    assert r.json()["error"] == {"code": "INVALID_RANGE", "message": "起日需早於迄日：2026-06-01 ~ 2026-05-01"}
 
 
 def test_scan_mock_mode(client):

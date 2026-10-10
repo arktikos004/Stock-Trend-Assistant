@@ -10,6 +10,7 @@ from stockta.api.errors import (
     DataSourceUnavailableError,
     InvalidRangeError,
 )
+from stockta.api.params import parse_iso_date, require_ordered
 from stockta.api.schemas import (
     Candle,
     CandlesResponse,
@@ -61,13 +62,9 @@ def get_candles(
 
     if start or end:
         # 自訂日期區間（覆蓋 range 預設）
-        try:
-            start_d = date.fromisoformat(start) if start else last_day - timedelta(days=365)
-            end_d = date.fromisoformat(end) if end else last_day
-        except ValueError as exc:
-            raise InvalidRangeError(f"日期格式需為 YYYY-MM-DD：start={start!r} end={end!r}") from exc
-        if start_d >= end_d:
-            raise InvalidRangeError(f"起日需早於迄日：{start_d} ~ {end_d}")
+        start_d = parse_iso_date(start, "start") if start else last_day - timedelta(days=365)
+        end_d = parse_iso_date(end, "end") if end else last_day
+        require_ordered(start_d, end_d)
     else:
         days = _RANGE_TO_DAYS.get(range)
         if days is None:
@@ -224,16 +221,10 @@ def get_history(
     end: str | None = Query(None, description="迄日 YYYY-MM-DD；省略＝最後交易日"),
 ) -> StockHistoryResponse:
     """單一標的的歷史預測回放（point-in-time 重算 vs 實際）；僅含已到期樣本。"""
-    import pandas as pd
-
     last_day = last_completed_trading_day()
-    try:
-        end_d = date.fromisoformat(end) if end else last_day
-        start_d = date.fromisoformat(start) if start else end_d - timedelta(days=180)
-    except ValueError as exc:
-        raise InvalidRangeError(f"日期格式需為 YYYY-MM-DD：start={start!r} end={end!r}") from exc
-    if start_d >= end_d:
-        raise InvalidRangeError(f"起日需早於迄日：{start_d} ~ {end_d}")
+    end_d = parse_iso_date(end, "end") if end else last_day
+    start_d = parse_iso_date(start, "start") if start else end_d - timedelta(days=180)
+    require_ordered(start_d, end_d)
 
     predictor: Predictor | None = getattr(request.app.state, "predictor", None)
     if predictor is None:

@@ -10,7 +10,8 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Query, Request
 
-from stockta.api.errors import DataSourceUnavailableError, InvalidRangeError
+from stockta.api.errors import DataSourceUnavailableError
+from stockta.api.params import parse_iso_date
 from stockta.api.schemas import RankResponse, RankResult, RankSummaryResponse
 from stockta.config import (
     ARTIFACTS_CS_DIR,
@@ -58,15 +59,8 @@ def rank(
         return RankResponse(base_date=end, model="mock", results=[], is_mock=True)
     model, scaler, meta = cs
 
-    as_of = None
-    historical = False
-    if date_param is not None:
-        try:
-            as_of = date.fromisoformat(date_param)
-        except ValueError as exc:
-            raise InvalidRangeError(f"日期格式需為 YYYY-MM-DD：{date_param!r}") from exc
-        if as_of < end:
-            historical = True
+    as_of = parse_iso_date(date_param, "date") if date_param is not None else None
+    historical = as_of is not None and as_of < end
 
     scored: list[tuple[str, float, date]] = []
     base_seen = end

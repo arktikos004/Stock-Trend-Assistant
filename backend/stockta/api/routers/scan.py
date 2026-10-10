@@ -13,7 +13,8 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Query, Request
 
-from stockta.api.errors import DataSourceUnavailableError, InvalidRangeError
+from stockta.api.errors import DataSourceUnavailableError, InvalidDateRangeError
+from stockta.api.params import parse_iso_date
 from stockta.api.schemas import ScanResponse, ScanResult
 from stockta.config import (
     AUTO_ADJUST,
@@ -113,7 +114,7 @@ def _historical_scan(predictor: Predictor, as_of: date) -> ScanResponse:
             )
         )
     if not results:
-        raise InvalidRangeError(f"{as_of} 無足夠歷史資料可重算（過早或非交易日）")
+        raise InvalidDateRangeError(f"{as_of} 無足夠歷史資料可重算（過早或非交易日）")
     return ScanResponse(
         base_date=base_date_seen or as_of, model_version=predictor.version, is_historical=True,
         up=counts["漲"], hold=counts["觀望"], down=counts["跌"],
@@ -134,10 +135,7 @@ def scan(
         )
     if date_param is None:
         return _live_scan(request, predictor, end)
-    try:
-        as_of = date.fromisoformat(date_param)
-    except ValueError as exc:
-        raise InvalidRangeError(f"日期格式需為 YYYY-MM-DD：{date_param!r}") from exc
+    as_of = parse_iso_date(date_param, "date")
     if as_of >= end:
         return _live_scan(request, predictor, end)
     return _historical_scan(predictor, as_of)

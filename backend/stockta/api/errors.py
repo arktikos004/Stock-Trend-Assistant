@@ -26,8 +26,20 @@ class InvalidTickerFormatError(ApiError):
 
 
 class InvalidRangeError(ApiError):
+    """range 參數不在支援清單內（1mo、3mo…）。"""
+
     def __init__(self, range_value: str):
         super().__init__(422, "INVALID_RANGE", f"不支援的 range 參數: {range_value}")
+
+
+class InvalidDateRangeError(ApiError):
+    """日期參數格式錯誤、起訖顛倒，或該日期沒有資料可重算。
+
+    與 InvalidRangeError 共用 INVALID_RANGE 代碼（Phase 0 凍結的契約），差別只在訊息直接說明哪裡錯。
+    """
+
+    def __init__(self, detail: str):
+        super().__init__(422, "INVALID_RANGE", detail)
 
 
 class DataSourceUnavailableError(ApiError):
