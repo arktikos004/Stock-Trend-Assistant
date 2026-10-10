@@ -37,3 +37,12 @@ backend/artifacts_backup_2024split/
 # CI 取出的分支工作目錄（state、twse-data）
 _state/
 _twse/
+
+# impeccable 的執行期檔案（截圖、比對、critique 快照、本機設定）；要保存的只有 PRODUCT.md、DESIGN.md、.impeccable/design.json、.impeccable/surfaces/
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/build/
+.impeccable/live/
+.impeccable/critique/
+.impeccable/config.local.json
+**/.impeccable/hook.cache.json

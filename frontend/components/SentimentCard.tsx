@@ -1,100 +1,83 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { fetchSentiment, sentimentTickerFor, type SentimentResponse } from "@/lib/newsApi";
+import { fixed } from "@/lib/format";
+import { useAsync } from "@/lib/useAsync";
 
-// 於台股脈絡下對齊台股慣例：正面情緒＝偏多＝紅，負面＝偏空＝綠（與 news 專案相反，卡上註明）
+// 放在台股脈絡下對齊台股慣例：正面＝偏多＝紅、負面＝偏空＝綠（與新聞站的美股頁相反，卡上註明）
 const LABEL: Record<SentimentResponse["label"], { text: string; varName: string }> = {
   positive: { text: "偏多", varName: "--up" },
   negative: { text: "偏空", varName: "--down" },
   neutral: { text: "中性", varName: "--hold" },
 };
 
-function ScoreBar({ score }: { score: number }) {
-  const pct = Math.round(((score + 1) / 2) * 100);
+/** 刻度：−1 到 +1，標記目前的情緒指數 */
+function ScoreScale({ score }: { score: number }) {
+  const at = ((score + 1) / 2) * 100;
   return (
-    <div
-      className="relative mt-1.5 h-2.5 w-full overflow-hidden rounded-full"
-      style={{ background: "linear-gradient(90deg, var(--down-soft), var(--surface-2), var(--up-soft))" }}
-    >
-      <div className="absolute top-1/2 h-4 w-1 -translate-y-1/2 rounded bg-ink" style={{ left: `calc(${pct}% - 2px)` }} />
+    <div className="mt-3" aria-hidden="true">
+      <div className="relative h-2 rounded-full bg-[linear-gradient(90deg,var(--down-soft),var(--surface-3),var(--up-soft))]">
+        <div className="absolute top-1/2 h-4 w-1 -translate-y-1/2 rounded bg-ink" style={{ left: `calc(${at}% - 2px)` }} />
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-ink-3">
+        <span>−1 偏空</span>
+        <span>0</span>
+        <span>+1 偏多</span>
+      </div>
     </div>
   );
 }
 
-/** 新聞情緒卡（跨專案整合：news-sentiment-monitor 提供分析）。服務未啟動時灰卡降級。 */
+/** 新聞情緒（跨專案：新聞站的每日匯出）。讀不到時說明原因，不影響其他區塊。 */
 export default function SentimentCard({ twTicker }: { twTicker: string }) {
-  const [sentiment, setSentiment] = useState<SentimentResponse | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
   const { ticker: usTicker, isProxy } = sentimentTickerFor(twTicker);
-
-  useEffect(() => {
-    let cancelled = false;
-    setSentiment(null);
-    setUnavailable(false);
-    fetchSentiment(usTicker)
-      .then((s) => !cancelled && setSentiment(s))
-      .catch(() => !cancelled && setUnavailable(true));
-    return () => {
-      cancelled = true;
-    };
-  }, [usTicker]);
+  const { data, error, loading } = useAsync(usTicker, () => fetchSentiment(usTicker));
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5 shadow-(--shadow-sm)">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink-2">新聞情緒</h2>
-        <span className="text-[10px] text-ink-3">{isProxy ? "美股科技大盤參考" : `ADR ${usTicker}`}</span>
-      </div>
+    <div>
+      <p className="text-xs text-ink-3">{isProxy ? "這檔沒有美股 ADR，改看美股科技大盤（QQQ）的新聞情緒" : `美股 ADR ${usTicker} 的新聞情緒`}</p>
 
-      {unavailable && (
-        <p className="mt-4 rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-3">
+      {error != null && (
+        <p className="mt-3 rounded-md bg-surface-2 px-3 py-2 text-xs text-ink-2">
           {process.env.NEXT_PUBLIC_STATIC_DATA === "1"
-            ? "情緒資料暫時無法取得。"
-            : "情緒服務未啟動（news-sentiment-monitor 後端 :8001）。"}
+            ? "新聞站的情緒資料暫時讀不到。稍後重新整理再試。"
+            : "新聞站的後端（:8001）沒有啟動。"}
         </p>
       )}
+      {loading && <p className="mt-3 text-sm text-ink-3">讀取中…</p>}
 
-      {!unavailable && !sentiment && <p className="mt-4 text-sm text-ink-3">分析中…</p>}
-
-      {sentiment && (
+      {data && (
         <>
-          <div className="mt-3 flex items-end gap-3">
-            <span className="text-3xl font-bold" style={{ color: `var(${LABEL[sentiment.label].varName})` }}>
-              {LABEL[sentiment.label].text}
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
+            <span className="text-2xl font-semibold" style={{ color: `var(${LABEL[data.label].varName})` }}>
+              {LABEL[data.label].text}
             </span>
-            <span className="mb-0.5 text-sm tabular-nums text-ink-3">
-              指數 {sentiment.score >= 0 ? "+" : ""}
-              {sentiment.score.toFixed(2)}・{sentiment.article_count} 則
+            <span className="text-sm text-ink-2">
+              指數 {fixed(data.score, 2, true)}，共 {data.article_count} 則
             </span>
           </div>
-          <ScoreBar score={sentiment.score} />
+          <ScoreScale score={data.score} />
 
-          {sentiment.keywords.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {sentiment.keywords.slice(0, 5).map((k) => (
-                <span
-                  key={k.word}
-                  className="rounded-full px-2 py-0.5 text-[10px]"
-                  style={{ background: "var(--surface-2)", color: "var(--ink-2)" }}
-                >
+          {data.keywords.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="熱門關鍵字">
+              {data.keywords.slice(0, 5).map((k) => (
+                <li key={k.word} className="rounded-md bg-surface-2 px-2 py-0.5 text-xs text-ink-2">
                   {k.word}
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
 
-          {(sentiment.is_mock || sentiment.stale) && (
-            <p className="mt-2 text-[10px]" style={{ color: "var(--accent)" }}>
-              {sentiment.is_mock ? "⚠ 情緒模型未載入（示意資料）" : "⚠ 新聞源暫時失效，顯示快取"}
+          {(data.is_mock || data.stale) && (
+            <p className="mt-2 text-xs text-warn">
+              {data.is_mock ? "情緒模型沒有載入，這是示意資料。" : "新聞來源暫時讀不到，顯示的是上一次的結果。"}
             </p>
           )}
         </>
       )}
 
-      <p className="mt-3 border-t border-border pt-2 text-[10px] leading-relaxed text-ink-3">
-        由姊妹專案 news-sentiment-monitor（BERT 財經新聞情緒分析）提供；情緒模型只涵蓋英文新聞，
-        台股僅供跨市場參考、不作為預測模型輸入。此處正面＝偏多以對齊台股紅漲慣例。
+      <p className="mt-3 border-t border-border pt-2 text-xs leading-relaxed text-ink-3">
+        由新聞站（BERT 財經新聞情緒分析）提供，只涵蓋英文新聞；台股僅供跨市場參考，不是預測模型的輸入。這裡把正面標成紅色，與台股紅漲慣例一致。
       </p>
     </div>
   );

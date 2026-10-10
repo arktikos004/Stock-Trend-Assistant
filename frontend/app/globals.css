@@ -1,122 +1,228 @@
 @import "tailwindcss";
 
-/* ── 設計 token：與 news-sentiment-monitor 共用同一套介面語言 ──────────
-   方向色依台股慣例（漲紅／跌綠／觀望灰），為狀態型配色，每處均搭配文字標籤，
-   不以顏色單獨承載語意。 */
-:root {
-  --background: #f7f8fa;
+/* ── 設計 token：業界標準的產品介面（見 PRODUCT.md 的 Brand Commitments、DESIGN.md）──────────
+   預設淺色（研究員白天在辦公室使用、決賽用投影幕）；選單可切深色或跟隨系統，html[data-theme] 決定。
+   漲紅跌綠只表示方向，等級與狀態一律另附文字；每個文字色在所有底色上都 ≥ 4.5:1（WCAG AA）。 */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f5f6f8;
   --surface: #ffffff;
-  --surface-2: #f1f3f6;
-  --border: #e3e7ed;
-  --ink: #101725;
-  --ink-2: #475069;
-  --ink-3: #8b93a4;
+  --surface-2: #f0f2f5;
+  --surface-3: #e7eaef;
+  --border: #dde1e7;
+  --border-strong: #c5ccd6;
+  --ink: #111827;
+  --ink-2: #4b5563;
+  --ink-3: #5f6877;
 
-  --accent: #4f46e5;
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
   --accent-fg: #ffffff;
-  --accent-soft: #eef0fe;
+  --accent-soft: #e8eefc;
 
-  --up: #dc2626;        /* 漲：台股紅 */
-  --up-soft: #fdeaea;
-  --hold: #64748b;      /* 觀望：灰 */
-  --hold-soft: #eef1f5;
-  --down: #15803d;      /* 跌：台股綠 */
-  --down-soft: #e7f6ec;
+  --up: #c0262d; /* 漲：台股紅 */
+  --up-soft: #fdecec;
+  --down: #13703a; /* 跌：台股綠 */
+  --down-soft: #e6f4ea;
+  --hold: #5b6472; /* 觀望、中性 */
+  --hold-soft: #eef0f3;
+  --warn: #8a4b06;
+  --warn-soft: #fdf3e2;
 
-  /* 類別色（篩選器的綜合評分組成：排序、動能、評價、營收、籌碼）。避開紅綠（台股漲跌色）；
-     順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過（相鄰 CVD ΔE ≥ 13、正常視覺 ≥ 19）。
-     淺色主題的黃、粉低於 3:1，所以每個組成另以文字列出分數 */
+  /* 類別色（篩選器綜合評分的五個組成：排序、動能、評價、營收、籌碼）。避開紅綠；
+     順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過。黃、粉在淺色底低於 3:1，所以組成分數另以文字列出 */
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #4a3aa7;
   --series-4: #eda100;
   --series-5: #e87ba4;
 
-  --shadow-sm: 0 1px 2px rgba(16, 23, 37, 0.06), 0 1px 3px rgba(16, 23, 37, 0.04);
-  --shadow-md: 0 4px 12px rgba(16, 23, 37, 0.08), 0 2px 4px rgba(16, 23, 37, 0.04);
+  --chart-up: #d93a3a;
+  --chart-down: #14915a;
+  --chart-up-vol: rgba(217, 58, 58, 0.3);
+  --chart-down-vol: rgba(20, 145, 90, 0.3);
+  --chart-grid: rgba(17, 24, 39, 0.06);
+
+  --selection: rgba(29, 78, 216, 0.18);
+  --scrim: rgba(17, 24, 39, 0.42);
+  --shadow-pop: 0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06);
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0e1116;
+  --surface: #151a21;
+  --surface-2: #1c222b;
+  --surface-3: #232a35;
+  --border: #2a313c;
+  --border-strong: #3a4352;
+  --ink: #e6eaf0;
+  --ink-2: #b4bcc8;
+  --ink-3: #949dab;
+  --accent: #8fb0ff;
+  --accent-hover: #a8c1ff;
+  --accent-fg: #0e1116;
+  --accent-soft: #1b2a48;
+  --up: #f87171;
+  --up-soft: #3a1d22;
+  --down: #4ade80;
+  --down-soft: #13301f;
+  --hold: #a3adbb;
+  --hold-soft: #232a35;
+  --warn: #e0a23a;
+  --warn-soft: #33270f;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #9085e9;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --chart-up: #f05252;
+  --chart-down: #34c172;
+  --chart-up-vol: rgba(240, 82, 82, 0.32);
+  --chart-down-vol: rgba(52, 193, 114, 0.32);
+  --chart-grid: rgba(230, 234, 240, 0.06);
+  --selection: rgba(143, 176, 255, 0.28);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+/* 「跟隨系統」：與上面的深色值相同 */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0d14;
-    --surface: #131824;
-    --surface-2: #1b2130;
-    --border: #262d3d;
-    --ink: #eef1f6;
-    --ink-2: #a8b1c4;
-    --ink-3: #6b7488;
-
-    --accent: #818cf8;
-    --accent-fg: #0a0d14;
-    --accent-soft: #1e2542;
-
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --background: #0e1116;
+    --surface: #151a21;
+    --surface-2: #1c222b;
+    --surface-3: #232a35;
+    --border: #2a313c;
+    --border-strong: #3a4352;
+    --ink: #e6eaf0;
+    --ink-2: #b4bcc8;
+    --ink-3: #949dab;
+    --accent: #8fb0ff;
+    --accent-hover: #a8c1ff;
+    --accent-fg: #0e1116;
+    --accent-soft: #1b2a48;
     --up: #f87171;
-    --up-soft: #35191b;
-    --hold: #94a3b8;
-    --hold-soft: #202634;
+    --up-soft: #3a1d22;
     --down: #4ade80;
-    --down-soft: #12321f;
-
+    --down-soft: #13301f;
+    --hold: #a3adbb;
+    --hold-soft: #232a35;
+    --warn: #e0a23a;
+    --warn-soft: #33270f;
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #9085e9;
     --series-4: #c98500;
     --series-5: #d55181;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --chart-up: #f05252;
+    --chart-down: #34c172;
+    --chart-up-vol: rgba(240, 82, 82, 0.32);
+    --chart-down-vol: rgba(52, 193, 114, 0.32);
+    --chart-grid: rgba(230, 234, 240, 0.06);
+    --selection: rgba(143, 176, 255, 0.28);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.5);
   }
-}
-
-:root[data-theme="dark"] {
-  --background: #0a0d14; --surface: #131824; --surface-2: #1b2130; --border: #262d3d;
-  --ink: #eef1f6; --ink-2: #a8b1c4; --ink-3: #6b7488;
-  --accent: #818cf8; --accent-fg: #0a0d14; --accent-soft: #1e2542;
-  --up: #f87171; --up-soft: #35191b; --hold: #94a3b8; --hold-soft: #202634;
-  --down: #4ade80; --down-soft: #12321f;
-  --series-1: #3987e5; --series-2: #d95926; --series-3: #9085e9; --series-4: #c98500; --series-5: #d55181;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
-}
-:root[data-theme="light"] {
-  --background: #f7f8fa; --surface: #ffffff; --surface-2: #f1f3f6; --border: #e3e7ed;
-  --ink: #101725; --ink-2: #475069; --ink-3: #8b93a4;
-  --accent: #4f46e5; --accent-fg: #ffffff; --accent-soft: #eef0fe;
-  --up: #dc2626; --up-soft: #fdeaea; --hold: #64748b; --hold-soft: #eef1f5;
-  --down: #15803d; --down-soft: #e7f6ec;
-  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #4a3aa7; --series-4: #eda100; --series-5: #e87ba4;
-  --shadow-sm: 0 1px 2px rgba(16,23,37,0.06),0 1px 3px rgba(16,23,37,0.04);
-  --shadow-md: 0 4px 12px rgba(16,23,37,0.08),0 2px 4px rgba(16,23,37,0.04);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
   --color-up: var(--up);
   --color-up-soft: var(--up-soft);
-  --color-hold: var(--hold);
-  --color-hold-soft: var(--hold-soft);
   --color-down: var(--down);
   --color-down-soft: var(--down-soft);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-hold: var(--hold);
+  --color-hold-soft: var(--hold-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+
+  /* 系統字體：拉丁字與數字用平台的介面字，中文落到蘋方／微軟正黑體／思源黑體 */
+  --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+
+  /* 固定字級（產品介面不用流動字級）：12 說明、13 表格、14 內文、16、20、24、32 */
+  --text-table: 0.8125rem;
+  --text-table--line-height: 1.4;
 }
 
-body {
-  background: var(--background);
-  color: var(--ink);
-  font-family: var(--font-geist-sans), system-ui, "Noto Sans TC", sans-serif;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    /* 數字一律等寬，表格與跳動的數值才對得齊 */
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--selection);
+  }
+
+  input,
+  textarea {
+    caret-color: var(--accent);
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+
+  /* 放在 base layer：元件可以用 focus-visible:* 改寫 */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  dialog::backdrop {
+    background: var(--scrim);
+  }
 }
 
-@keyframes fadeup {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
+/* 鍵盤使用者的第一個 Tab：跳過頂列直接到主要內容 */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  z-index: 60;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
 }
-.animate-fadeup { animation: fadeup 0.35s ease both; }
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* 手機底部分頁列的高度＋安全區：內容不會被固定列蓋住 */
+.pb-tabbar {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 48rem) {
+  .pb-tabbar {
+    padding-bottom: 2.5rem;
+  }
+}
