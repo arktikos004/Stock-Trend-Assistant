@@ -10,16 +10,10 @@ import { ArrowDown, ArrowUp, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import RankBar, { QUANTILE, rankMaxDev } from "@/components/rank/RankBar";
 import Badge from "@/components/ui/Badge";
 import type { RankResult, Tier } from "@/lib/api";
 import { code, share } from "@/lib/format";
-import type { BadgeTone } from "@/lib/status";
-
-const QUANTILE: Record<RankResult["quantile"], { text: string; tone: BadgeTone }> = {
-  top: { text: "強", tone: "up" },
-  mid: { text: "中", tone: "hold" },
-  bottom: { text: "弱", tone: "down" },
-};
 
 type SortKey = "rank" | "name" | "tier";
 
@@ -36,8 +30,7 @@ export default function RankTable({
 }) {
   const router = useRouter();
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "rank", dir: 1 });
-  // 分數條以 0.5（贏過中位數的機率對半）為中線：高於 0.5 往右、低於往左，長度依這份清單裡最大的偏離縮放
-  const maxDev = Math.max(0.05, ...rows.map((r) => Math.abs(r.score - 0.5)));
+  const maxDev = rankMaxDev(rows);
 
   const sorted = useMemo(() => {
     if (!sortable) return rows;
@@ -60,7 +53,7 @@ export default function RankTable({
         <button
           type="button"
           onClick={() => setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : 1 }))}
-          className={`inline-flex min-h-8 items-center gap-1 rounded px-2 hover:text-ink ${active ? "text-ink" : ""}`}
+          className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded px-2 hover:text-ink ${active ? "text-ink" : ""}`}
         >
           {label}
           {active && (sort.dir === 1 ? <ArrowUp size={13} aria-hidden="true" /> : <ArrowDown size={13} aria-hidden="true" />)}
@@ -70,11 +63,12 @@ export default function RankTable({
   };
 
   return (
-    <div className="relative overflow-x-auto">
-      <table className="w-full min-w-[20rem] text-table">
-        <thead className="sticky top-0 bg-surface-2">
-          <tr className="border-b border-border text-left text-xs text-ink-3">
-            {header("rank", "名次", "w-14 text-right")}
+    // 不包水平捲動容器：捲動容器會讓表頭的 sticky 失效。欄位在窄螢幕依序隱藏，390 寬也放得下
+    <div className="relative">
+      <table className="w-full text-table">
+        <thead className="sticky top-14 z-10 bg-surface-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
+          <tr className="text-left text-xs text-ink-3">
+            {header("rank", "名次", "w-16 text-right")}
             {header("name", "股票")}
             <th scope="col" className="px-3 py-2 font-medium">
               分數
@@ -115,13 +109,7 @@ export default function RankTable({
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="relative hidden h-1.5 w-24 rounded-full bg-surface-3 sm:block" aria-hidden="true">
-                      <div
-                        className={`absolute inset-y-0 ${r.score >= 0.5 ? "left-1/2 rounded-r-full bg-accent" : "right-1/2 rounded-l-full bg-ink-3"}`}
-                        style={{ width: `${(Math.abs(r.score - 0.5) / maxDev) * 50}%` }}
-                      />
-                      <div className="absolute -top-0.5 left-1/2 h-2.5 w-px bg-border-strong" />
-                    </div>
+                    <RankBar score={r.score} maxDev={maxDev} className="hidden w-24 sm:block" />
                     <span className="text-ink-2">{r.score.toFixed(3)}</span>
                   </div>
                 </td>

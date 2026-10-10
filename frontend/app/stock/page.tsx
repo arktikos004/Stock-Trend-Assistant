@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * 個股：報價列、日 K 線、5 日方向訊號、篩選器綜合評分、技術指標、新聞情緒、線上實證與歷史回放。
+ * 個股：報價列、日 K 線、相對強弱排序（主模型）、5 日方向訊號、篩選器綜合評分、技術指標、新聞情緒、線上實證與歷史回放。
+ * 從總覽或排序頁點進來的人要先看到主模型的結果，所以右欄第一個面板是相對強弱排序。
  * 代號放在網址（/stock?t=2330.TW），可以分享、重新整理不會跑掉。
  * 主資料失敗只影響該區塊；K 線取不到時說明原因，其他區塊照常顯示。
  */
@@ -14,6 +15,7 @@ import CandleChart from "@/components/CandleChart";
 import HistoryReplayCard from "@/components/HistoryReplayCard";
 import IndicatorPanel from "@/components/IndicatorPanel";
 import PredictionCard from "@/components/PredictionCard";
+import RankBar, { QUANTILE, rankMaxDev } from "@/components/rank/RankBar";
 import ScoreBar from "@/components/screener/ScoreBar";
 import SentimentCard from "@/components/SentimentCard";
 import TrackRecordCard from "@/components/TrackRecordCard";
@@ -23,7 +25,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import Segmented from "@/components/ui/Segmented";
 import { api, siteMeta, STATIC_DATA, type Candle } from "@/lib/api";
-import { code, fixed, pct, toneVar } from "@/lib/format";
+import { code, fixed, pct, share, toneVar } from "@/lib/format";
 import { COMPONENTS, TIER_TITLE } from "@/lib/screener";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { toggleWatch, useWatchlist } from "@/lib/watchlist";
@@ -145,9 +147,7 @@ function StockView() {
             {r ? (
               <>
                 <span className="text-lg font-semibold">{r.rank}</span>／{rank.data?.results.length}
-                <Badge tone={r.quantile === "top" ? "up" : r.quantile === "bottom" ? "down" : "hold"}>
-                  {r.quantile === "top" ? "強" : r.quantile === "bottom" ? "弱" : "中"}
-                </Badge>
+                <Badge tone={QUANTILE[r.quantile].tone}>{QUANTILE[r.quantile].text}</Badge>
               </>
             ) : (
               "—"
@@ -175,6 +175,8 @@ function StockView() {
         </div>
       </dl>
 
+      {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列是技術指標與篩選器、新聞情緒。
+          元素順序就是手機單欄的順序，也是鍵盤與螢幕閱讀器的順序 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <Panel
           title="日 K 線"
@@ -245,6 +247,46 @@ function StockView() {
         </Panel>
 
         <div className="space-y-5">
+          <Panel
+            title="相對強弱排序"
+            description={rank.data ? `基準日 ${rank.data.base_date}，預測未來 5 個交易日` : undefined}
+          >
+            {r && rank.data ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-ink-2">
+                    第 <span className="text-2xl font-semibold text-ink">{r.rank}</span> 名，共 {rank.data.results.length} 檔
+                  </p>
+                  <Badge tone={QUANTILE[r.quantile].tone}>{QUANTILE[r.quantile].text}</Badge>
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <RankBar score={r.score} maxDev={rankMaxDev(rank.data.results)} className="flex-1" />
+                  <span className="text-sm text-ink-2">分數 {r.score.toFixed(3)}</span>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 text-sm">
+                  <div>
+                    <dt className="text-xs text-ink-3">百分位</dt>
+                    <dd className="text-ink">{share(r.percentile)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-ink-3">篩選層級</dt>
+                    <dd className="text-ink">{s ? (s.tier ? `${s.tier}：${TIER_TITLE[s.tier]}` : "未列入候選") : "—"}</dd>
+                  </div>
+                </dl>
+                <p className="mt-3 text-xs leading-relaxed text-ink-3">分數是模型估計這一檔在未來 5 個交易日贏過全池中位數的機率。</p>
+                <Link href="/scan" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
+                  看全部 {rank.data.results.length} 檔的排序
+                </Link>
+              </>
+            ) : rank.error ? (
+              <p className="text-sm text-ink-3">{errorText(rank.error, "今天的相對強弱排序還沒有產生。")}</p>
+            ) : rank.data ? (
+              <p className="text-sm text-ink-3">這一檔不在今天的排序裡。</p>
+            ) : (
+              <Skeleton className="h-36 w-full" />
+            )}
+          </Panel>
+
           <Panel title="未來 5 個交易日的方向訊號">
             {prediction.error ? (
               <Notice>{errorText(prediction.error, "這一檔的預測還沒有產生。")}</Notice>
@@ -254,7 +296,19 @@ function StockView() {
               <Skeleton className="h-56 w-full" />
             )}
           </Panel>
+        </div>
 
+        <Panel title="技術指標">
+          {indicators.data ? (
+            <IndicatorPanel indicators={indicators.data} />
+          ) : indicators.error ? (
+            <p className="text-sm text-ink-3">{errorText(indicators.error, "這一檔的技術指標還沒有產生。")}</p>
+          ) : (
+            <Skeleton className="h-64 w-full" />
+          )}
+        </Panel>
+
+        <div className="space-y-5">
           <Panel
             title="篩選器綜合評分"
             description={screener.data ? `規則 ${screener.data.rules_version}，基準日 ${screener.data.base_date}` : undefined}
@@ -287,25 +341,14 @@ function StockView() {
               <Skeleton className="h-24 w-full" />
             )}
           </Panel>
+
+          <Panel title="新聞情緒">
+            <SentimentCard twTicker={ticker} />
+          </Panel>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-        <Panel title="技術指標">
-          {indicators.data ? (
-            <IndicatorPanel indicators={indicators.data} />
-          ) : indicators.error ? (
-            <p className="text-sm text-ink-3">{errorText(indicators.error, "這一檔的技術指標還沒有產生。")}</p>
-          ) : (
-            <Skeleton className="h-64 w-full" />
-          )}
-        </Panel>
-        <Panel title="新聞情緒">
-          <SentimentCard twTicker={ticker} />
-        </Panel>
-      </div>
-
-      <div className="mt-5 space-y-5">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
         <Panel title={`線上預測實證（${ticker}）`}>
           <TrackRecordCard ticker={ticker} records={history.data?.records ?? []} trackRecord={trackRecord.data ?? null} />
         </Panel>

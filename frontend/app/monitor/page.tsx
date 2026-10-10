@@ -8,7 +8,7 @@
  * 只顯示、不自動處置；不是投資建議。
  */
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import LedgerPanel from "@/components/overview/LedgerPanel";
 import MarketPanel from "@/components/overview/MarketPanel";
 import Badge from "@/components/ui/Badge";
@@ -31,38 +31,92 @@ function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: Re
   );
 }
 
-/** 逐日 Rank IC：以零軸為基準的上下長條，橫線＝回測平均；深色＝當日即時記錄、淺色＝事後重建 */
+/** y 軸刻度間距：依資料範圍取 0.05／0.1／0.2，讓刻度落在好讀的數字上 */
+function icStep(bound: number): number {
+  return bound > 0.4 ? 0.2 : bound > 0.2 ? 0.1 : 0.05;
+}
+
+/**
+ * 逐日 Rank IC：以零軸為基準的上下長條，左邊是 y 軸刻度，虛線＝回測平均（標在圖右側，不壓在最新的長條上）；
+ * 實色＝當日即時記錄、半透明＝事後重建。指到或點一下長條會顯示當天的數值，完整數值在下方的表格。
+ */
 function IcChart({ data }: { data: MonitorResponse["model"] }) {
+  const [hover, setHover] = useState<number | null>(null);
   const days = data.daily.filter((d) => d.ic != null);
   if (days.length === 0) return <p className="text-sm text-ink-3">還沒有到期的交易日。</p>;
-  const bound = Math.max(0.1, ...days.map((d) => Math.abs(d.ic as number)), Math.abs(data.backtest_ic ?? 0));
+  const raw = Math.max(0.1, ...days.map((d) => Math.abs(d.ic as number)), Math.abs(data.backtest_ic ?? 0));
+  const step = icStep(raw);
+  const bound = Math.ceil(raw / step - 1e-9) * step;
+  const ticks = Array.from({ length: Math.round((2 * bound) / step) + 1 }, (_, i) => Number((bound - i * step).toFixed(4)));
+  const digits = step < 0.1 ? 2 : 1;
   const y = (v: number) => 50 - (v / bound) * 50;
+  const h = hover != null ? days[hover] : null;
   return (
     <div>
-      <div className="relative h-40" role="img" aria-label={`逐日線上 Rank IC，${days.length} 天，平均 ${fixed(data.mean_ic, 4, true)}`}>
-        <div className="absolute inset-x-0 border-t border-border" style={{ top: "50%" }} />
-        {data.backtest_ic != null && (
-          <div className="absolute inset-x-0 border-t border-dashed border-ink-3" style={{ top: `${y(data.backtest_ic)}%` }} />
-        )}
-        <div className="absolute inset-0 flex gap-px">
-          {days.map((d) => {
-            const v = d.ic as number;
-            return (
-              <div key={d.day} className="relative h-full flex-1" title={`${d.day}：Rank IC ${fixed(v, 3, true)}（${d.n} 檔，${d.source === "live" ? "當日即時記錄" : "事後重建"}）`}>
-                <span
-                  className={`absolute inset-x-0 bg-accent ${v >= 0 ? "rounded-t-[2px]" : "rounded-b-[2px]"}`}
-                  style={{ top: `${v >= 0 ? y(v) : 50}%`, height: `${Math.max((Math.abs(v) / bound) * 50, 0.5)}%`, opacity: d.source === "live" ? 1 : 0.45 }}
-                />
-              </div>
-            );
-          })}
+      <div className="flex gap-2">
+        <div className="relative h-40 w-10 shrink-0 text-right text-xs text-ink-3" aria-hidden="true">
+          {ticks.map((t) => (
+            <span key={t} className="absolute right-0 -translate-y-1/2" style={{ top: `${y(t)}%` }}>
+              {t === 0 ? "0" : fixed(t, digits, true)}
+            </span>
+          ))}
         </div>
+        <div
+          className="relative h-40 flex-1"
+          role="img"
+          aria-label={`逐日線上 Rank IC，${days.length} 天，平均 ${fixed(data.mean_ic, 4, true)}；回測平均 ${fixed(data.backtest_ic, 4, true)}`}
+          onPointerLeave={() => setHover(null)}
+        >
+          {ticks.map((t) => (
+            <div key={t} className={`absolute inset-x-0 border-t ${t === 0 ? "border-border-strong" : "border-border"}`} style={{ top: `${y(t)}%` }} />
+          ))}
+          <div className="absolute inset-0 flex gap-px">
+            {days.map((d, i) => {
+              const v = d.ic as number;
+              return (
+                <div
+                  key={d.day}
+                  className={`relative h-full flex-1 ${hover === i ? "bg-surface-2" : ""}`}
+                  onPointerEnter={() => setHover(i)}
+                  onPointerDown={() => setHover(i)}
+                >
+                  <span
+                    className={`absolute inset-x-0 bg-accent ${v >= 0 ? "rounded-t-[2px]" : "rounded-b-[2px]"}`}
+                    style={{ top: `${v >= 0 ? y(v) : 50}%`, height: `${Math.max((Math.abs(v) / bound) * 50, 0.5)}%`, opacity: d.source === "live" ? 1 : 0.45 }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          {data.backtest_ic != null && (
+            <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-ink-2" style={{ top: `${y(data.backtest_ic)}%` }} />
+          )}
+          {h && hover != null && (
+            <div
+              className="pointer-events-none absolute top-1 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs shadow-(--shadow-pop)"
+              style={{ left: `clamp(4.5rem, ${((hover + 0.5) / days.length) * 100}%, calc(100% - 4.5rem))` }}
+            >
+              <p className="text-ink-3">{h.day}</p>
+              <p className="font-semibold text-ink">Rank IC {fixed(h.ic, 3, true)}</p>
+              <p className="text-ink-3">
+                {h.n} 檔，{h.source === "live" ? "當日即時記錄" : "事後重建"}
+              </p>
+            </div>
+          )}
+        </div>
+        {data.backtest_ic != null && (
+          <div className="relative h-40 w-16 shrink-0 text-xs text-ink-2" aria-hidden="true">
+            <span className="absolute left-0 -translate-y-1/2 whitespace-nowrap" style={{ top: `${y(data.backtest_ic)}%` }}>
+              回測 {fixed(data.backtest_ic, 3, true)}
+            </span>
+          </div>
+        )}
       </div>
-      <div className="mt-1 flex justify-between text-xs text-ink-3">
+      <div className={`mt-1 flex justify-between pl-12 text-xs text-ink-3 ${data.backtest_ic != null ? "pr-[4.5rem]" : ""}`}>
         <span>{days[0].day}</span>
         <span>{days[days.length - 1].day}</span>
       </div>
-      <p className="mt-1 text-xs text-ink-3">實色是當日即時記錄、半透明是事後重建；虛線是回測平均 {fixed(data.backtest_ic, 4, true)}，實線是 0。</p>
+      <p className="mt-1 text-xs text-ink-3">實色是當日即時記錄，半透明是事後重建；虛線是回測平均。</p>
       <details className="mt-2 text-xs">
         <summary className="cursor-pointer text-accent">看逐日數值</summary>
         <div className="relative mt-2 max-h-56 overflow-auto rounded-md border border-border">
@@ -173,8 +227,7 @@ export default function MonitorPage() {
               <IcChart data={m} />
             </div>
             <p className="mt-3 text-xs leading-relaxed text-ink-3">
-              t 值用 Newey–West 標準誤（落後 {m.thresholds.nw_lags} 期）：相鄰基準日的 5 日報酬互相重疊，逐日 IC 會自我相關，樸素 t 會高估顯著性。
-              尚未到期的排序紀錄 {m.pending_rows} 筆。
+              t 值用 Newey–West 標準誤（落後 {m.thresholds.nw_lags} 期）：相鄰基準日的 5 日報酬互相重疊，逐日 IC 會自我相關，樸素 t 會高估顯著性。尚未到期的排序紀錄 {m.pending_rows} 筆。
             </p>
           </Panel>
 

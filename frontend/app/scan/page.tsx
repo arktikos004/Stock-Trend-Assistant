@@ -138,10 +138,11 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
       ) : d?.is_mock ? (
         <p className="p-6 text-center text-sm text-ink-3">模型還沒有載入，無法產生方向訊號。</p>
       ) : d ? (
-        <div className="relative overflow-x-auto">
+        // 窄螢幕欄位放不下，需要水平捲動（表頭不固定）；md 以上不當捲動容器，表頭才能固定在頂列下方
+        <div className="relative overflow-x-auto md:overflow-x-visible">
           <table className="w-full min-w-[22rem] text-table">
-            <thead className="sticky top-0 bg-surface-2">
-              <tr className="border-b border-border text-left text-xs text-ink-3">
+            <thead className="sticky top-14 z-10 bg-surface-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
+              <tr className="text-left text-xs text-ink-3">
                 <th scope="col" className="px-3 py-2 font-medium">股票</th>
                 <th scope="col" className="px-3 py-2 font-medium">訊號</th>
                 <th scope="col" className="px-3 py-2 font-medium">三類機率（漲／觀望／跌）</th>
@@ -194,8 +195,7 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
       ) : null}
 
       <p className="border-t border-border px-4 py-3 text-xs leading-relaxed text-ink-3">
-        方向訊號：未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望。信心未達決策門檻時轉為觀望（標「規則降級」）。
-        全池掃描與模型走同一條特徵管線；歷史查詢只用當日與更早的資料重算。
+        方向訊號：未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望。信心未達決策門檻時轉為觀望（標「規則降級」）。全池掃描與模型走同一條特徵管線；歷史查詢只用當日與更早的資料重算。
       </p>
     </Panel>
   );

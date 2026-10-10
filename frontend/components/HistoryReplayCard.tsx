@@ -86,14 +86,14 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
         <>
           <HitStrip records={data.records} />
           <p className="mt-1.5 text-xs text-ink-3">每格一次預測：實心＝命中、空心＝未命中，顏色是預測的方向；左舊右新。</p>
-          <div className="relative mt-3 max-h-72 overflow-auto rounded-md border border-border">
+          <div className="relative mt-3 max-h-72 overflow-auto border-t border-border">
             <table className="w-full min-w-[19rem] text-table">
               <thead className="sticky top-0 bg-surface-2">
                 <tr className="text-left text-xs text-ink-3">
                   <th scope="col" className="px-3 py-2 font-medium">日期</th>
                   <th scope="col" className="px-3 py-2 font-medium">預測</th>
                   <th scope="col" className="hidden px-3 py-2 text-right font-medium sm:table-cell">信心</th>
-                  <th scope="col" className="px-3 py-2 font-medium">實際</th>
+                  <th scope="col" className="px-3 py-2 font-medium sm:pl-6">實際</th>
                   <th scope="col" className="px-3 py-2 text-right font-medium">5 日報酬</th>
                   <th scope="col" className="px-3 py-2 text-center font-medium">命中</th>
                 </tr>
@@ -101,12 +101,12 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
               <tbody className="divide-y divide-border">
                 {data.records.map((r) => (
                   <tr key={r.date}>
-                    <td className="px-3 py-1.5 text-ink-2">{r.date}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 text-ink-2">{r.date}</td>
                     <td className="px-3 py-1.5 font-semibold" style={{ color: `var(${SIGNAL_VAR[r.signal]})` }}>
                       {r.signal}
                     </td>
                     <td className="hidden px-3 py-1.5 text-right text-ink-2 sm:table-cell">{share(r.confidence)}</td>
-                    <td className="px-3 py-1.5 font-semibold" style={{ color: `var(${SIGNAL_VAR[r.actual]})` }}>
+                    <td className="px-3 py-1.5 font-semibold sm:pl-6" style={{ color: `var(${SIGNAL_VAR[r.actual]})` }}>
                       {r.actual}
                     </td>
                     <td className="px-3 py-1.5 text-right text-ink-2">{pct(r.actual_return)}</td>

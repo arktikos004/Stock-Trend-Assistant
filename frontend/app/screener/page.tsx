@@ -337,10 +337,11 @@ function ScreenerView() {
                   : "取消一個條件，或切到「全部」再看看。不適用的條件（例如金融保險業的營收）不算符合。"}
               </EmptyState>
             ) : (
-              <div className="relative overflow-x-auto">
-                <table className="w-full min-w-[20rem] text-table">
-                  <thead className="sticky top-0 bg-surface-2">
-                    <tr className="border-b border-border text-left text-xs text-ink-3">
+              // 不包水平捲動容器（會讓表頭的 sticky 失效）；欄位在窄螢幕依序隱藏，390 寬也放得下
+              <div className="relative">
+                <table className="w-full text-table">
+                  <thead className="sticky top-14 z-10 bg-surface-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
+                    <tr className="text-left text-xs text-ink-3">
                       <th scope="col" className="w-10 px-2 py-2">
                         <span className="sr-only">展開</span>
                       </th>
@@ -427,9 +428,7 @@ function ScreenerView() {
           </Panel>
 
           <p className="mt-4 text-xs leading-relaxed text-ink-3">
-            資料來源：評價（本益比、殖利率、股價淨值比）、月營收、融資融券餘額來自臺灣證券交易所；股權分散來自臺灣集中保管結算所
-            （政府資料開放平臺資料集，依政府資料開放授權條款第 1 版利用）。動能、均線與突破前高以內部價格計算，只公開衍生值。
-            每個組成是股票池 {data.stocks.length} 檔內的百分位（0 最差、100 最好）。綜合評分不存證、不算命中率；相對強弱排序的線上紀錄見「排序」與「監控」。
+            資料來源：評價（本益比、殖利率、股價淨值比）、月營收、融資融券餘額來自臺灣證券交易所；股權分散來自臺灣集中保管結算所（政府資料開放平臺資料集，依政府資料開放授權條款第 1 版利用）。動能、均線與突破前高以內部價格計算，只公開衍生值。每個組成是股票池 {data.stocks.length} 檔內的百分位（0 最差、100 最好）。綜合評分不存證、不算命中率；相對強弱排序的線上紀錄見「排序」與「監控」。
           </p>
         </>
       )}
