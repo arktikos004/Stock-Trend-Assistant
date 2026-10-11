@@ -1,4 +1,4 @@
-"""LSTM 趨勢分類模型（PLAN.md Phase 4）。"""
+"""LSTM 趨勢分類模型。"""
 
 from __future__ import annotations
 

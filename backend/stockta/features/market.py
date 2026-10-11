@@ -16,7 +16,7 @@ import pandas as pd
 
 from stockta.config import BREADTH_MIN_TICKERS, MARKET_INCLUDE_REGIME
 
-# 短期情境欄位（2026-07-18 起既有）
+# 短期情境欄位（正式管線一律使用）
 MARKET_CONTEXT_BASE_COLUMNS = [
     "mkt_ret_1d",
     "mkt_ret_5d",

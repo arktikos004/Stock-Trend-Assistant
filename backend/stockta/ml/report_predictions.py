@@ -2,8 +2,7 @@
 
 讀 predictions.db 的線上預測紀錄，對每筆以 parquet 快取中 base_date 之後
 第 LABEL_HORIZON_DAYS 個交易日的實際累積報酬對照（與訓練標籤同一定義），
-產出 docs/online_predictions.md——「線上預測 vs 實際走勢」比測試集 AUC
-更有說服力（PLAN.md Phase 6/9）。
+產出 docs/online_predictions.md——「線上預測 vs 實際走勢」比測試集 AUC 更有說服力。
 
 **依模型版本分層**：predictions.db 會累積歷次換模型的紀錄，混在一起算命中率
 會誤導。報告以「現行 production 版本」為主體，其餘（已淘汰）版本另列對照表，

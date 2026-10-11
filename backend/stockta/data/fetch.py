@@ -1,11 +1,10 @@
-"""Phase 1 資料擷取 CLI：python -m stockta.data.fetch
+"""資料擷取 CLI：python -m stockta.data.fetch
 
 依 config.STOCK_POOL 抓取近 HISTORY_YEARS 年日線 OHLCV 進 parquet 快取，
 並產出 docs/data_exploration.md（資料範圍、缺值、標籤三類分佈——
-Phase 3 據此決定是否調整 ±2% 門檻或 class weight）。
+決定 ±2% 門檻與 class weight 時的依據）。
 
-快取更新策略（PLAN.md Phase 1 要求文件化）：增量合併——每次執行下載
-最新區間並與既有 parquet 以日期去重合併（keep=last），不整包重抓。
+快取更新策略：增量合併——每次執行下載最新區間並與既有 parquet 以日期去重合併（keep=last），不整包重抓。
 """
 
 from __future__ import annotations

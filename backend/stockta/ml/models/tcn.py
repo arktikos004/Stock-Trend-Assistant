@@ -1,4 +1,4 @@
-"""TCN（Temporal Convolutional Network）趨勢分類模型（PLAN.md Phase 4）。
+"""TCN（Temporal Convolutional Network）趨勢分類模型。
 
 以 causal dilated Conv1d 自行實作（PLAN 要求，不引入第三方 TCN 套件）：
 - causal：對時間軸只向左 padding 再裁掉尾端，輸出第 t 步只看得到 ≤ t 的輸入

@@ -1,8 +1,7 @@
 """預測結果落地 SQLite（append-only）。
 
-每次線上推論都記一筆，累積「線上預測 vs 實際走勢」的實證資料，
-比測試集 AUC 更有說服力（PLAN.md Phase 6）。同一 (ticker, 基準日, 模型版本)
-只記第一筆，重複呼叫不會灌水。
+每次線上推論都記一筆，累積「線上預測 vs 實際走勢」的實證資料——比測試集 AUC 更有說服力。
+同一 (ticker, 基準日, 模型版本) 只記第一筆，重複呼叫不會灌水。
 """
 
 from __future__ import annotations

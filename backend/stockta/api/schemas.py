@@ -1,7 +1,7 @@
 """Pydantic 回應模型 — Phase 0 凍結的 API 契約。
 
-前端從第一週開始就對這份契約開發（先吃 mock 回應），後續 Phase 不應隨意
-變更欄位名稱或型別；若真的需要變更，視為破壞性變更並同步通知前端。
+前端（含讀靜態 JSON 的公開站）依這份契約讀資料：欄位名稱與型別不要改；
+真的要改就是破壞性變更，frontend/lib/api.ts 與 export_static.py 要一起改。
 """
 
 from datetime import date
@@ -34,7 +34,7 @@ class PredictionResponse(BaseModel):
     confidence: float = Field(ge=0, le=1)
     risk: RiskLevel
     model_version: str
-    is_mock: bool = Field(default=False, description="Phase 6 模型整合前為 True，前端可據此顯示提示")
+    is_mock: bool = Field(default=False, description="模型未載入、回應是 mock 時為 True，前端據此顯示提示")
     proba: dict[str, float] | None = Field(
         default=None, description="三類機率（跌/觀望/漲）；mock 模式為 None。additive 欄位，不破壞既有契約"
     )
@@ -196,7 +196,7 @@ class ModelInfoResponse(BaseModel):
     model_version: str
     trained_at: str | None = None
     test_auc: float | None = None
-    is_mock: bool = Field(default=False, description="Phase 6 前尚未整合真實模型時為 True")
+    is_mock: bool = Field(default=False, description="模型未載入時為 True")
 
 
 class HealthResponse(BaseModel):

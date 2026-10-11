@@ -1,6 +1,6 @@
 """深度模型超參數搜尋：python -m stockta.ml.tune --model lstm|gru|tcn
 
-小型 grid search（PLAN.md Phase 5）：以驗證集 macro AUC 選優，
+小型 grid search：以驗證集 macro AUC 選優，
 最佳組合的模型連同超參數與指標經 registry.save 存回 artifacts/<model>/
 （覆蓋 train.py 的預設超參數版本）。資料與切分沿用 train.py 的同一條路徑，
 所有組合都在同一份資料上比較。基線模型（rf/xgb）不在此調參範圍。

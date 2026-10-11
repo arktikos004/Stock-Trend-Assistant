@@ -95,7 +95,7 @@ def get_prediction(
 ) -> PredictionResponse:
     predictor: Predictor | None = getattr(request.app.state, "predictor", None)
     if predictor is None:
-        # 尚未訓練出 artifact 時的 mock 回應，前端以 is_mock 判斷顯示提示
+        # 模型未載入：回 mock 預測，前端依 is_mock 顯示提示
         return PredictionResponse(
             ticker=ticker,
             base_date=last_completed_trading_day(),

@@ -1,4 +1,4 @@
-"""RandomForest 與 XGBoost 基線（PLAN.md Phase 3）。
+"""RandomForest 與 XGBoost 基線。
 
 兩者皆以攤平的 60 日視窗特徵訓練，class weight 處理「觀望」過半的類別不平衡。
 """

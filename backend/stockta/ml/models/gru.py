@@ -1,4 +1,4 @@
-"""GRU 趨勢分類模型（PLAN.md Phase 4）。"""
+"""GRU 趨勢分類模型。"""
 
 from __future__ import annotations
 

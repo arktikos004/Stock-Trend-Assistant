@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
         app.state.prediction_store = PredictionStore(PREDICTIONS_DB_PATH)
         logger.info("已載入模型 %s", app.state.predictor.version)
     except FileNotFoundError:
-        # 尚未訓練（開發初期）：以 mock 模式提供 API，前端照常對接
+        # 找不到 artifact（例如還沒下載模型）：以 mock 模式提供 API，回應的 is_mock 為 true
         app.state.predictor = None
         app.state.prediction_store = None
         logger.warning("找不到模型 artifact（%s），/prediction 以 mock 模式運作", PRODUCTION_MODEL)

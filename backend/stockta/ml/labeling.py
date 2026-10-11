@@ -1,6 +1,6 @@
 """5 日趨勢三分類標籤。
 
-標籤定義（PLAN.md Phase 3）：未來 LABEL_HORIZON_DAYS 個交易日的累積報酬
+標籤定義：未來 LABEL_HORIZON_DAYS 個交易日的累積報酬
 > LABEL_UP_THRESHOLD 為「漲」、< LABEL_DOWN_THRESHOLD 為「跌」、其餘「觀望」。
 類別索引順序固定為 config.LABEL_CLASSES = ["跌", "觀望", "漲"]（0/1/2），
 所有模型的 predict_proba 輸出都必須遵守此順序。
