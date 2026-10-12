@@ -14,9 +14,9 @@ jobs:
   ruff:
     runs-on: ubuntu-24.04 # 固定版本：ubuntu-latest 自 2026-10-19 起改為 Ubuntu 26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12.10"
 
@@ -31,9 +31,9 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm

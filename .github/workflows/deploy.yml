@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-24.04 # 固定版本：ubuntu-latest 自 2026-10-19 起改為 Ubuntu 26
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 取出狀態分支
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: state
           path: _state
@@ -41,7 +41,7 @@ jobs:
             find frontend/public/data/stocks -name candles.json -delete
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -57,7 +57,7 @@ jobs:
           npm run build
 
       - name: 部署 Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

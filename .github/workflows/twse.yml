@@ -31,15 +31,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30 # 每個出口最多重試 3 次、每次逾時 30 秒；證交所網站整個連不上時也要跑得完
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 取出 twse-data 分支
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: twse-data
           path: _twse
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12.10"
 
