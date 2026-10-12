@@ -1,7 +1,7 @@
 import { CircleCheck, CircleX, Clock } from "lucide-react";
 import type { PastPrediction, Signal, TrackRecordResponse } from "@/lib/api";
-import { pct, share } from "@/lib/format";
-import { LINKS } from "@/lib/links";
+import Link from "next/link";
+import { fixed, pct, share } from "@/lib/format";
 
 const SIGNAL_VAR: Record<Signal, string> = { 漲: "--up", 跌: "--down", 觀望: "--hold" };
 
@@ -27,7 +27,31 @@ export function HitMark({ hit }: { hit: boolean | null }) {
   );
 }
 
-/** 這一檔最近的線上預測與實際走勢。每筆在推論當下寫入、不可回改；命中與失誤都列出。 */
+/** 全站命中率一定和同一批樣本的基線一起看：全猜「觀望」、全猜「漲」與差距（百分點）、95% 區間 */
+function Baseline({ trackRecord }: { trackRecord: TrackRecordResponse }) {
+  const all = trackRecord.samples?.find((s) => s.key === "all");
+  const hold = all?.baseline_hold;
+  const up = all?.baseline_up;
+  const gap = all?.hit_rate != null && hold != null ? (all.hit_rate - hold) * 100 : null;
+  return (
+    <p className="mb-3 text-sm leading-relaxed text-ink-2">
+      全站已到期 {trackRecord.matured.toLocaleString()} 筆，命中 {share(trackRecord.hit_rate)}
+      {hold != null && up != null ? (
+        <>
+          ；同一批樣本全猜「觀望」{share(hold)}、全猜「漲」{share(up)}。比全猜觀望 {fixed(gap, 1, true)} 個百分點
+          {all?.ci_excess_hold && `（95% 區間 ${fixed(all.ci_excess_hold[0] * 100, 1, true)}～${fixed(all.ci_excess_hold[1] * 100, 1, true)}）`}。
+        </>
+      ) : (
+        "。"
+      )}
+      <Link href="/monitor" className="ml-1 text-accent underline-offset-2 hover:underline">
+        看監控頁的完整比較
+      </Link>
+    </p>
+  );
+}
+
+/** 這一檔最近的線上預測與實際走勢。命中與失誤都列出。 */
 export default function TrackRecordCard({
   ticker,
   records,
@@ -40,14 +64,7 @@ export default function TrackRecordCard({
   const shown = records.slice(0, 8);
   return (
     <div data-ticker={ticker}>
-      {trackRecord && trackRecord.matured > 0 && (
-        <p className="mb-3 text-xs text-ink-2">
-          全站已到期 {trackRecord.matured.toLocaleString()} 筆，命中 {share(trackRecord.hit_rate)}。
-          <a className="ml-1 text-accent underline-offset-2 hover:underline" href={LINKS.onlineReport} target="_blank" rel="noopener noreferrer">
-            與全猜「觀望」的基線比較
-          </a>
-        </p>
-      )}
+      {trackRecord && trackRecord.matured > 0 && <Baseline trackRecord={trackRecord} />}
 
       {shown.length === 0 ? (
         <p className="text-sm text-ink-3">這一檔還沒有線上預測紀錄。每日排程收盤後會寫入當天的預測。</p>
@@ -86,8 +103,8 @@ export default function TrackRecordCard({
         </div>
       )}
 
-      <p className="mt-3 text-xs leading-relaxed text-ink-3">
-        每筆預測在推論當下寫入資料庫，之後不能修改，並串入存證鏈；到期後用實際的 5 日走勢對照。
+      <p className="mt-3 text-xs leading-relaxed text-ink-2">
+        每筆預測在推論當下寫入資料庫，2026-10-07 起串入存證鏈，之後改動任何一列驗證都會失敗；到期後用實際的 5 日走勢對照。部分基準日的預測在下一個交易日開盤後才寫入，監控頁另外列出它們的成績。
       </p>
     </div>
   );

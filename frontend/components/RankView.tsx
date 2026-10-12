@@ -12,12 +12,21 @@ import SkillBanner from "@/components/rank/SkillBanner";
 import StrategySummaryCard from "@/components/StrategySummaryCard";
 import { Notice, TableSkeleton } from "@/components/ui/Feedback";
 import Panel from "@/components/ui/Panel";
-import { api, datedSessions } from "@/lib/api";
+import { api, datedSessions, type RankResponse } from "@/lib/api";
 import { code } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { useWatchlist } from "@/lib/watchlist";
 import DateQuery from "./DateQuery";
+
+/** 這份排序的來源：資料庫裡的紀錄（當天記錄或事後重建）或沒有紀錄的重新評分；舊版站上資料沒有 basis */
+function basisText(r: RankResponse): string {
+  if (r.basis === "recorded") {
+    return r.recorded_source === "live" ? "基準日當天記錄並串入存證鏈的排序" : "事後重建後記錄的排序（不是基準日當天的紀錄）";
+  }
+  if (r.basis === "recomputed") return "資料庫沒有這一天的紀錄：依當時可得的資料重新評分，沒有存證";
+  return r.is_historical ? "歷史查詢：point-in-time 重算" : "最新收盤的排序";
+}
 
 export default function RankView({ date, onDate }: { date: string | null; onDate: (d: string | null) => void }) {
   const summary = useAsync("rank-summary", () => api.rankSummary());
@@ -36,7 +45,7 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
 
       <Panel
         title={data.data ? `${data.data.base_date} 的排序（${rows.length} 檔）` : "全池排序"}
-        description={data.data ? (data.data.is_historical ? "歷史查詢：point-in-time 重算" : "最新收盤的排序") : undefined}
+        description={data.data ? basisText(data.data) : undefined}
         actions={
           <button
             type="button"
@@ -76,7 +85,7 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
       </Panel>
 
       <p className="text-xs leading-relaxed text-ink-3">
-        模型分數是模型預測「未來 5 個交易日贏過全池中位數」的機率（模型輸出，未經機率校準）；百分位是這個分數在全池裡的名次位置，兩者不是同一個數字。分組是名次的前 20%、後 20%：排名靠前只代表相對位置，仍可能下跌。歷史查詢是 point-in-time 重算。研究用的排序，不是投資建議。
+        模型分數是模型預測「未來 5 個交易日贏過全池中位數」的機率（模型輸出，未經機率校準）；百分位是這個分數在全池裡的名次位置，兩者不是同一個數字。分組是名次的前 20%、後 20%：排名靠前只代表相對位置，仍可能下跌。有紀錄的日子顯示資料庫裡的紀錄（就是串入存證鏈的那幾列），沒有紀錄的日子才依當時可得的資料重新評分。研究用的排序，不是投資建議。
       </p>
     </div>
   );

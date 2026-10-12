@@ -20,14 +20,22 @@ export const MODEL_STATUS: Record<ModelStatus, { text: string; note: string; bri
 
 export type BadgeTone = "neutral" | "accent" | "up" | "down" | "hold" | "warn" | "solid";
 
-/** 技能檢定（線上 Rank IC 的 Newey–West t 對門檻）的結論與樣本：排名表上方的橫條和狀態列共用 */
+/**
+ * 技能檢定（線上 Rank IC 的 Newey–West t 對門檻）的結論與樣本：排名表上方的橫條和狀態列共用。
+ * 主數字是當日即時記錄（前瞻）的 t；含事後重建的全部到期日另外寫出。舊版站上資料沒有分組時退回全部到期日。
+ */
 export function skillTest(model: MonitorResponse["model"]) {
   const threshold = model.thresholds.skill_t[0] ?? 2;
+  const live = model.groups?.live;
   const rebuilt = model.n_days - model.n_live_days;
+  const t = live ? live.t_nw : model.t_skill;
   return {
     threshold,
-    t: model.t_skill,
-    passed: model.t_skill != null && model.t_skill >= threshold,
-    sample: `${model.n_days} 個到期日${rebuilt > 0 ? `，其中 ${rebuilt} 日是事後重建` : ""}`,
+    t,
+    passed: t != null && t >= threshold,
+    label: live ? "當日即時記錄的" : "線上",
+    sample: live
+      ? `${live.n_days} 天；含事後重建的 ${model.n_days} 天為 ${model.t_skill == null ? "—" : model.t_skill.toFixed(2)}`
+      : `${model.n_days} 個到期日${rebuilt > 0 ? `，其中 ${rebuilt} 日是事後重建` : ""}`,
   };
 }

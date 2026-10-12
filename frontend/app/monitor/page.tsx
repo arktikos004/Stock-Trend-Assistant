@@ -2,9 +2,11 @@
 
 /**
  * 模型監控與例外報表（規則見 docs/monitor_prereg.md；門檻依期刊文獻預先聲明）：
- * - 模型健康：線上逐日 Rank IC、Newey–West t、與回測比較的失效檢定（Giacomini & Rossi, 2009）
+ * - 模型健康：逐日 Rank IC 分成當日即時、事後重建、預測窗口開始前已存證三組；主數字是當日即時（前瞻）的成績，
+ *   狀態照聲明用全部的到期日判定（含事後重建）。附 20 日滾動平均的趨勢線
+ * - 方向訊號：命中率一定和同一批樣本的兩條基線、各訊號精度與 95% 區間一起列；依寫入時間分組
  * - 例外報表：排名分位遷移（5 個基準日）、52 週新高與新低（George & Hwang, 2004）
- * - 存證鏈：節數、已上鏈與尚未上鏈的列數、驗證結果與最新一節的雜湊；大盤結構與方向訊號的線上命中率
+ * - 存證鏈：上鏈之後匯出的快照
  * 只顯示、不自動處置；不是投資建議。
  */
 
@@ -15,18 +17,20 @@ import Badge from "@/components/ui/Badge";
 import { Notice, Skeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
-import { api, ledgerHead, type MonitorResponse } from "@/lib/api";
+import { api, ledgerSnapshot, type IcGroup, type MonitorResponse, type TrackSample } from "@/lib/api";
 import { fixed, share } from "@/lib/format";
 import { LINKS } from "@/lib/links";
 import { MODEL_STATUS } from "@/lib/status";
 import { errorText, useAsync } from "@/lib/useAsync";
+
+type Model = MonitorResponse["model"];
 
 function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div className="border-l border-border pl-3 first:border-l-0 first:pl-0 max-sm:[&:nth-child(3)]:border-l-0 max-sm:[&:nth-child(3)]:pl-0">
       <dt className="text-xs text-ink-3">{label}</dt>
       <dd className="mt-0.5 text-lg font-semibold text-ink">{value}</dd>
-      {sub && <dd className="mt-0.5 text-xs text-ink-3">{sub}</dd>}
+      {sub && <dd className="mt-0.5 text-xs text-ink-2">{sub}</dd>}
     </div>
   );
 }
@@ -36,11 +40,20 @@ function icStep(bound: number): number {
   return bound > 0.4 ? 0.2 : bound > 0.2 ? 0.1 : 0.05;
 }
 
+/** 20 日滾動平均（與「留意」用的近 20 日平均同一個窗口）：滿 window 天才有值 */
+function rolling(values: number[], window: number): (number | null)[] {
+  return values.map((_, i) => (i + 1 < window ? null : values.slice(i + 1 - window, i + 1).reduce((a, b) => a + b, 0) / window));
+}
+
+const SOURCE_TEXT = { live: "當日即時", pit: "事後重建" } as const;
+
 /**
- * 逐日 Rank IC：以零軸為基準的上下長條，左邊是 y 軸刻度，虛線＝回測平均（標在圖右側，不壓在最新的長條上）；
- * 實色＝當日即時記錄、半透明＝事後重建。指到或點一下長條會顯示當天的數值，完整數值在下方的表格。
+ * 逐日 Rank IC：以零軸為基準的上下長條，左邊是 y 軸刻度。
+ * 實心長條＝當日即時記錄，空心長條＝事後重建（形狀不同，不只靠透明度）；
+ * 折線是 20 日滾動平均（實線段落在當日即時的日子、虛線段落在事後重建的日子）；水平虛線是回測平均。
+ * 指到或點一下長條會顯示當天的數值，完整數值在下方的表格。
  */
-function IcChart({ data }: { data: MonitorResponse["model"] }) {
+function IcChart({ data }: { data: Model }) {
   const [hover, setHover] = useState<number | null>(null);
   const days = data.daily.filter((d) => d.ic != null);
   if (days.length === 0) return <p className="text-sm text-ink-3">還沒有到期的交易日。</p>;
@@ -51,10 +64,16 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
   const digits = step < 0.1 ? 2 : 1;
   const y = (v: number) => 50 - (v / bound) * 50;
   const h = hover != null ? days[hover] : null;
+  const window = data.thresholds.recent_days;
+  const trend = rolling(
+    days.map((d) => d.ic as number),
+    window,
+  );
+  const x = (i: number) => ((i + 0.5) / days.length) * 100;
   return (
     <div>
       <div className="flex gap-2">
-        <div className="relative h-40 w-10 shrink-0 text-right text-xs text-ink-3" aria-hidden="true">
+        <div className="relative h-44 w-10 shrink-0 text-right text-xs text-ink-3" aria-hidden="true">
           {ticks.map((t) => (
             <span key={t} className="absolute right-0 -translate-y-1/2" style={{ top: `${y(t)}%` }}>
               {t === 0 ? "0" : fixed(t, digits, true)}
@@ -62,9 +81,9 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
           ))}
         </div>
         <div
-          className="relative h-40 flex-1"
+          className="relative h-44 flex-1"
           role="img"
-          aria-label={`逐日線上 Rank IC，${days.length} 天，平均 ${fixed(data.mean_ic, 4, true)}；回測平均 ${fixed(data.backtest_ic, 4, true)}`}
+          aria-label={`逐日 Rank IC，${days.length} 天，平均 ${fixed(data.mean_ic, 4, true)}；回測平均 ${fixed(data.backtest_ic, 4, true)}`}
           onPointerLeave={() => setHover(null)}
         >
           {ticks.map((t) => (
@@ -73,6 +92,7 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
           <div className="absolute inset-0 flex gap-px">
             {days.map((d, i) => {
               const v = d.ic as number;
+              const live = d.source === "live";
               return (
                 <div
                   key={d.day}
@@ -81,31 +101,51 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
                   onPointerDown={() => setHover(i)}
                 >
                   <span
-                    className={`absolute inset-x-0 bg-accent ${v >= 0 ? "rounded-t-[2px]" : "rounded-b-[2px]"}`}
-                    style={{ top: `${v >= 0 ? y(v) : 50}%`, height: `${Math.max((Math.abs(v) / bound) * 50, 0.5)}%`, opacity: d.source === "live" ? 1 : 0.45 }}
+                    className={`absolute inset-x-0 ${live ? "bg-accent" : "border border-accent bg-transparent"} ${v >= 0 ? "rounded-t-[2px]" : "rounded-b-[2px]"}`}
+                    style={{ top: `${v >= 0 ? y(v) : 50}%`, height: `${Math.max((Math.abs(v) / bound) * 50, 0.5)}%` }}
                   />
                 </div>
               );
             })}
           </div>
+          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            {trend.map((v, i) => {
+              const prev = trend[i - 1];
+              if (v == null || prev == null) return null;
+              return (
+                <line
+                  key={days[i].day}
+                  x1={x(i - 1)}
+                  y1={y(prev)}
+                  x2={x(i)}
+                  y2={y(v)}
+                  stroke="var(--ink)"
+                  strokeWidth={2}
+                  strokeDasharray={days[i].source === "live" ? undefined : "4 3"}
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+          </svg>
           {data.backtest_ic != null && (
             <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-ink-2" style={{ top: `${y(data.backtest_ic)}%` }} />
           )}
           {h && hover != null && (
             <div
               className="pointer-events-none absolute top-1 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs shadow-(--shadow-pop)"
-              style={{ left: `clamp(4.5rem, ${((hover + 0.5) / days.length) * 100}%, calc(100% - 4.5rem))` }}
+              style={{ left: `clamp(4.5rem, ${x(hover)}%, calc(100% - 4.5rem))` }}
             >
               <p className="text-ink-3">{h.day}</p>
               <p className="font-semibold text-ink">Rank IC {fixed(h.ic, 3, true)}</p>
+              {trend[hover] != null && <p className="text-ink-2">20 日滾動平均 {fixed(trend[hover], 3, true)}</p>}
               <p className="text-ink-3">
-                {h.n} 檔，{h.source === "live" ? "當日即時記錄" : "事後重建"}
+                {h.n} 檔，{h.source === "live" ? "當日即時記錄" : h.before_training ? "事後重建（模型訓練完成前）" : "事後重建"}
               </p>
             </div>
           )}
         </div>
         {data.backtest_ic != null && (
-          <div className="relative h-40 w-16 shrink-0 text-xs text-ink-2" aria-hidden="true">
+          <div className="relative h-44 w-16 shrink-0 text-xs text-ink-2" aria-hidden="true">
             <span className="absolute left-0 -translate-y-1/2 whitespace-nowrap" style={{ top: `${y(data.backtest_ic)}%` }}>
               回測 {fixed(data.backtest_ic, 3, true)}
             </span>
@@ -116,7 +156,26 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
         <span>{days[0].day}</span>
         <span>{days[days.length - 1].day}</span>
       </div>
-      <p className="mt-1 text-xs text-ink-3">實色是當日即時記錄，半透明是事後重建；虛線是回測平均。</p>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-2 rounded-[1px] bg-accent" aria-hidden="true" />
+          當日即時記錄
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-2 rounded-[1px] border border-accent" aria-hidden="true" />
+          事後重建
+        </li>
+        <li className="flex items-center gap-1.5">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" y1="3" x2="22" y2="3" stroke="var(--ink)" strokeWidth="2" />
+          </svg>
+          {window} 日滾動平均（虛線段＝落在事後重建的日子）
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block w-5 border-t border-dashed border-ink-2" aria-hidden="true" />
+          回測平均
+        </li>
+      </ul>
       <details className="mt-2 text-xs">
         <summary className="cursor-pointer text-accent">看逐日數值</summary>
         <div className="relative mt-2 max-h-56 overflow-auto rounded-md border border-border">
@@ -127,6 +186,7 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
                 <th scope="col" className="px-3 py-1.5 text-right font-medium">Rank IC</th>
                 <th scope="col" className="px-3 py-1.5 text-right font-medium">檔數</th>
                 <th scope="col" className="px-3 py-1.5 font-medium">來源</th>
+                <th scope="col" className="px-3 py-1.5 font-medium">窗口開始前已存證</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -135,7 +195,11 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
                   <td className="px-3 py-1 text-ink-2">{d.day}</td>
                   <td className="px-3 py-1 text-right text-ink">{fixed(d.ic, 3, true)}</td>
                   <td className="px-3 py-1 text-right text-ink-2">{d.n}</td>
-                  <td className="px-3 py-1 text-ink-2">{d.source === "live" ? "當日即時" : "事後重建"}</td>
+                  <td className="px-3 py-1 text-ink-2">
+                    {SOURCE_TEXT[d.source]}
+                    {d.before_training && "（模型訓練完成前）"}
+                  </td>
+                  <td className="px-3 py-1 text-ink-2">{d.sealed ? "是" : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -143,6 +207,139 @@ function IcChart({ data }: { data: MonitorResponse["model"] }) {
         </div>
       </details>
     </div>
+  );
+}
+
+/** 三組成績：當日即時（主）、事後重建、預測窗口開始前已串入存證鏈 */
+function Groups({ m }: { m: Model }) {
+  const groups = m.groups;
+  if (!groups) return null;
+  const preTraining = m.daily.filter((d) => d.ic != null && d.before_training).length;
+  const rows: { key: "live" | "pit" | "sealed"; label: string; note?: string; g: IcGroup }[] = [
+    { key: "live", label: "當日即時記錄", note: "基準日收盤後當天寫入；這是主要的前瞻成績", g: groups.live },
+    {
+      key: "pit",
+      label: "事後重建",
+      note: `資料延遲時隔天以後依當時可得的資料重算${preTraining ? `；其中 ${preTraining} 天在模型訓練完成之前` : ""}`,
+      g: groups.pit,
+    },
+    {
+      key: "sealed",
+      label: "到期前已公開存證",
+      note:
+        groups.sealed.n_days > 0
+          ? "預測窗口開始前就已串入存證鏈"
+          : m.sealed_since
+            ? `存證自 ${m.sealed_since} 的基準日開始，到期（5 個交易日後）才有成績`
+            : "還沒有在預測窗口開始前上鏈的基準日",
+      g: groups.sealed,
+    },
+  ];
+  return (
+    <div className="relative -mx-4 overflow-x-auto px-4">
+      <table className="w-full min-w-[34rem] text-table">
+        <caption className="sr-only">逐日 Rank IC 依資料來源分成三組</caption>
+        <thead>
+          <tr className="border-b border-border text-left text-xs text-ink-3">
+            <th scope="col" className="py-2 pr-3 font-medium">成績</th>
+            <th scope="col" className="py-2 pr-3 text-right font-medium">到期日</th>
+            <th scope="col" className="py-2 pr-3 text-right font-medium">平均 Rank IC</th>
+            <th scope="col" className="py-2 pr-3 text-right font-medium">Newey–West t</th>
+            <th scope="col" className="py-2 font-medium">期間</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {rows.map(({ key, label, note, g }) => (
+            <tr key={key}>
+              <th scope="row" className="py-2 pr-3 text-left font-normal">
+                <span className={`block ${key === "live" ? "font-semibold text-ink" : "text-ink"}`}>{label}</span>
+                {note && <span className="block text-xs text-ink-2">{note}</span>}
+              </th>
+              <td className="py-2 pr-3 text-right text-ink">{g.n_days}</td>
+              <td className="py-2 pr-3 text-right text-ink">{fixed(g.mean_ic, 4, true)}</td>
+              <td className="py-2 pr-3 text-right text-ink">{fixed(g.t_nw, 2, true)}</td>
+              <td className="whitespace-nowrap py-2 text-xs text-ink-2">{g.first_day ? `${g.first_day}～${g.last_day}` : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const SAMPLE_TEXT: Record<TrackSample["key"], { label: string; note: string }> = {
+  all: { label: "全部到期", note: "" },
+  before_window: { label: "窗口開始前寫入", note: "基準日的下一個交易日開盤前就寫入資料庫" },
+  after_window: { label: "窗口開始後才寫入", note: "隔天才補記，或模型訓練完成後回補" },
+};
+
+const pp = (v: number | null | undefined) => (v == null ? "—" : `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(1)}`);
+const range = (r: [number, number] | null | undefined, f: (v: number) => string) => (r ? `${f(r[0])}～${f(r[1])}` : "—");
+
+/** 方向訊號：命中率、同一批樣本的兩條基線與差距、95% 區間；依寫入時間分組 */
+function TrackTable({ samples, bootstrap }: { samples: TrackSample[]; bootstrap?: { block: number; replicates: number } | null }) {
+  const all = samples.find((s) => s.key === "all");
+  return (
+    <>
+      <div className="relative -mx-4 overflow-x-auto px-4">
+        <table className="w-full min-w-[34rem] text-table">
+          <caption className="sr-only">方向訊號的命中率與基線</caption>
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-ink-3">
+              <th scope="col" className="py-2 pr-3 font-medium">樣本</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">到期筆數</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">命中率（95% 區間）</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">全猜觀望</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">全猜漲</th>
+              <th scope="col" className="py-2 text-right font-medium">比全猜觀望（百分點）</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {samples.map((s) => (
+              <tr key={s.key}>
+                <th scope="row" className="py-2 pr-3 text-left font-normal">
+                  <span className={`block ${s.key === "all" ? "font-semibold text-ink" : "text-ink"}`}>{SAMPLE_TEXT[s.key].label}</span>
+                  {SAMPLE_TEXT[s.key].note && <span className="block text-xs text-ink-2">{SAMPLE_TEXT[s.key].note}</span>}
+                </th>
+                <td className="py-2 pr-3 text-right text-ink">
+                  {s.matured.toLocaleString()}
+                  <span className="block text-xs text-ink-2">{s.n_days} 個基準日</span>
+                </td>
+                <td className="py-2 pr-3 text-right text-ink">
+                  {share(s.hit_rate, 1)}
+                  <span className="block text-xs text-ink-2">{range(s.ci_hit_rate, (v) => share(v, 1))}</span>
+                </td>
+                <td className="py-2 pr-3 text-right text-ink-2">{share(s.baseline_hold, 1)}</td>
+                <td className="py-2 pr-3 text-right text-ink-2">{share(s.baseline_up, 1)}</td>
+                <td className="py-2 text-right text-ink">
+                  {s.hit_rate != null && s.baseline_hold != null ? pp(s.hit_rate - s.baseline_hold) : "—"}
+                  <span className="block text-xs text-ink-2">{range(s.ci_excess_hold, pp)}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {all && all.matured > 0 && (
+        <p className="mt-3 text-sm text-ink-2">
+          各訊號的精度（喊了之後對的比例，全部到期）：
+          {(["漲", "跌", "觀望"] as const).map((sig, i) => {
+            const p = all.precision[sig];
+            return (
+              <span key={sig}>
+                {i > 0 && "、"}
+                {sig} {p.called ? share(p.hits / p.called, 1) : "—"}（{p.hits}/{p.called}）
+              </span>
+            );
+          })}
+          。
+        </p>
+      )}
+      <p className="mt-2 text-xs leading-relaxed text-ink-2">
+        基線是同一批樣本裡實際為「觀望」或「漲」的比例，也就是每次都猜同一類的命中率。95% 區間以基準日為單位、區塊長度 {bootstrap?.block ?? 5} 的 block
+        bootstrap 重抽 {(bootstrap?.replicates ?? 2000).toLocaleString()} 次：同一天 49 檔互相相關，相鄰基準日的 5 日報酬也重疊。區間跨過 0 代表還不能說贏過基線。
+      </p>
+    </>
   );
 }
 
@@ -171,7 +368,7 @@ export default function MonitorPage() {
   const monitor = useAsync("monitor", () => api.monitor());
   const market = useAsync("market", () => api.market());
   const record = useAsync("track-record", () => api.trackRecord());
-  const head = useAsync("ledger-head", ledgerHead);
+  const ledger = useAsync("ledger", ledgerSnapshot);
 
   const data = monitor.data;
   const m = data?.model;
@@ -182,6 +379,7 @@ export default function MonitorPage() {
   const left = moves?.moves.filter((x) => x.tags.includes("leave_top")) ?? [];
   const jumps = moves?.moves.filter((x) => x.tags.includes("jump") && !x.tags.includes("enter_top") && !x.tags.includes("leave_top")) ?? [];
   const tr = record.data;
+  const live = m?.groups?.live;
 
   return (
     <>
@@ -206,29 +404,65 @@ export default function MonitorPage() {
           <Panel
             className="lg:col-span-2"
             title="相對強弱排序模型的線上表現"
-            description={`${status.note}。模型 ${m.version ?? "—"}，基準日 ${data.base_date}`}
+            description={`模型 ${m.version ?? "—"}，基準日 ${data.base_date}`}
             actions={
-              <Badge tone={status.tone} icon={status.icon}>
+              <Badge tone={status.tone} icon={status.icon} title={status.note}>
                 {status.text}
               </Badge>
             }
           >
             <dl className="grid grid-cols-2 gap-y-4 sm:grid-cols-4">
-              <Stat label="線上平均 Rank IC" value={fixed(m.mean_ic, 4, true)} sub={`${m.n_days} 個到期日（當日即時 ${m.n_live_days}）`} />
+              {live ? (
+                <Stat
+                  label="當日即時記錄的平均 Rank IC"
+                  value={fixed(live.mean_ic, 4, true)}
+                  sub={`${live.n_days} 個到期日，Newey–West t ${fixed(live.t_nw, 2, true)}`}
+                />
+              ) : (
+                <Stat label="線上平均 Rank IC" value={fixed(m.mean_ic, 4, true)} sub={`${m.n_days} 個到期日（當日即時 ${m.n_live_days}）`} />
+              )}
               <Stat
-                label="技能檢定 t（對 0）"
-                value={fixed(m.t_skill, 2, true)}
-                sub={`顯著門檻 ${m.thresholds.skill_t.map((t) => t.toFixed(1)).join("／")}`}
+                label="全部到期日（含事後重建）"
+                value={fixed(m.mean_ic, 4, true)}
+                sub={`${m.n_days} 天，t ${fixed(m.t_skill, 2, true)}（門檻 ${m.thresholds.skill_t.map((t) => t.toFixed(1)).join("／")}）`}
               />
               <Stat label="失效檢定 t（對回測）" value={fixed(m.t_breakdown, 2, true)} sub={`低於 ${m.thresholds.breakdown_t} 才警示；回測 ${fixed(m.backtest_ic, 4, true)}`} />
-              <Stat label={`近 ${m.thresholds.recent_days} 日平均`} value={fixed(m.recent_mean_ic, 4, true)} sub="描述性，不是檢定" />
+              <Stat label={`近 ${m.thresholds.recent_days} 日平均`} value={fixed(m.recent_mean_ic, 4, true)} sub="低於 0 時狀態為「留意」，描述性，不是檢定" />
             </dl>
+            <p className="mt-4 text-sm leading-relaxed text-ink-2">
+              狀態「{status.text}」：{status.note}。依預先聲明，狀態用全部 {m.n_days} 個到期日判定，含事後重建的日子；主要的前瞻成績看當日即時記錄。
+            </p>
+            {m.groups && (
+              <div className="mt-4">
+                <Groups m={m} />
+              </div>
+            )}
             <div className="mt-5">
               <IcChart data={m} />
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-ink-3">
+            <p className="mt-3 text-xs leading-relaxed text-ink-2">
               t 值用 Newey–West 標準誤（落後 {m.thresholds.nw_lags} 期）：相鄰基準日的 5 日報酬互相重疊，逐日 IC 會自我相關，樸素 t 會高估顯著性。尚未到期的排序紀錄 {m.pending_rows} 筆。
             </p>
+          </Panel>
+
+          <Panel className="lg:col-span-2" title="方向訊號的線上命中率" description="未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望">
+            {tr ? (
+              tr.samples && tr.samples.length > 0 ? (
+                <TrackTable samples={tr.samples} bootstrap={tr.bootstrap} />
+              ) : (
+                <dl className="grid grid-cols-2 gap-y-3">
+                  <Stat label="命中率" value={share(tr.hit_rate)} sub={`${tr.matured.toLocaleString()} 筆到期${tr.since ? `，自 ${tr.since}` : ""}`} />
+                  <Stat label="等待到期" value={`${(tr.total - tr.matured).toLocaleString()} 筆`} sub="基準日後滿 5 個交易日才對照" />
+                </dl>
+              )
+            ) : record.error ? (
+              <p className="text-sm text-ink-3">{errorText(record.error, "線上命中率還沒有產生。")}</p>
+            ) : (
+              <Skeleton className="h-24 w-full" />
+            )}
+            <a className="mt-3 inline-block text-xs text-accent hover:underline" href={LINKS.onlineReport} target="_blank" rel="noopener noreferrer">
+              線上實證報告
+            </a>
           </Panel>
 
           <Panel
@@ -252,21 +486,8 @@ export default function MonitorPage() {
 
           <div className="space-y-5">
             <div id="ledger" className="scroll-mt-28">
-              <LedgerPanel ledger={data.ledger} head={head.data} headFailed={head.error != null} />
+              <LedgerPanel snapshot={ledger.error ? null : ledger.data} fallback={data.ledger} />
             </div>
-            <Panel title="方向訊號的線上命中率">
-              {tr ? (
-                <dl className="grid grid-cols-2 gap-y-3">
-                  <Stat label="命中率" value={share(tr.hit_rate)} sub={`${tr.matured.toLocaleString()} 筆到期${tr.since ? `，自 ${tr.since}` : ""}`} />
-                  <Stat label="等待到期" value={`${(tr.total - tr.matured).toLocaleString()} 筆`} sub="基準日後滿 5 個交易日才對照" />
-                </dl>
-              ) : (
-                <Skeleton className="h-14 w-full" />
-              )}
-              <a className="mt-3 inline-block text-xs text-accent hover:underline" href={LINKS.onlineReport} target="_blank" rel="noopener noreferrer">
-                與全猜「觀望」的基線比較（線上實證報告）
-              </a>
-            </Panel>
             <MarketPanel market={market.data} />
           </div>
         </div>

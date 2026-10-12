@@ -28,11 +28,11 @@ export default function SkillBanner({ variant = "strip" }: { variant?: "strip" |
           <>到期的交易日還不到 {model.thresholds.min_days} 天，模型效果還不能檢定。</>
         ) : skill.passed ? (
           <>
-            線上 Rank IC 的 t 值 <span className="font-semibold text-ink">{fixed(skill.t, 2)}</span>，達到技能檢定門檻 {skill.threshold}（{skill.sample}）。
+            {skill.label} Rank IC t 值 <span className="font-semibold text-ink">{fixed(skill.t, 2)}</span>，達到技能檢定門檻 {skill.threshold}（{skill.sample}）。
           </>
         ) : (
           <>
-            <span className="font-semibold text-ink">模型效果尚未達技能檢定門檻</span>：線上 Rank IC 的 t 值 {fixed(skill.t, 2)}（門檻 {skill.threshold}；{skill.sample}）。
+            <span className="font-semibold text-ink">模型效果尚未達技能檢定門檻</span>：{skill.label} Rank IC t 值 {fixed(skill.t, 2)}（門檻 {skill.threshold}；{skill.sample}）。
           </>
         )}
         排名只是 49 檔之間的相對位置，不代表會上漲。
