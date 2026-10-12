@@ -12,6 +12,7 @@ import LedgerPanel from "@/components/overview/LedgerPanel";
 import MarketPanel from "@/components/overview/MarketPanel";
 import MaturedPanel from "@/components/overview/MaturedPanel";
 import RankTable from "@/components/rank/RankTable";
+import SkillBanner from "@/components/rank/SkillBanner";
 import { EmptyState, Notice, TableSkeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
@@ -103,6 +104,7 @@ export default function OverviewPage() {
           }
           bodyClassName="p-0"
         >
+          <SkillBanner />
           {rank.error ? (
             <div className="p-4">
               <Notice tone="error">{errorText(rank.error, "今天的排序還沒有產生。每個交易日 15:20 後由排程產生。")}</Notice>
@@ -122,7 +124,7 @@ export default function OverviewPage() {
             <Link href="/scan" className="font-medium text-accent hover:underline">
               看全部 {results.length || 49} 檔的排序
             </Link>
-            <span className="text-xs text-ink-3">分數條以 0.5 為中線；分組是前 20% 為強、後 20% 為弱；篩選欄是篩選器的層級。</span>
+            <span className="text-xs text-ink-3">模型分數是模型輸出，不是百分位；分數條以 0.5 為中線。分組是名次在 49 檔裡的前 20%、後 20%；篩選欄是篩選器的層級。</span>
           </div>
         </Panel>
 

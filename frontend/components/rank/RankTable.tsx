@@ -2,7 +2,7 @@
 
 /**
  * 相對強弱排序表：總覽（前 10 名、自選）與排序頁（全池 49 檔）共用。
- * 分數＝模型預測「未來 5 個交易日贏過全池中位數」的機率；分組依百分位分強、中、弱（台股慣例：強＝紅、弱＝綠，另附文字）。
+ * 分數＝模型預測「未來 5 個交易日贏過全池中位數」的機率；分組依百分位分成前 20%、中段、後 20%（台股慣例：前段紅、後段綠，另附文字）。
  * 點股票名稱進個股頁；可排序的欄位標 aria-sort。
  */
 
@@ -71,7 +71,7 @@ export default function RankTable({
             {header("rank", "名次", "w-16 text-right")}
             {header("name", "股票")}
             <th scope="col" className="px-3 py-2 font-medium">
-              分數
+              模型分數
             </th>
             <th scope="col" className="hidden px-3 py-2 text-right font-medium sm:table-cell">
               百分位

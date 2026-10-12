@@ -1,11 +1,14 @@
 import type { RankResult } from "@/lib/api";
 import type { BadgeTone } from "@/lib/status";
 
-/** 百分位分組（台股慣例：強＝紅、弱＝綠，另附文字） */
+/**
+ * 百分位分組：寫出它在 49 檔裡的相對位置，不寫「強、弱」——排名靠前仍可能下跌。
+ * 顏色沿用台股慣例（前段紅、後段綠），文字一定在。
+ */
 export const QUANTILE: Record<RankResult["quantile"], { text: string; tone: BadgeTone }> = {
-  top: { text: "強", tone: "up" },
-  mid: { text: "中", tone: "hold" },
-  bottom: { text: "弱", tone: "down" },
+  top: { text: "前 20%", tone: "up" },
+  mid: { text: "中段", tone: "hold" },
+  bottom: { text: "後 20%", tone: "down" },
 };
 
 /** 分數條的縮放基準：這份清單裡離 0.5 最遠的距離（至少 0.05，避免分數都很接近時被放大成滿格） */

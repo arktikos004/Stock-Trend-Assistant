@@ -8,6 +8,7 @@
 import { Download } from "lucide-react";
 import { useMemo } from "react";
 import RankTable from "@/components/rank/RankTable";
+import SkillBanner from "@/components/rank/SkillBanner";
 import StrategySummaryCard from "@/components/StrategySummaryCard";
 import { Notice, TableSkeleton } from "@/components/ui/Feedback";
 import Panel from "@/components/ui/Panel";
@@ -43,7 +44,7 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
             onClick={() =>
               downloadCsv(
                 `rank-${data.data?.base_date ?? "latest"}.csv`,
-                ["名次", "代號", "名稱", "分數", "百分位", "篩選層級"],
+                ["名次", "代號", "名稱", "模型分數", "百分位", "篩選層級"],
                 rows.map((r) => [r.rank, code(r.ticker), r.name, r.score.toFixed(4), r.percentile.toFixed(4), tiers.get(r.ticker) ?? ""]),
               )
             }
@@ -55,6 +56,7 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
         }
         bodyClassName="p-0"
       >
+        <SkillBanner />
         <div className="border-b border-border px-4 py-3">
           <DateQuery value={date} sessions={sessions.data ?? null} onChange={onDate} />
         </div>
@@ -74,7 +76,7 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
       </Panel>
 
       <p className="text-xs leading-relaxed text-ink-3">
-        分數是模型預測「未來 5 個交易日贏過全池中位數」的機率，名次越前代表相對越強；分組以前、後 20% 分為強、弱。歷史查詢是 point-in-time 重算。研究用的排序，不是投資建議。
+        模型分數是模型預測「未來 5 個交易日贏過全池中位數」的機率（模型輸出，未經機率校準）；百分位是這個分數在全池裡的名次位置，兩者不是同一個數字。分組是名次的前 20%、後 20%：排名靠前只代表相對位置，仍可能下跌。歷史查詢是 point-in-time 重算。研究用的排序，不是投資建議。
       </p>
     </div>
   );

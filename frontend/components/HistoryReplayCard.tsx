@@ -92,7 +92,7 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
                 <tr className="text-left text-xs text-ink-3">
                   <th scope="col" className="px-3 py-2 font-medium">日期</th>
                   <th scope="col" className="px-3 py-2 font-medium">預測</th>
-                  <th scope="col" className="hidden px-3 py-2 text-right font-medium sm:table-cell">信心</th>
+                  <th scope="col" className="hidden px-3 py-2 text-right font-medium sm:table-cell">模型機率</th>
                   <th scope="col" className="px-3 py-2 font-medium sm:pl-6">實際</th>
                   <th scope="col" className="px-3 py-2 text-right font-medium">5 日報酬</th>
                   <th scope="col" className="px-3 py-2 text-center font-medium">命中</th>

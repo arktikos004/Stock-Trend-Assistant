@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * 頂列下方的狀態列：基準日、資料更新時間、存證鏈、模型監控、篩選候選數。
+ * 頂列下方的狀態列，三件事各有自己的狀態：資料（基準日與更新時間）、存證（驗證結果與截至哪一天）、
+ * 模型效果（技能檢定的 t 值與失效檢定的結果）；最後附篩選候選數。資料有更新不代表模型有效，所以不合成一個燈號。
  * 每日排程失敗時線上會停在上一版，超過 48 小時沒更新就以警示色標出，避免把過期資料當成最新。
  * 本機開發（即時後端）沒有 meta.json，只顯示讀得到的項目。
  */
@@ -10,8 +11,8 @@ import { ShieldCheck, ShieldX, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { api, siteMeta, STATIC_DATA } from "@/lib/api";
-import { taipeiTime } from "@/lib/format";
-import { MODEL_STATUS } from "@/lib/status";
+import { fixed, taipeiDate, taipeiTime } from "@/lib/format";
+import { MODEL_STATUS, skillTest } from "@/lib/status";
 import { useAsync } from "@/lib/useAsync";
 
 const STALE_HOURS = 48;
@@ -20,7 +21,7 @@ function Item({ label, children, href }: { label: string; children: ReactNode; h
   const body = (
     <>
       <dt className="text-ink-3">{label}</dt>
-      <dd className="flex items-center gap-1 font-semibold text-ink">{children}</dd>
+      <dd className="flex items-center gap-1.5 font-semibold text-ink">{children}</dd>
     </>
   );
   return (
@@ -36,6 +37,9 @@ function Item({ label, children, href }: { label: string; children: ReactNode; h
   );
 }
 
+/** 同一項裡的補充說明：一般字重、次要文字色 */
+const Sub = ({ children }: { children: ReactNode }) => <span className="font-normal text-ink-2">{children}</span>;
+
 const Pending = () => <span className="inline-block h-3 w-12 rounded-sm bg-surface-3 motion-safe:animate-pulse" aria-label="讀取中" />;
 
 export default function StatusStrip() {
@@ -48,40 +52,35 @@ export default function StatusStrip() {
 
   const m = monitor.data;
   const status = m ? MODEL_STATUS[m.model.status] : null;
+  const skill = m ? skillTest(m.model) : null;
   const ledger = m?.ledger;
+  const pending = ledger ? (ledger.pending.predictions ?? 0) + (ledger.pending.rank_predictions ?? 0) : 0;
 
   return (
     <div className="border-b border-border bg-surface-2">
       <dl
-        aria-label="資料狀態"
+        aria-label="資料、存證與模型效果的狀態"
         className="mx-auto flex w-full max-w-[1280px] items-center gap-x-4 overflow-x-auto whitespace-nowrap px-4 py-2 text-xs [scrollbar-width:none] lg:px-6"
       >
-        <Item label="基準日">{m ? m.base_date : monitor.error ? "—" : <Pending />}</Item>
-        {STATIC_DATA && (
-          <Item label="資料更新">
-            {meta.data ? (
-              meta.data.stale ? (
-                <span className="flex items-center gap-1 text-warn">
-                  <TriangleAlert size={13} aria-hidden="true" />
-                  {taipeiTime(meta.data.generated_at)}，可能已過期
-                </span>
-              ) : (
-                taipeiTime(meta.data.generated_at)
-              )
-            ) : meta.error ? (
-              "—"
+        <Item label="資料">
+          {m ? <>基準日 {m.base_date}</> : monitor.error ? "—" : <Pending />}
+          {STATIC_DATA &&
+            meta.data &&
+            (meta.data.stale ? (
+              <span className="flex items-center gap-1 text-warn">
+                <TriangleAlert size={13} aria-hidden="true" />
+                {taipeiTime(meta.data.generated_at)} 更新，可能已過期
+              </span>
             ) : (
-              <Pending />
-            )}
-          </Item>
-        )}
-        <Item label="存證鏈" href="/monitor#ledger">
+              <Sub>{taipeiTime(meta.data.generated_at)} 更新</Sub>
+            ))}
+        </Item>
+        <Item label="存證" href="/monitor#ledger">
           {ledger ? (
             ledger.available ? (
               <>
-                {ledger.entries} 節
                 {ledger.ok ? (
-                  <span className="flex items-center gap-0.5 font-normal text-ink-2">
+                  <span className="flex items-center gap-0.5">
                     <ShieldCheck size={13} className="text-accent" aria-hidden="true" />
                     驗證通過
                   </span>
@@ -91,6 +90,10 @@ export default function StatusStrip() {
                     驗證不符
                   </span>
                 )}
+                <Sub>
+                  {ledger.last_recorded_at ? `截至 ${taipeiDate(ledger.last_recorded_at)}` : "還沒有鏈節"}
+                  {pending > 0 && `，${pending.toLocaleString()} 列待上鏈`}
+                </Sub>
               </>
             ) : (
               "這次匯出沒有鏈檔"
@@ -101,11 +104,14 @@ export default function StatusStrip() {
             <Pending />
           )}
         </Item>
-        <Item label="模型監控" href="/monitor">
-          {status ? (
+        <Item label="模型效果" href="/monitor">
+          {m && status && skill ? (
             <>
-              <status.icon size={13} className={status.tone === "accent" ? "text-accent" : status.tone === "warn" ? "text-warn" : "text-ink-2"} aria-hidden="true" />
-              {status.text}
+              {skill.t == null ? "技能檢定：到期日不足" : `技能檢定 t ${fixed(skill.t, 2)}，${skill.passed ? "已達" : "未達"}門檻 ${skill.threshold}`}
+              <span className="flex items-center gap-1 font-normal text-ink-2">
+                <status.icon size={13} className={status.tone === "accent" ? "text-accent" : status.tone === "warn" ? "text-warn" : "text-ink-2"} aria-hidden="true" />
+                {status.brief}
+              </span>
             </>
           ) : monitor.error ? (
             "—"

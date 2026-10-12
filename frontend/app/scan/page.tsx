@@ -25,7 +25,7 @@ const SIGNAL_VAR: Record<Signal, string> = { 漲: "--up", 跌: "--down", 觀望:
 const ORDER: Signal[] = ["漲", "觀望", "跌"];
 type SortKey = "confidence" | "signal" | "name";
 
-/** 規則降級：觀望的機率低於漲或跌，只因信心不足才轉為觀望 */
+/** 規則降級：觀望的機率低於漲或跌，只因漲或跌的機率未達決策門檻才轉為觀望 */
 const downgraded = (r: ScanResult) => r.signal === "觀望" && r.proba["觀望"] < Math.max(r.proba["漲"], r.proba["跌"]);
 
 function Distribution({ data }: { data: ScanResponse }) {
@@ -118,7 +118,7 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
               value={sortKey}
               onChange={setSortKey}
               options={[
-                { value: "confidence", label: "依信心" },
+                { value: "confidence", label: "依模型機率" },
                 { value: "signal", label: "依訊號" },
                 { value: "name", label: "依名稱" },
               ]}
@@ -195,7 +195,7 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
       ) : null}
 
       <p className="border-t border-border px-4 py-3 text-xs leading-relaxed text-ink-3">
-        方向訊號：未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望。信心未達決策門檻時轉為觀望（標「規則降級」）。全池掃描與模型走同一條特徵管線；歷史查詢只用當日與更早的資料重算。
+        方向訊號：未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望。百分比是模型輸出的類別機率，未經機率校準；漲或跌的機率未達決策門檻時轉為觀望（標「規則降級」）。全池掃描與模型走同一條特徵管線；歷史查詢只用當日與更早的資料重算。
       </p>
     </Panel>
   );

@@ -16,6 +16,7 @@ import HistoryReplayCard from "@/components/HistoryReplayCard";
 import IndicatorPanel from "@/components/IndicatorPanel";
 import PredictionCard from "@/components/PredictionCard";
 import RankBar, { QUANTILE, rankMaxDev } from "@/components/rank/RankBar";
+import SkillBanner from "@/components/rank/SkillBanner";
 import ScoreBar from "@/components/screener/ScoreBar";
 import SentimentCard from "@/components/SentimentCard";
 import TrackRecordCard from "@/components/TrackRecordCard";
@@ -175,6 +176,12 @@ function StockView() {
         </div>
       </dl>
 
+      <p className="-mt-2 mb-5 text-sm leading-relaxed text-ink-2">
+        這三個數字回答不同的問題，可能不一致：<strong className="font-semibold text-ink">名次</strong>是這一檔和其他股票比的相對位置；
+        <strong className="font-semibold text-ink">方向訊號</strong>是這一檔自己未來 5 個交易日的漲跌會不會超過 ±2%；
+        <strong className="font-semibold text-ink">篩選器</strong>是依固定規則整理的候選清單。相對排名靠前，仍可能下跌。
+      </p>
+
       {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列是技術指標與篩選器、新聞情緒。
           元素順序就是手機單欄的順序，也是鍵盤與螢幕閱讀器的順序 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
@@ -253,6 +260,9 @@ function StockView() {
           >
             {r && rank.data ? (
               <>
+                <div className="mb-3">
+                  <SkillBanner variant="box" />
+                </div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm text-ink-2">
                     第 <span className="text-2xl font-semibold text-ink">{r.rank}</span> 名，共 {rank.data.results.length} 檔
@@ -261,7 +271,7 @@ function StockView() {
                 </div>
                 <div className="mt-3 flex items-center gap-3">
                   <RankBar score={r.score} maxDev={rankMaxDev(rank.data.results)} className="flex-1" />
-                  <span className="text-sm text-ink-2">分數 {r.score.toFixed(3)}</span>
+                  <span className="text-sm text-ink-2">模型分數 {r.score.toFixed(3)}</span>
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 text-sm">
                   <div>
@@ -273,7 +283,12 @@ function StockView() {
                     <dd className="text-ink">{s ? (s.tier ? `${s.tier}：${TIER_TITLE[s.tier]}` : "未列入候選") : "—"}</dd>
                   </div>
                 </dl>
-                <p className="mt-3 text-xs leading-relaxed text-ink-3">分數是模型估計這一檔在未來 5 個交易日贏過全池中位數的機率。</p>
+                <p className="mt-3 text-sm leading-relaxed text-ink-2">
+                  相對排名靠前，仍可能下跌；候選資格另依篩選條件判定。
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-ink-3">
+                  模型分數是模型估計這一檔在未來 5 個交易日贏過全池中位數的機率，是模型輸出、未經機率校準；百分位是這個分數在全池裡的名次位置，兩者不是同一個數字。
+                </p>
                 <Link href="/scan" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
                   看全部 {rank.data.results.length} 檔的排序
                 </Link>

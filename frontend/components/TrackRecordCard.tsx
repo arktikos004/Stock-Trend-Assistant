@@ -58,7 +58,7 @@ export default function TrackRecordCard({
               <tr className="border-b border-border text-left text-xs text-ink-3">
                 <th scope="col" className="py-2 pr-3 font-medium">基準日</th>
                 <th scope="col" className="py-2 pr-3 font-medium">預測</th>
-                <th scope="col" className="hidden py-2 pr-3 text-right font-medium sm:table-cell">信心</th>
+                <th scope="col" className="hidden py-2 pr-3 text-right font-medium sm:table-cell">模型機率</th>
                 <th scope="col" className="py-2 pr-3 font-medium sm:pl-6">實際</th>
                 <th scope="col" className="py-2 pr-3 text-right font-medium">5 日報酬</th>
                 <th scope="col" className="py-2 text-center font-medium">命中</th>

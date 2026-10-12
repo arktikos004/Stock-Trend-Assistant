@@ -7,7 +7,10 @@ import RiskBadge from "./RiskBadge";
 const SIGNAL_VAR: Record<Signal, string> = { 漲: "--up", 跌: "--down", 觀望: "--hold" };
 const ORDER: Signal[] = ["漲", "觀望", "跌"];
 
-/** 未來 5 個交易日的方向訊號。規則降級的「觀望」會標明，並列出三類機率，不讓低機率看起來像信心。 */
+/**
+ * 未來 5 個交易日的方向訊號。規則降級的「觀望」會標明，並列出三類機率，不讓低機率看起來像把握。
+ * 機率是模型輸出，沒有做機率校準：標籤直接寫「模型機率」，並附漲、跌的定義。
+ */
 export default function PredictionCard({ prediction, testAuc }: { prediction: PredictionResponse; testAuc: number | null }) {
   const p = prediction.proba;
   const downgraded = p != null && prediction.signal === "觀望" && p["觀望"] < Math.max(p["漲"], p["跌"]);
@@ -20,12 +23,12 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
             {prediction.signal}
           </span>
           {downgraded ? (
-            <Badge tone="hold" title="方向訊號的信心未達門檻，依決策規則改為觀望">
+            <Badge tone="hold" title="漲或跌的模型機率未達決策門檻，依規則改為觀望">
               規則降級
             </Badge>
           ) : (
             <span className="text-sm text-ink-2">
-              信心 <span className="font-semibold text-ink">{share(prediction.confidence)}</span>
+              模型機率 <span className="font-semibold text-ink">{share(prediction.confidence)}</span>
             </span>
           )}
         </div>
@@ -33,7 +36,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
       </div>
 
       {p && (
-        <dl className="mt-4 space-y-2" aria-label="三類機率">
+        <dl className="mt-4 space-y-2" aria-label="三類的模型機率（未經機率校準）">
           {ORDER.map((s) => (
             <div key={s} className="grid grid-cols-[2.5rem_1fr_3rem] items-center gap-2 text-sm">
               <dt className="font-semibold" style={{ color: `var(${SIGNAL_VAR[s]})` }}>
@@ -50,7 +53,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
 
       {downgraded && (
         <p className="mt-3 rounded-md bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-2">
-          漲或跌的機率最高，但沒有達到決策門檻，所以依規則轉為「觀望」。門檻在驗證期校準，用來減少把握不夠的方向訊號。
+          漲或跌的模型機率最高，但沒有達到決策門檻，所以依規則轉為「觀望」。門檻在驗證期選定，用來減少把握不夠的方向訊號。
         </p>
       )}
 
@@ -72,7 +75,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
       )}
 
       <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-ink-3">
-        這是機器學習模型的統計輸出，只供研究參考，不構成投資建議。
+        漲＝未來 5 個交易日累積報酬大於 +2%，跌＝小於 −2%，其餘是觀望。百分比是模型輸出，未經機率校準，不等於實際發生的機率。只供研究參考，不構成投資建議。
       </p>
     </div>
   );
