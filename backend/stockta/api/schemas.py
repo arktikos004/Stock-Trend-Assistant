@@ -57,6 +57,13 @@ class RankResponse(BaseModel):
     base_date: date
     model: str
     is_historical: bool = False
+    basis: Literal["recorded", "recomputed"] = Field(
+        default="recomputed",
+        description="recorded＝讀資料庫裡已記錄（並串入存證鏈）的排序列；recomputed＝依當時可得的資料重新評分，沒有紀錄可對照",
+    )
+    recorded_source: Literal["live", "pit"] | None = Field(
+        default=None, description="basis＝recorded 時：live＝基準日當天記錄，pit＝事後重建後記錄"
+    )
     results: list[RankResult]
     is_mock: bool = False
 
@@ -177,6 +184,30 @@ class StockHistoryResponse(BaseModel):
     records: list[HistoryRecord]
 
 
+class SignalPrecision(BaseModel):
+    called: int = Field(description="喊出這個訊號的到期筆數")
+    hits: int
+
+
+class TrackSample(BaseModel):
+    """一組已到期的方向預測：命中率、同一批樣本的兩條基線與精度、95% block bootstrap 區間。"""
+
+    key: Literal["all", "before_window", "after_window"] = Field(
+        description="all＝全部到期；before_window＝預測窗口開始（下一個交易日開盤）前寫入；after_window＝之後才寫入（隔天補記或回補）"
+    )
+    matured: int
+    hits: int
+    hit_rate: float | None
+    n_days: int = Field(description="基準日數（bootstrap 的單位）")
+    actual: dict[str, int] = Field(description="實際結果的分布")
+    baseline_hold: float | None = Field(description="全猜「觀望」的命中率")
+    baseline_up: float | None = Field(description="全猜「漲」的命中率")
+    precision: dict[str, SignalPrecision]
+    ci_hit_rate: tuple[float, float] | None = None
+    ci_excess_hold: tuple[float, float] | None = Field(default=None, description="命中率減全猜觀望的 95% 區間")
+    ci_excess_up: tuple[float, float] | None = None
+
+
 class TrackRecordResponse(BaseModel):
     """全站線上實證摘要：predictions.db 已到期預測的即時命中統計。"""
 
@@ -185,6 +216,8 @@ class TrackRecordResponse(BaseModel):
     hits: int
     hit_rate: float | None = Field(default=None, description="matured=0 時為 None")
     since: date | None = None
+    samples: list[TrackSample] = Field(default_factory=list)
+    bootstrap: dict[str, int] | None = Field(default=None, description="區塊長度、重抽次數、亂數種子")
 
 
 class StockInfo(BaseModel):
@@ -216,6 +249,16 @@ class MonitorDay(BaseModel):
     ic: float | None = Field(description="當日線上 Rank IC；名數不足或沒有變異時為 null")
     n: int
     source: Literal["live", "pit"]
+    sealed: bool = Field(default=False, description="這一天的排序列在預測窗口開始前就已串入存證鏈")
+    before_training: bool = Field(default=False, description="基準日收盤時模型還沒訓練完成（只可能是事後重建）")
+
+
+class IcGroup(BaseModel):
+    n_days: int
+    mean_ic: float | None
+    t_nw: float | None = Field(description="平均 IC 對 0 的 Newey–West t")
+    first_day: date | None
+    last_day: date | None
 
 
 class ModelHealth(BaseModel):
@@ -232,6 +275,11 @@ class ModelHealth(BaseModel):
     recent_mean_ic: float | None
     thresholds: dict[str, float | list[float]]
     daily: list[MonitorDay]
+    groups: dict[str, IcGroup] = Field(
+        default_factory=dict, description="live＝當日即時、pit＝事後重建、sealed＝預測窗口開始前已串入存證鏈；狀態判定照聲明用全部"
+    )
+    trained_at: str | None = Field(default=None, description="現行模型的訓練完成時間（ISO）")
+    sealed_since: date | None = Field(default=None, description="第一個在預測窗口開始前就串入存證鏈的基準日")
 
 
 class QuintileMove(BaseModel):
@@ -265,6 +313,33 @@ class LedgerStatus(BaseModel):
     ok: bool | None = None
     problems: list[str] = Field(default_factory=list)
     last_recorded_at: str | None = None
+
+
+class LedgerLinkInfo(BaseModel):
+    number: int = Field(description="第幾節，從 1 起算＝chain.jsonl 的第幾行")
+    seq: int = Field(description="鏈節本身的 seq 欄位（從 0 起算，寫進雜湊）")
+    recorded_at: str
+    rows: dict[str, int]
+    hash: str
+    prev_hash: str
+    run_id: str | None = None
+
+
+class LedgerSnapshot(BaseModel):
+    """存證鏈的狀態快照：每日排程在上鏈之後、部署之前匯出；網站只讀這一份。"""
+
+    snapshot_at: str = Field(description="快照產生的時間（ISO UTC）")
+    available: bool
+    entries: int = 0
+    ok: bool | None = None
+    problems: list[str] = Field(default_factory=list)
+    chained: dict[str, int] = Field(default_factory=dict)
+    pending: dict[str, int] = Field(default_factory=dict)
+    pending_base_dates: list[date] = Field(default_factory=list, description="尚未上鏈的列所屬的基準日")
+    verified_through: date | None = Field(default=None, description="這一天（含）以前的基準日，資料列都已上鏈並通過驗證")
+    head: LedgerLinkInfo | None = None
+    first_recorded_at: str | None = None
+    first_note: str | None = None
 
 
 class MonitorResponse(BaseModel):

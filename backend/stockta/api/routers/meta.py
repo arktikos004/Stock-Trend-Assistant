@@ -3,6 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Request
 
+from stockta import evidence
 from stockta.api.errors import DataSourceUnavailableError
 from stockta.api.schemas import (
     HealthResponse,
@@ -11,6 +12,7 @@ from stockta.api.schemas import (
     StockInfo,
     StockListResponse,
     TrackRecordResponse,
+    TrackSample,
 )
 from stockta.config import DATA_CACHE_DIR, PREDICTIONS_DB_PATH, STOCK_POOL
 from stockta.data.cache import ParquetCache
@@ -72,19 +74,22 @@ def market_snapshot(request: Request) -> MarketResponse:
 @router.get("/api/track-record", response_model=TrackRecordResponse)
 def track_record() -> TrackRecordResponse:
     """全站線上實證摘要：predictions.db 已到期預測的命中統計（即時計算）。
-    僅計現行 production 版本——歷次換模型的已淘汰版本不與現行版本混算。"""
+    僅計現行 production 版本——歷次換模型的已淘汰版本不與現行版本混算。
+
+    命中率一定和同一批樣本的基線（全猜觀望、全猜漲）一起看；另依寫入時間分成預測窗口開始前寫入
+    與之後才寫入（隔天補記、模型訓練完成後回補）兩組（stockta/evidence.py）。"""
     prod = current_production_version()
     try:
         conn = sqlite3.connect(PREDICTIONS_DB_PATH)
         if prod is not None:
             rows = conn.execute(
-                "SELECT ticker, base_date, signal FROM predictions "
+                "SELECT ticker, base_date, signal, created_at FROM predictions "
                 "WHERE model_version = ? ORDER BY base_date",
                 (prod,),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT ticker, base_date, signal FROM predictions ORDER BY base_date"
+                "SELECT ticker, base_date, signal, created_at FROM predictions ORDER BY base_date"
             ).fetchall()
         conn.close()
     except sqlite3.OperationalError:
@@ -93,17 +98,23 @@ def track_record() -> TrackRecordResponse:
         return TrackRecordResponse(total=0, matured=0, hits=0)
 
     cache = ParquetCache(DATA_CACHE_DIR)
-    matured = hits = 0
-    for ticker, base_date, signal in rows:
+    samples: dict[str, list[tuple[str, str, str]]] = {"all": [], "before_window": [], "after_window": []}
+    for ticker, base_date, signal, created_at in rows:
         actual, _ = actual_signal(cache, ticker, base_date)
         if actual is None:
             continue
-        matured += 1
-        hits += actual == signal
+        record = (base_date, signal, actual)
+        samples["all"].append(record)
+        early = evidence.written_before_window(date.fromisoformat(base_date), evidence.parse_time(created_at))
+        samples["before_window" if early else "after_window"].append(record)
+    matured = len(samples["all"])
+    hits = sum(signal == actual for _bd, signal, actual in samples["all"])
     return TrackRecordResponse(
         total=len(rows),
         matured=matured,
         hits=hits,
         hit_rate=(hits / matured) if matured else None,
         since=date.fromisoformat(rows[0][1]),
+        samples=[TrackSample(key=key, **evidence.hit_sample(records)) for key, records in samples.items()],
+        bootstrap={"block": evidence.BOOTSTRAP_BLOCK, "replicates": evidence.BOOTSTRAP_REPS, "seed": evidence.BOOTSTRAP_SEED},
     )

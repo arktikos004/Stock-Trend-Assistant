@@ -25,6 +25,12 @@ def _isolated_db(monkeypatch, tmp_path):
 
     monkeypatch.setattr(monitor_router, "PREDICTIONS_DB_PATH", tmp_path / "p.db")
     monkeypatch.setattr(monitor_router, "LEDGER_CHAIN_PATH", tmp_path / "chain.jsonl")
+    from stockta.api.routers import ledger as ledger_router
+    from stockta.api.routers import rank as rank_router
+
+    monkeypatch.setattr(rank_router, "PREDICTIONS_DB_PATH", tmp_path / "p.db")
+    monkeypatch.setattr(ledger_router, "PREDICTIONS_DB_PATH", tmp_path / "p.db")
+    monkeypatch.setattr(ledger_router, "LEDGER_CHAIN_PATH", tmp_path / "chain.jsonl")
 
 
 def _export(client, out, **kw):
@@ -42,7 +48,7 @@ def test_writes_site_layout_and_meta(client_with_model, tmp_path):
     for rel in [
         "model.json", "stocks.json", "market.json", "track-record.json",
         "scan/latest.json", "scan/index.json", "rank/latest.json", "rank/index.json", "rank/summary.json",
-        "screener/latest.json", "monitor.json", "stocks/2330.TW/prediction.json", "stocks/2330.TW/indicators.json",
+        "screener/latest.json", "monitor.json", "ledger.json", "stocks/2330.TW/prediction.json", "stocks/2330.TW/indicators.json",
         "stocks/2330.TW/predictions.json", "stocks/2330.TW/candles-twse.json", "meta.json",
     ]:
         assert (out / rel).is_file(), rel

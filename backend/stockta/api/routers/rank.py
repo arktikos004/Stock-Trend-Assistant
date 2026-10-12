@@ -1,12 +1,16 @@
 """Cross-sectional 相對強弱排名：GET /api/rank（可選 ?date= 歷史某日）
 
-以 CS 模型對全池評分（P(未來 5 日贏過中位數)），排序回傳。無 date=即時；
-帶 date=歷史 point-in-time 重算。GET /api/rank/summary 回傳回測摘要供前端策略卡。
-唯讀分析端點，與 3 類 /prediction、/scan 並存。
+以 CS 模型對全池評分（P(未來 5 日贏過中位數)），排序回傳。無 date=即時；帶 date=歷史某日。
+資料庫裡已經記錄了那個基準日的排序列（就是串入存證鏈的那幾列）時，直接回傳紀錄（basis＝recorded），
+不重新評分：重新評分會因價格快取的還原權值更新而與紀錄有出入，網站上的排序就不再是存證的那一份。
+沒有紀錄的日子才依當時可得的資料重新評分（basis＝recomputed）。
+GET /api/rank/summary 回傳回測摘要供前端策略卡。唯讀分析端點，與 3 類 /prediction、/scan 並存。
 """
 
 import json
+import sqlite3
 from datetime import date, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, Query, Request
 
@@ -19,6 +23,7 @@ from stockta.config import (
     CS_TOP_FRACTION,
     DATA_CACHE_DIR,
     INDICATOR_WARMUP_DAYS,
+    PREDICTIONS_DB_PATH,
     STOCK_POOL,
     WINDOW_LENGTH_DAYS,
 )
@@ -27,8 +32,29 @@ from stockta.data.calendar import calendar_lookback_days, last_completed_trading
 from stockta.data.provider import DataProvider, DataProviderError, YFinanceProvider
 from stockta.inference.replay import context_fetch_start, load_pool_context
 from stockta.ml.cross_sectional import score_asof
+from stockta.ml.report_rank_predictions import cs_production_version
 
 router = APIRouter(tags=["rank"])
+
+
+def recorded_scores(db_path: Path, version: str | None, base_date: date) -> tuple[list[tuple[str, float, date]], str] | None:
+    """資料庫裡這個基準日、這個模型版本的排序紀錄：([(ticker, score, 基準日)], 'live'／'pit')；沒有紀錄回 None。"""
+    if version is None or not Path(db_path).exists():
+        return None
+    conn = sqlite3.connect(f"file:{Path(db_path).as_posix()}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            "SELECT ticker, score, source FROM rank_predictions WHERE model_version=? AND base_date=?",
+            (version, base_date.isoformat()),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return None  # 尚未建表
+    finally:
+        conn.close()
+    if not rows:
+        return None
+    source = "live" if any(src == "live" for _t, _s, src in rows) else "pit"
+    return [(ticker, score, base_date) for ticker, score, _src in rows], source
 
 
 def _rank_results(scored: list[tuple[str, float, date]]) -> list[RankResult]:
@@ -95,9 +121,16 @@ def rank(
 
     if not scored:
         raise DataSourceUnavailableError("無足夠資料可排名（快取過舊或日期過早）")
+    recorded = recorded_scores(PREDICTIONS_DB_PATH, cs_production_version(), base_seen)
+    if recorded is not None:
+        scored, source = recorded
+        return RankResponse(
+            base_date=base_seen, model=meta.get("model_name", "cs"), is_historical=historical,
+            basis="recorded", recorded_source=source, results=_rank_results(scored),
+        )
     return RankResponse(
         base_date=base_seen, model=meta.get("model_name", "cs"),
-        is_historical=historical, results=_rank_results(scored),
+        is_historical=historical, basis="recomputed", results=_rank_results(scored),
     )
 
 

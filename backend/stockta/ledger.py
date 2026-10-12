@@ -145,7 +145,7 @@ def verify(db_path: Path, chain: list[dict]) -> Report:
     conn = _connect(db_path)
     try:
         for i, entry in enumerate(chain):
-            label = f"第 {i} 節"
+            label = f"第 {i + 1} 節（seq {i}）"  # 「第幾節」從 1 起算＝chain.jsonl 的第幾行
             if entry.get("seq") != i:
                 problems.append(f"{label}：seq 應為 {i}，實為 {entry.get('seq')!r}")
             if entry.get("prev_hash") != prev:
@@ -248,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
         if entry is None:
             print("最後一節之後沒有新的資料列，不新增鏈節。")
         else:
-            print(f"新增第 {entry['seq']} 節：{_describe(entry)}；hash {entry['hash'][:16]}…")
+            print(f"新增第 {entry['seq'] + 1} 節（seq {entry['seq']}）：{_describe(entry)}；hash {entry['hash'][:16]}…")
         return 0
 
     if not args.chain.is_file():
