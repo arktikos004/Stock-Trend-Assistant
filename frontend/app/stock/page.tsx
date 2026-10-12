@@ -17,6 +17,7 @@ import IndicatorPanel from "@/components/IndicatorPanel";
 import PredictionCard from "@/components/PredictionCard";
 import RankBar, { QUANTILE, rankMaxDev } from "@/components/rank/RankBar";
 import SkillBanner from "@/components/rank/SkillBanner";
+import HelpLink from "@/components/ui/HelpLink";
 import ScoreBar from "@/components/screener/ScoreBar";
 import SentimentCard from "@/components/SentimentCard";
 import { sentimentTickerFor } from "@/lib/newsApi";
@@ -179,9 +180,8 @@ function StockView() {
       </dl>
 
       <p className="-mt-2 mb-5 text-sm leading-relaxed text-ink-2">
-        這三個數字回答不同的問題，可能不一致：<strong className="font-semibold text-ink">名次</strong>是這一檔和其他股票比的相對位置；
-        <strong className="font-semibold text-ink">方向訊號</strong>是這一檔自己未來 5 個交易日的漲跌會不會超過 ±2%；
-        <strong className="font-semibold text-ink">篩選器</strong>是依固定規則整理的候選清單。相對排名靠前，仍可能下跌。
+        名次、方向訊號、篩選器回答不同的問題，結果可能不一致。
+        <HelpLink to="reading" className="ml-1" />
       </p>
 
       {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列是技術指標與篩選器、新聞情緒。
@@ -251,7 +251,8 @@ function StockView() {
             <EmptyState title="這段區間沒有 K 線資料">K 線使用臺灣證券交易所開放資料，自 {span?.start ?? "2026-10-02"} 起逐日累積。</EmptyState>
           )}
           <p className="mt-2 text-sm text-ink-2">
-            資料來源：臺灣證券交易所開放資料（盤後資訊，未還原權值）。開放資料只提供最新一個交易日，本站自 {span?.start ?? "2026-10-02"} 起逐日累積。
+            證交所開放資料，未還原權值，自 {span?.start ?? "2026-10-02"} 起逐日累積。
+            <HelpLink to="data" className="ml-1" />
           </p>
         </Panel>
 
@@ -287,9 +288,7 @@ function StockView() {
                 </dl>
                 <p className="mt-3 text-sm leading-relaxed text-ink-2">
                   相對排名靠前，仍可能下跌；候選資格另依篩選條件判定。
-                </p>
-                <p className="mt-1.5 text-sm leading-relaxed text-ink-2">
-                  模型分數是模型估計這一檔在未來 5 個交易日贏過全池中位數的機率，是模型輸出、未經機率校準；百分位是這個分數在全池裡的名次位置，兩者不是同一個數字。
+                  <HelpLink to="rank" className="ml-1" />
                 </p>
                 <Link href="/scan" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
                   看全部 {rank.data.results.length} 檔的排序

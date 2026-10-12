@@ -5,7 +5,8 @@
  * showModal() 讓焦點留在抽屜裡、Esc 可關；關閉後瀏覽器把焦點還給開啟它的按鈕。
  */
 
-import { ExternalLink, Monitor, Moon, Sun, X } from "lucide-react";
+import { BookOpen, ExternalLink, Monitor, Moon, Sun, X } from "lucide-react";
+import Link from "next/link";
 import type { Ref } from "react";
 import { LINKS } from "@/lib/links";
 import { setThemeMode, useThemeMode, type ThemeMode } from "@/lib/theme";
@@ -84,6 +85,19 @@ export default function MenuDrawer({ ref }: { ref: Ref<HTMLDialogElement> }) {
               規則與資料
             </h3>
             <ul className="divide-y divide-border">
+              <li>
+                <Link
+                  href="/method"
+                  onClick={(e) => (e.currentTarget.closest("dialog") as HTMLDialogElement | null)?.close()}
+                  className="group flex items-start justify-between gap-3 py-3"
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-ink group-hover:underline">方法與限制</span>
+                    <span className="mt-0.5 block text-xs text-ink-3">每個數字怎麼算、驗證到哪裡、還有什麼沒驗證</span>
+                  </span>
+                  <BookOpen size={14} className="mt-1 shrink-0 text-ink-3" aria-hidden="true" />
+                </Link>
+              </li>
               {DOCS.map((d) => (
                 <li key={d.href}>
                   <a

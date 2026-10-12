@@ -1,6 +1,7 @@
 import { CircleCheck, CircleX, Clock } from "lucide-react";
 import type { PastPrediction, Signal, TrackRecordResponse } from "@/lib/api";
 import Link from "next/link";
+import HelpLink from "@/components/ui/HelpLink";
 import { fixed, pct, share } from "@/lib/format";
 
 const SIGNAL_VAR: Record<Signal, string> = { 漲: "--up", 跌: "--down", 觀望: "--hold" };
@@ -104,7 +105,8 @@ export default function TrackRecordCard({
       )}
 
       <p className="mt-3 text-sm leading-relaxed text-ink-2">
-        每筆預測在推論當下寫入資料庫，2026-10-07 起串入存證鏈，之後改動任何一列驗證都會失敗；到期後用實際的 5 日走勢對照。部分基準日的預測在下一個交易日開盤後才寫入，監控頁另外列出它們的成績。
+        到期後用實際的 5 日走勢對照；2026-10-07 起串入存證鏈。
+        <HelpLink to="direction" className="ml-1" />
       </p>
     </div>
   );

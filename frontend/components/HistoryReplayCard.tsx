@@ -124,7 +124,7 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
       ) : null}
 
       <p className="mt-3 text-sm leading-relaxed text-ink-2">
-        回放是事後的 point-in-time 重算（特徵只用當日與更早的資料），只列已到期的樣本；與線上實證互相對照。
+        回放是事後重算（只用當日與更早的資料），不是當時的紀錄。
       </p>
     </div>
   );

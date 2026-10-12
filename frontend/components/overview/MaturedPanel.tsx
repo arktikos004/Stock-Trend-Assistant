@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
+import HelpLink from "@/components/ui/HelpLink";
 import { Skeleton } from "@/components/ui/Feedback";
 import Panel from "@/components/ui/Panel";
 import type { MonitorResponse } from "@/lib/api";
@@ -70,12 +71,12 @@ export default function MaturedPanel({ model }: { model: MonitorResponse["model"
               <dd className="text-ink">{fixed(model.backtest_ic, 3, true)}</dd>
             </div>
           </dl>
-          <p className="mt-3 text-sm leading-relaxed text-ink-2">
-            Rank IC 是預測排序與實際 5 日報酬排序的相關係數，0 代表沒有預測力。狀態「{status?.text}」依預先聲明用全部到期日判定：{status?.note}。
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <Link href="/monitor" className="font-medium text-accent hover:underline">
+              看完整監控
+            </Link>
+            <HelpLink to="model">Rank IC 與狀態的定義</HelpLink>
           </p>
-          <Link href="/monitor" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
-            看完整監控與失效檢定
-          </Link>
         </>
       )}
     </Panel>

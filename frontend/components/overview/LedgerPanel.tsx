@@ -13,7 +13,8 @@ import CopyButton from "@/components/ui/CopyButton";
 import { Skeleton } from "@/components/ui/Feedback";
 import Panel from "@/components/ui/Panel";
 import type { LedgerSnapshot, MonitorResponse } from "@/lib/api";
-import { taipeiDate, taipeiTime } from "@/lib/format";
+import HelpLink from "@/components/ui/HelpLink";
+import { taipeiTime } from "@/lib/format";
 import { LINKS, REPO_URL } from "@/lib/links";
 
 // 指令只在參數之間換行，不在「--chain」這類參數中間斷開
@@ -124,11 +125,10 @@ export default function LedgerPanel({
             )}
           </dl>
           {snapshot.problems.length > 0 && <p className="mt-3 text-sm text-ink">{snapshot.problems[0]}</p>}
-          {snapshot.first_recorded_at && (
-            <p className="mt-3 text-xs leading-relaxed text-ink-2">
-              第 1 節（{taipeiDate(snapshot.first_recorded_at)}）涵蓋上鏈前就已存在的資料列：只能證明它們自那天起沒有被修改，不能證明更早。之後每一節是當天排程剛寫入的列。
-            </p>
-          )}
+          <p className="mt-3 text-sm text-ink-2">
+            只能證明上鏈之後沒有被修改。
+            <HelpLink to="ledger" className="ml-1" />
+          </p>
 
           <details className="mt-3 border-t border-border pt-3 text-xs">
             <summary className="cursor-pointer text-accent">技術細節：雜湊與自己驗證</summary>

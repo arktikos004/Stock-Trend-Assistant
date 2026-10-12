@@ -92,7 +92,7 @@ export default function SentimentCard({ twTicker, compact = false }: { twTicker:
       )}
 
       <p className="mt-3 border-t border-border pt-2 text-sm leading-relaxed text-ink-2">
-        由新聞站（BERT 財經新聞情緒分析）提供，只涵蓋英文新聞，不是預測模型的輸入。這裡把正面標成紅色，與台股紅漲慣例一致。
+        英文新聞的情緒，不是預測模型的輸入；正面標紅色（台股慣例）。
       </p>
     </div>
   );

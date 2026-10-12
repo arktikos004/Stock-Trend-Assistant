@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useMemo, useState } from "react";
 import ScoreBar from "@/components/screener/ScoreBar";
 import Badge from "@/components/ui/Badge";
+import HelpLink from "@/components/ui/HelpLink";
 import { EmptyState, Notice, Skeleton, TableSkeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
@@ -278,8 +279,8 @@ function ScreenerView() {
             <a href={LINKS.screenerRules} target="_blank" rel="noopener noreferrer" className="mx-1 font-medium text-accent hover:underline">
               事先公開的固定規則
             </a>
-            整理公開資料與模型輸出。0–100 綜合評分由五個組成依公開的權重加權；T1、T2、T3 分別是適用的條件全部符合、少一項、少兩項，各層有上限、不足不補位。
-            <strong className="font-semibold text-ink">這是研究用的候選清單，不是預測，也不是投資建議。</strong>
+            整理的研究用候選清單，不是預測。T1、T2、T3＝適用的條件全部符合、少一項、少兩項。
+            <HelpLink to="screener" className="ml-1" />
           </>
         }
       />
@@ -461,7 +462,8 @@ function ScreenerView() {
           </Panel>
 
           <p className="mt-4 text-sm leading-relaxed text-ink-2">
-            資料來源：評價（本益比、殖利率、股價淨值比）、月營收、融資融券餘額來自臺灣證券交易所；股權分散來自臺灣集中保管結算所（政府資料開放平臺資料集，依政府資料開放授權條款第 1 版利用）。動能、均線與突破前高以內部價格計算，只公開衍生值。每個組成是股票池 {data.stocks.length} 檔內的百分位（0 最差、100 最好）。綜合評分不存證、不算命中率；相對強弱排序的線上紀錄見「排序」與「監控」。
+            資料來源：臺灣證券交易所、臺灣集中保管結算所開放資料（政府資料開放授權條款第 1 版）。各組成是 {data.stocks.length} 檔內的百分位（0 最差、100 最好）。
+            <HelpLink to="data" className="ml-1" />
           </p>
         </>
       )}

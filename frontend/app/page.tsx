@@ -5,11 +5,12 @@
  * 存證只留一行狀態，細節（雜湊、驗證指令）收在存證面板的展開區。
  */
 
-import { Info, ShieldCheck, ShieldX, Star } from "lucide-react";
+import { ShieldX, Star } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import LedgerPanel, { pendingDays } from "@/components/overview/LedgerPanel";
+import LedgerPanel from "@/components/overview/LedgerPanel";
 import TodayFacts from "@/components/overview/TodayFacts";
+import HelpLink from "@/components/ui/HelpLink";
 import MarketPanel from "@/components/overview/MarketPanel";
 import MaturedPanel from "@/components/overview/MaturedPanel";
 import RankTable from "@/components/rank/RankTable";
@@ -18,15 +19,14 @@ import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import Segmented from "@/components/ui/Segmented";
 import { api, ledgerSnapshot, siteMeta, STATIC_DATA, type LedgerSnapshot, type RankResponse } from "@/lib/api";
-import { taipeiTime } from "@/lib/format";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { useWatchlist } from "@/lib/watchlist";
 
 const TOP = 10;
 
 /**
- * 一句話的存證狀態：這份排序是不是資料庫裡記錄、已串入存證鏈的那一份。
- * 依據是上鏈之後匯出的快照（ledger.json）與排序的來源（rank 的 basis）；舊版網站資料沒有這兩項時不下結論。
+ * 存證出問題時的提醒（驗證不符、這次沒有鏈檔）；正常時第一屏的「資料日期」已經寫了，這裡不重複。
+ * 依據是上鏈之後匯出的快照（ledger.json）；舊版網站資料沒有快照時不下結論。
  */
 function SealLine({ snapshot, rank }: { snapshot: LedgerSnapshot | null | undefined; rank: RankResponse | undefined }) {
   if (!snapshot || !rank || rank.basis === undefined) return null;
@@ -40,26 +40,7 @@ function SealLine({ snapshot, rank }: { snapshot: LedgerSnapshot | null | undefi
       </Notice>
     );
   }
-  if (rank.basis === "recomputed") {
-    return <Notice icon={Info}>資料庫裡沒有 {rank.base_date} 的排序紀錄，這份是重新評分的結果，沒有存證。</Notice>;
-  }
-  const sealed = snapshot.verified_through != null && rank.base_date <= snapshot.verified_through;
-  if (!sealed) {
-    return (
-      <Notice icon={Info}>
-        這份排序已記錄在資料庫，還沒串入存證鏈（待上鏈的基準日 {pendingDays(snapshot.pending_base_dates) || rank.base_date}）；下一次每日排程會上鏈。
-      </Notice>
-    );
-  }
-  return (
-    <p className="mb-5 flex items-start gap-2 text-sm text-ink-2">
-      <ShieldCheck size={17} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
-      <span>
-        這份排序就是資料庫記錄、並已串入存證鏈的那一份：驗證截至 {snapshot.verified_through} 的基準日
-        {snapshot.head && `，最新一節 ${taipeiTime(snapshot.head.recorded_at)} 寫入`}。之後任何一列被改動，驗證都會失敗。
-      </span>
-    </p>
-  );
+  return null;
 }
 
 export default function OverviewPage() {
@@ -84,7 +65,7 @@ export default function OverviewPage() {
     <>
       <PageHeader
         title="今天的相對強弱排序"
-        description="模型依收盤資料，排出台灣 50 成分股在未來 5 個交易日的相對強弱；分數是贏過全池中位數的模型機率。研究用的排序，不是投資建議。"
+        description="台灣 50 成分股在未來 5 個交易日的相對強弱排序，依收盤為止的資料計算。"
       />
 
       <TodayFacts rank={rank.data} model={monitor.data?.model} meta={meta.data} snapshot={ledger.error ? null : ledger.data} />
@@ -128,7 +109,10 @@ export default function OverviewPage() {
             <Link href="/scan" className="font-medium text-accent hover:underline">
               看全部 {results.length || 49} 檔的排序
             </Link>
-            <span className="text-sm text-ink-2">模型分數是模型輸出，不是百分位；分數條以 0.5 為中線。分組是名次在 49 檔裡的前 20%、後 20%；篩選欄是篩選器的層級。</span>
+            <span className="text-sm text-ink-2">
+              分組＝名次的前 20%、後 20%；模型分數不是百分位。
+              <HelpLink to="rank" className="ml-1" />
+            </span>
           </div>
         </Panel>
 

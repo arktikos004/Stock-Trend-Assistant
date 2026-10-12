@@ -1,6 +1,6 @@
 import type { RankSummaryResponse } from "@/lib/api";
-import { fixed, pct, share } from "@/lib/format";
-import { LINKS } from "@/lib/links";
+import HelpLink from "@/components/ui/HelpLink";
+import { fixed, pct } from "@/lib/format";
 
 const month = (iso: string | null | undefined) => iso?.slice(0, 7);
 
@@ -20,7 +20,7 @@ export default function StrategySummaryCard({ s }: { s: RankSummaryResponse | nu
   return (
     <div>
       <dl>
-        <dt className="text-xs text-ink-3">
+        <dt className="text-sm text-ink-2">
           測試期 Rank IC
           {testPeriod && `（${testPeriod}${s.test_rank_ic_days ? `，${s.test_rank_ic_days} 個交易日` : ""}）`}
         </dt>
@@ -28,25 +28,16 @@ export default function StrategySummaryCard({ s }: { s: RankSummaryResponse | nu
           <span className="text-2xl font-semibold text-ink">{fixed(s.test_rank_ic, 3, true)}</span>
           <span className="text-sm text-ink-2">{nw != null ? `Newey–West t ${fixed(nw, 2)}` : `t ${fixed(s.test_rank_ic_t, 2)}`}</span>
         </dd>
-        <dd className="mt-0.5 text-xs text-ink-3">
-          {t != null && t >= 2 ? "達雙尾 5% 顯著（t ≥ 2）" : "未達雙尾 5% 顯著（t < 2）"}
-          {nw != null && s.test_rank_ic_t != null && `；未處理重疊的樸素 t 為 ${fixed(s.test_rank_ic_t, 2)}`}
-        </dd>
+        <dd className="mt-0.5 text-sm text-ink-2">{t != null && t >= 2 ? "達雙尾 5% 顯著（t ≥ 2）" : "未達雙尾 5% 顯著（t < 2）"}</dd>
       </dl>
       {/* 組合只是示意：放在輔助說明裡，字級與顏色都不和主要證據 Rank IC 競爭 */}
       <p className="mt-3 text-sm leading-relaxed text-ink-2">
-        示意組合（名次前 20%，每 {s.holding_days} 日換股）扣成本後比全池等權多{" "}
-        {s.net_excess_cum == null ? "—" : (s.net_excess_cum * 100).toFixed(1)} 個百分點：組合累積 {pct(s.net_cum)}、全池等權 {pct(s.bench_cum)}
-        {portfolioPeriod && `，期間 ${portfolioPeriod}`}。{share(s.win_rate)} 的換股期贏過全池（以扣成本前的報酬比較）。
+        示意組合扣成本後比全池等權多 {s.net_excess_cum == null ? "—" : (s.net_excess_cum * 100).toFixed(1)} 個百分點（{pct(s.net_cum)} 對 {pct(s.bench_cum)}
+        {portfolioPeriod && `，${portfolioPeriod}`}）。
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-ink-2">
-        持有期與模型都是用 2025 年的績效選的，這段期間不是獨立驗證；成本約 {s.cost_bps?.toFixed(0)} bp 來回，未計入滑價；全池等權的基準沒有扣成本。
-      </p>
-      <p className="mt-4 border-t border-border pt-3 text-sm leading-relaxed text-ink-2">
-        Rank IC 是主要證據：不受多頭行情影響，測試期沒有用來選模型或持有期。組合只是示意，不是投資建議；絕對報酬多半來自市場 beta。方法依 Gu、Kelly 與 Xiu（2020）及 Grinold 主動管理基本定律。
-        <a className="ml-1 text-accent underline-offset-2 hover:underline" href={LINKS.rankReport} target="_blank" rel="noopener noreferrer">
-          完整回測報告
-        </a>
+      <p className="mt-1 text-sm leading-relaxed text-ink-2">
+        含選模型用的 2025 年，不是獨立驗證；未計入滑價。
+        <HelpLink to="backtest" className="ml-1" />
       </p>
     </div>
   );

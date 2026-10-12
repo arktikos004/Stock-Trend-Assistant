@@ -7,7 +7,7 @@
  */
 
 import { Info } from "lucide-react";
-import Link from "next/link";
+import HelpLink from "@/components/ui/HelpLink";
 import { api } from "@/lib/api";
 import { fixed } from "@/lib/format";
 import { skillTest } from "@/lib/status";
@@ -25,20 +25,13 @@ export default function SkillBanner({ variant = "strip" }: { variant?: "strip" |
       <Info size={16} className="mt-0.5 shrink-0 text-ink-3" aria-hidden="true" />
       <span>
         {skill.t == null ? (
-          <>到期的交易日還不到 {model.thresholds.min_days} 天，模型效果還不能檢定。</>
-        ) : skill.passed ? (
-          <>
-            {skill.label} Rank IC t 值 <span className="font-semibold text-ink">{fixed(skill.t, 2)}</span>，達到技能檢定門檻 {skill.threshold}（{skill.sample}）。
-          </>
+          <>到期的交易日還不夠，模型效果還不能檢定。</>
         ) : (
           <>
-            <span className="font-semibold text-ink">模型效果尚未達技能檢定門檻</span>：{skill.label} Rank IC t 值 {fixed(skill.t, 2)}（門檻 {skill.threshold}；{skill.sample}）。
+            <span className="font-semibold text-ink">{skill.passed ? "模型效果達到技能檢定門檻" : "模型效果尚未達技能檢定門檻"}</span>：{skill.label} t {fixed(skill.t, 2)}（門檻 {skill.threshold}）。
           </>
         )}
-        排名只是 49 檔之間的相對位置，不代表會上漲。
-        <Link href="/monitor" className="ml-1 font-medium text-accent hover:underline">
-          看模型監控
-        </Link>
+        <HelpLink to="model" className="ml-1" />
       </span>
     </p>
   );

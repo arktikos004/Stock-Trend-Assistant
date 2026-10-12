@@ -14,6 +14,7 @@ import { useState, type ReactNode } from "react";
 import LedgerPanel from "@/components/overview/LedgerPanel";
 import MarketPanel from "@/components/overview/MarketPanel";
 import Badge from "@/components/ui/Badge";
+import HelpLink from "@/components/ui/HelpLink";
 import { Notice, Skeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
@@ -336,8 +337,8 @@ function TrackTable({ samples, bootstrap }: { samples: TrackSample[]; bootstrap?
         </p>
       )}
       <p className="mt-2 text-sm leading-relaxed text-ink-2">
-        基線是同一批樣本裡實際為「觀望」或「漲」的比例，也就是每次都猜同一類的命中率。95% 區間以基準日為單位、區塊長度 {bootstrap?.block ?? 5} 的 block
-        bootstrap 重抽 {(bootstrap?.replicates ?? 2000).toLocaleString()} 次：同一天 49 檔互相相關，相鄰基準日的 5 日報酬也重疊。區間跨過 0 代表還不能說贏過基線。
+        基線＝每次都猜同一類的命中率；區間跨過 0 代表還不能說贏過基線（block bootstrap，區塊 {bootstrap?.block ?? 5} 個基準日）。
+        <HelpLink to="direction" className="ml-1" />
       </p>
     </>
   );
@@ -387,11 +388,11 @@ export default function MonitorPage() {
         title="監控"
         description={
           <>
-            模型健康、例外報表與預測存證鏈。門檻與定義依
+            模型的線上表現、例外報表與預測存證鏈。門檻依
             <a href={LINKS.monitorRules} target="_blank" rel="noopener noreferrer" className="mx-1 font-medium text-accent hover:underline">
               預先聲明的規則
             </a>
-            （依期刊文獻訂定，看到結果前就寫好）。警示只顯示，不會自動停用模型；本頁不是投資建議。
+            ，警示只顯示、不會自動停用模型。
           </>
         }
       />
@@ -430,7 +431,8 @@ export default function MonitorPage() {
               <Stat label={`近 ${m.thresholds.recent_days} 日平均`} value={fixed(m.recent_mean_ic, 4, true)} sub="低於 0 時狀態為「留意」，描述性，不是檢定" />
             </dl>
             <p className="mt-4 text-sm leading-relaxed text-ink-2">
-              狀態「{status.text}」：{status.note}。依預先聲明，狀態用全部 {m.n_days} 個到期日判定，含事後重建的日子；主要的前瞻成績看當日即時記錄。
+              狀態「{status.text}」：{status.note}（依聲明用全部 {m.n_days} 天判定，含事後重建）。
+              <HelpLink to="model" className="ml-1" />
             </p>
             {m.groups && (
               <div className="mt-4">
@@ -441,11 +443,11 @@ export default function MonitorPage() {
               <IcChart data={m} />
             </div>
             <p className="mt-3 text-sm leading-relaxed text-ink-2">
-              t 值用 Newey–West 標準誤（落後 {m.thresholds.nw_lags} 期）：相鄰基準日的 5 日報酬互相重疊，逐日 IC 會自我相關，樸素 t 會高估顯著性。尚未到期的排序紀錄 {m.pending_rows} 筆。
+              t 值用 Newey–West 標準誤（落後 {m.thresholds.nw_lags} 期）。尚未到期的排序紀錄 {m.pending_rows} 筆。
             </p>
           </Panel>
 
-          <Panel className="lg:col-span-2" title="方向訊號的線上命中率" description="未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望">
+          <Panel className="lg:col-span-2" title="方向訊號的線上命中率" description="漲跌＝5 日累積報酬超過 ±2%">
             {tr ? (
               tr.samples && tr.samples.length > 0 ? (
                 <TrackTable samples={tr.samples} bootstrap={tr.bootstrap} />

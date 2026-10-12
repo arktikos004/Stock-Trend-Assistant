@@ -108,6 +108,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             。
           </p>
           <p className="mt-1">
+            <Link className="underline hover:text-ink" href="/method">
+              方法與限制
+            </Link>
+            <span className="mx-2" aria-hidden="true">
+              |
+            </span>
             <a className="underline hover:text-ink" href={LINKS.dataSources} target="_blank" rel="noopener noreferrer">
               資料來源與授權
             </a>
