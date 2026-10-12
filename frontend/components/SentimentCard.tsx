@@ -28,7 +28,10 @@ function ScoreScale({ score }: { score: number }) {
   );
 }
 
-/** 新聞情緒（跨專案：新聞站的每日匯出）。讀不到時說明原因，不影響其他區塊。 */
+/**
+ * 新聞情緒（跨專案：新聞站的每日匯出）。讀不到時說明原因，不影響其他區塊。
+ * 新聞站只計入標題直接提到公司的新聞；則數太少時標「資料不足」，不顯示方向。較早的匯出沒有這兩個欄位，照舊顯示。
+ */
 export default function SentimentCard({ twTicker }: { twTicker: string }) {
   const { ticker: usTicker, isProxy } = sentimentTickerFor(twTicker);
   const { data, error, loading } = useAsync(usTicker, () => fetchSentiment(usTicker));
@@ -49,14 +52,25 @@ export default function SentimentCard({ twTicker }: { twTicker: string }) {
       {data && (
         <>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
-            <span className="text-2xl font-semibold" style={{ color: `var(${LABEL[data.label].varName})` }}>
-              {LABEL[data.label].text}
-            </span>
+            {data.insufficient ? (
+              <span className="text-2xl font-semibold text-ink-2">資料不足</span>
+            ) : (
+              <span className="text-2xl font-semibold" style={{ color: `var(${LABEL[data.label].varName})` }}>
+                {LABEL[data.label].text}
+              </span>
+            )}
             <span className="text-sm text-ink-2">
-              指數 {fixed(data.score, 2, true)}，共 {data.article_count} 則
+              指數 {fixed(data.score, 2, true)}，
+              {data.index_count != null ? `計入 ${data.index_count} 則（收錄 ${data.article_count} 則）` : `共 ${data.article_count} 則`}
             </span>
           </div>
-          <ScoreScale score={data.score} />
+          {data.insufficient ? (
+            <p className="mt-2 text-sm text-ink-2">
+              標題直接提到 {usTicker} 的新聞只有 {data.index_count ?? 0} 則，或同向的則數不夠，新聞站不給方向判斷。
+            </p>
+          ) : (
+            <ScoreScale score={data.score} />
+          )}
 
           {data.keywords.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="熱門關鍵字">
@@ -69,7 +83,7 @@ export default function SentimentCard({ twTicker }: { twTicker: string }) {
           )}
 
           {(data.is_mock || data.stale) && (
-            <p className="mt-2 text-xs text-warn">
+            <p className="mt-2 text-xs text-ink-2">
               {data.is_mock ? "情緒模型沒有載入，這是示意資料。" : "新聞來源暫時讀不到，顯示的是上一次的結果。"}
             </p>
           )}

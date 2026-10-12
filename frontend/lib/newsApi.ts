@@ -16,13 +16,16 @@ export interface KeywordScore {
 export interface SentimentResponse {
   ticker: string;
   score: number; // [-1, +1]
-  label: SentimentLabel;
-  article_count: number;
+  label: SentimentLabel; // insufficient 時一律是 neutral
+  article_count: number; // 收錄的新聞則數
   keywords: KeywordScore[];
   model_version: string;
   as_of: string;
   stale: boolean;
   is_mock: boolean;
+  // 新聞站 2026-10 起新增；較早的匯出沒有這些欄位
+  index_count?: number | null; // 計入指數的則數（標題直接提到公司的新聞）
+  insufficient?: boolean; // 計入的則數太少，或同向的則數不夠：不給方向判斷
 }
 
 /** 台股 → 美股 ADR 對照（只收流動性足、有英文新聞覆蓋的） */
