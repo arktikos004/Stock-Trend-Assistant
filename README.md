@@ -150,7 +150,8 @@ docs/                研究報告、實驗記錄、預先聲明、部署說明
 - **方法與紀律**：[實驗記錄](docs/experiment_log.md)、[測試集曝光帳本](docs/test_set_ledger.md)、[洩漏報告](docs/leakage_report.md)、
   [倖存者偏誤](docs/survivorship_study.md)、[資料源修訂](docs/data_revision_study.md)、[特徵可用時點](docs/feature_availability.md)
 - **模型與回測**：[模型比較](docs/model_comparison.md)、[回測](docs/backtest_report.md)、[相對強弱](docs/cross_sectional_report.md)、[walk-forward](docs/experiment_walkforward.md)
-- **預先聲明的規則**：[篩選器](docs/screener_prereg.md)、[模型監控](docs/monitor_prereg.md)
+- **預先聲明的規則**：[篩選器](docs/screener_prereg.md)、[模型監控](docs/monitor_prereg.md)。
+  修訂都記在各文件的「版本紀錄」：篩選器 v1.1（2026-10-12）改成每家公司各用自己最新已公布的月營收。
 - **系統**：[架構](docs/architecture.md)、[特徵設計](docs/feature_engineering.md)、[資料探索](docs/data_exploration.md)、[部署與排程](docs/deploy.md)
 
 ## 問題回報與維護者
