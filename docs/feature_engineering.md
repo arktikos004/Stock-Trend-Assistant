@@ -37,6 +37,6 @@ API 啟動時比對，不一致拒絕載入。
 ## 實作備註
 
 - 技術指標以 pandas 自行實作：PyPI 版 pandas-ta（0.3.14b0）與 numpy≥2 不相容
-  （`numpy.NaN` import 錯誤），公式簡單自實作反而可控（PLAN.md Phase 0 決策）。
+  （`numpy.NaN` import 錯誤），公式簡單自實作反而可控。
 - 除權息：`auto_adjust=True` 固定寫入 config 與 metadata——台股除權息頻繁，
   訓練/推論調整方式不一致會讓除息日前後特徵與標籤全失真。

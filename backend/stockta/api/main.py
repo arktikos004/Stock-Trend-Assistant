@@ -28,10 +28,10 @@ from stockta.ml.registry import ArtifactContractError
 
 logger = logging.getLogger("stockta")
 
-# demo 環境明確 origin 清單，勿用 "*"（見 PLAN.md 安全性章節）
+# 明確列出允許的 origin，勿用 "*"
 ALLOWED_ORIGINS = ["http://localhost:3000"]
 
-# 每 IP 限流，保護 yfinance 抓取不被放大攻擊（PLAN.md 安全性章節）
+# 每 IP 限流，保護 yfinance 抓取不被放大攻擊
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 
 

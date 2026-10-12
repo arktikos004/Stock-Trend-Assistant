@@ -1,7 +1,7 @@
 # 資料來源與授權
 
 本專案用到的每一項外部資料與模型，列出來源、授權或使用條款、用途，以及是否對外公開。
-套件授權見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，生成式 AI 的使用見 [AI_USE.md](AI_USE.md)。
+套件授權見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 資料
 

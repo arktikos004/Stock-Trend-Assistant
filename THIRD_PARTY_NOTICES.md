@@ -1,7 +1,7 @@
 # 第三方套件與授權
 
 盤點日：2026-10-04。Python 以 `pip-licenses`、前端以 `license-checker` 對實際安裝的版本產生；
-資料、資料集與模型的來源與授權另見 [DATA_SOURCES.md](DATA_SOURCES.md)，生成式 AI 的使用見 [AI_USE.md](AI_USE.md)。
+資料、資料集與模型的來源與授權另見 [DATA_SOURCES.md](DATA_SOURCES.md)。
 
 ## 需要特別說明的項目
 

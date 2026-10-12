@@ -93,7 +93,7 @@ def _write_report(rows, label_totals, failed, start, end) -> None:
         f"- **全池標籤分佈：{dist_line}**",
         "",
         "「觀望」為多數類——Accuracy 會被灌水，評估必看 Macro F1／Macro AUC，",
-        "訓練以 class weight 抵銷不平衡（見 PLAN.md Phase 3）。",
+        "訓練以 class weight 抵銷不平衡。",
         "",
         "## 各檔明細",
         "",

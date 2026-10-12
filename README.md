@@ -32,7 +32,7 @@
 - **模型監控**：線上 Rank IC 的 Newey–West t、與回測比較的失效檢定、排名分位遷移、52 週新高新低（[規則](docs/monitor_prereg.md)）。
 - **K 線**：只用臺灣證券交易所開放資料（未還原權值）；訓練用的 yfinance 價格不對外提供。
 
-網站分為總覽、個股、排序、篩選器、監控五頁；畫面設計的依據見 [PRODUCT.md](PRODUCT.md) 與 [DESIGN.md](DESIGN.md)。
+網站分為總覽、個股、排序、篩選器、監控五頁。
 
 ## 專案狀態與主要結果
 
@@ -152,12 +152,11 @@ docs/                研究報告、實驗記錄、預先聲明、部署說明
 - **模型與回測**：[模型比較](docs/model_comparison.md)、[回測](docs/backtest_report.md)、[相對強弱](docs/cross_sectional_report.md)、[walk-forward](docs/experiment_walkforward.md)
 - **預先聲明的規則**：[篩選器](docs/screener_prereg.md)、[模型監控](docs/monitor_prereg.md)
 - **系統**：[架構](docs/architecture.md)、[特徵設計](docs/feature_engineering.md)、[資料探索](docs/data_exploration.md)、[部署與排程](docs/deploy.md)
-- **規劃與設計**：[開發計畫](PLAN.md)、[產品](PRODUCT.md)、[視覺設計](DESIGN.md)
 
 ## 問題回報與維護者
 
 - 問題與建議：請開 [GitHub issue](https://github.com/arktikos004/Stock-Trend-Assistant/issues)。
-- 維護者：[@arktikos004](https://github.com/arktikos004)。個人專案；開發過程與系統內使用的生成式 AI 見 [AI_USE.md](AI_USE.md)。
+- 維護者：[@arktikos004](https://github.com/arktikos004)。
 
 ## 授權
 

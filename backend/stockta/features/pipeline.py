@@ -1,6 +1,6 @@
 """特徵管線 —— build_features() 是訓練與推論唯一共用進入點。
 
-技術指標以 pandas 自行實作（pandas-ta 與 numpy>=2 不相容，見 PLAN.md Phase 0）。
+技術指標以 pandas 自行實作（pandas-ta 與 numpy>=2 不相容）。
 所有特徵皆為因果計算（只用當日與更早的資料），並轉為相對值避免價格尺度問題；
 test_no_lookahead.py 與 test_feature_parity.py 對這兩點把關。
 

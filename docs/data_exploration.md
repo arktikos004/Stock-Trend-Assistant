@@ -6,7 +6,7 @@
 - **全池標籤分佈：跌 52165（22.5%）、觀望 115481（49.9%）、漲 63846（27.6%）**
 
 「觀望」為多數類——Accuracy 會被灌水，評估必看 Macro F1／Macro AUC，
-訓練以 class weight 抵銷不平衡（見 PLAN.md Phase 3）。
+訓練以 class weight 抵銷不平衡。
 
 ## 各檔明細
 
