@@ -295,9 +295,9 @@ function StockView() {
                 </Link>
               </>
             ) : rank.error ? (
-              <p className="text-sm text-ink-3">{errorText(rank.error, "今天的相對強弱排序還沒有產生。")}</p>
+              <p className="text-sm text-ink-3">{errorText(rank.error, "今日相對強弱排序還沒有產生。")}</p>
             ) : rank.data ? (
-              <p className="text-sm text-ink-3">這一檔不在今天的排序裡。</p>
+              <p className="text-sm text-ink-3">這一檔不在今日排序裡。</p>
             ) : (
               <Skeleton className="h-36 w-full" />
             )}

@@ -42,7 +42,7 @@ export default function TodayFacts({
   const sealed = snapshot?.verified_through != null && rank != null && rank.base_date <= snapshot.verified_through;
 
   return (
-    <dl aria-label="今天的資料、模型效果與限制" className="mb-5 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
+    <dl aria-label="今日的資料、模型效果與限制" className="mb-5 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
       <Fact label="資料日期" help="ledger">
         {rank ? (
           <>

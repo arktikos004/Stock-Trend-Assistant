@@ -64,7 +64,7 @@ export default function OverviewPage() {
   return (
     <>
       <PageHeader
-        title="今天的相對強弱排序"
+        title="今日相對強弱排序"
         description="台灣 50 成分股在未來 5 個交易日的相對強弱排序，依收盤為止的資料計算。"
       />
 
@@ -92,7 +92,7 @@ export default function OverviewPage() {
         >
           {rank.error ? (
             <div className="p-4">
-              <Notice tone="error">{errorText(rank.error, "今天的排序還沒有產生。每個交易日 15:20 後由排程產生。")}</Notice>
+              <Notice tone="error">{errorText(rank.error, "今日排序還沒有產生。每個交易日 15:20 後由排程產生。")}</Notice>
             </div>
           ) : rank.loading ? (
             <div className="p-4">
@@ -102,7 +102,7 @@ export default function OverviewPage() {
             <RankTable rows={rows} tiers={tiers} watchlist={watchlist} />
           ) : (
             <EmptyState icon={Star} title="還沒有自選股">
-              在個股頁按「加入自選」，這裡就會列出它在今天排序中的名次。自選只存在這台裝置的瀏覽器。
+              在個股頁按「加入自選」，這裡就會列出它在今日排序中的名次。自選只存在這台裝置的瀏覽器。
             </EmptyState>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-sm">
