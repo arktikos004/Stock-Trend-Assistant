@@ -1,12 +1,13 @@
 # 每日排程：取代 Windows 工作排程器的 daily_predict.bat，並部署靜態站 stock.sekinv.com。
 #
-# 流程：還原狀態 → 記錄線上預測（絕對方向＋相對強弱）→ 重生報告 → 匯出靜態 JSON
-#      → build → 部署 Cloudflare Pages → 保存狀態 → 新增的預測列上鏈（ledger 分支）。
+# 流程：還原狀態 → 記錄線上預測（絕對方向＋相對強弱）→ 重生報告 → 保存資料庫 → 新增的預測列上鏈（ledger 分支）
+#      → 匯出靜態 JSON → build → 部署 Cloudflare Pages → 保存網站資料。
+# 先上鏈再匯出：網站上的存證狀態（ledger.json、monitor.json）與鏈檔是同一個時間點，排序表也是上鏈的那幾列。
 #
 # 狀態（predictions.db、加密的價格快取封包、線上實證報告、上一版網站資料）存在孤立分支 state，
 # 每次覆寫成單一 commit（SQLite/parquet 每天整檔改寫，保留歷史會讓 repo 無限長大）；
 # 另存 30 天的 artifact 供回復。資料庫只要通過完整性檢查就保存——後面步驟失敗
-# 也不丟掉已記錄的預測；site-data 只在正式站部署成功後才更新。
+# 也不丟掉已記錄的預測；site-data 只在正式站部署成功後才更新（同一個 commit 改寫後再推一次）。
 #
 # 失敗時不部署：匯出關卡（stockta/export_static.py）擋下 mock 模型、資料日期倒退、
 # 覆蓋率不足，線上維持上一版，頁尾的「資料截至」會顯示過期警示。
@@ -132,43 +133,7 @@ jobs:
         run: |
           python -c "import sqlite3,sys; r=sqlite3.connect('backend/predictions.db').execute('PRAGMA integrity_check').fetchone()[0]; print(r); sys.exit(r!='ok')"
 
-      - name: 抓證交所今日盤後資料（只供本次匯出；累積由 twse.yml 負責 commit）
-        if: steps.guard.outputs.skip != 'true'
-        working-directory: backend
-        run: python -m stockta.data.twse fetch --out ../_twse || echo "證交所資料暫時抓不到，K 線沿用已累積的資料"
-
-      - name: 匯出靜態 JSON（含發布關卡）
-        if: steps.guard.outputs.skip != 'true'
-        working-directory: backend
-        run: python -m stockta.export_static --out ../frontend/public/data --prev ../_state/site-data/meta.json
-
-      - uses: actions/setup-node@v4
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Build 靜態站
-        if: steps.guard.outputs.skip != 'true'
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_STATIC_DATA: "1"
-          NEXT_PUBLIC_NEWS_API_BASE: https://news.sekinv.com
-        run: |
-          npm ci --no-audit --no-fund
-          npm run build
-
-      - name: 部署 Cloudflare Pages
-        if: steps.guard.outputs.skip != 'true'
-        id: deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy frontend/out --project-name=stock-trend-assistant --branch=${{ env.PAGES_BRANCH }} --commit-dirty=true
-
-      - name: 保存狀態
+      - name: 保存資料庫（state 分支；網站資料沿用上一版，部署成功後再換）
         if: always() && steps.integrity.outcome == 'success'
         id: save_state
         env:
@@ -179,6 +144,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           prev=$(mktemp -d)
           cp -r site-data STATE.json "${prev}/" 2>/dev/null || true
+          echo "STATE_PREV=${prev}" >> "$GITHUB_ENV"
           git checkout -q --orphan next
           git rm -rfq . && rm -rf ./*
           mkdir -p reports
@@ -186,14 +152,106 @@ jobs:
           # 價格快取只以加密封包保存（公開分支上不得出現 yfinance 原始價格）
           python ../scripts/state_crypt.py pack --src ../backend --out private.tar.gz.enc "data_cache/*.parquet"
           cp ../docs/online_predictions.md ../docs/online_rank_ic.md reports/
-          if [ "${{ steps.deploy.outcome }}" = "success" ] && [ "${PAGES_BRANCH}" = "master" ]; then
-            cp -r ../frontend/public/data site-data
-          else
-            cp -r "${prev}/site-data" site-data 2>/dev/null || true
-            # 沿用的上一版若還是 yfinance K 線（遷移前的 site-data），一併移除
-            if [ -f site-data/meta.json ] && ! python3 -c "import json,sys;sys.exit(json.load(open('site-data/meta.json')).get('candles_source')!='twse-openapi')"; then
-              find site-data/stocks -name candles.json -delete 2>/dev/null || true
+          cp -r "${prev}/site-data" site-data 2>/dev/null || true
+          cp "${prev}/STATE.json" STATE.json 2>/dev/null || true
+          git add -A
+          # 守門：公開的 state 分支絕不能出現明文價格快取
+          if git diff --cached --name-only | grep -E '\.parquet$'; then
+            echo "::error::拒絕提交明文價格資料（應只有 private.tar.gz.enc）"
+            exit 1
+          fi
+          git commit -qm "state: run ${GITHUB_RUN_ID}"
+          git push -qf origin next:state
+
+      - name: 預測存證上鏈（ledger 分支，一般 commit、從不強制推送）
+        # 在狀態保存之後才上鏈：鏈上每一節涵蓋的資料列，都已經在 state 分支公開的 predictions.db 裡。
+        # ledger.py 只用標準函式庫；先驗證整條鏈與資料庫相符才追加，對不上就失敗、不替被改過的資料背書。
+        # 沒有 pull --rebase：唯一的寫入者是本 workflow（concurrency group site），推送失敗時下次排程會把同一段資料列重新上鏈。
+        # 上鏈失敗不擋網站更新（匯出會如實列出待上鏈的列），但這次執行會標成失敗
+        if: always() && steps.save_state.outcome == 'success'
+        id: ledger
+        run: |
+          if [ ! -d _ledger/.git ]; then
+            echo "::error title=存證鏈::取不到 ledger 分支，本次新增的預測列未上鏈（下次排程會一併上鏈）"
+            exit 1
+          fi
+          if ! out=$(python backend/stockta/ledger.py append --db backend/predictions.db --chain _ledger/chain.jsonl --run-id "${GITHUB_RUN_ID}"); then
+            echo "${out}"
+            echo "::error title=存證鏈::鏈與 predictions.db 對不上，拒絕追加（見上方訊息）"
+            exit 1
+          fi
+          echo "${out}"
+          cd _ledger
+          git add chain.jsonl
+          if git diff --cached --quiet; then
+            echo "::notice title=存證鏈::${out}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          seq=$(( $(grep -c . chain.jsonl) - 1 ))
+          git commit -qm "ledger: seq ${seq}（run ${GITHUB_RUN_ID}）"
+          for attempt in 1 2 3; do
+            if git push -q origin HEAD:ledger; then
+              echo "::notice title=存證鏈::${out}"
+              exit 0
             fi
+            sleep 10
+          done
+          # 沒推上去的鏈節不留在本機：之後的匯出只看得到 GitHub 上真的有的鏈節
+          git reset -q --hard HEAD~1
+          echo "::error title=存證鏈::推送 ledger 分支失敗"
+          exit 1
+
+      - name: 抓證交所今日盤後資料（只供本次匯出；累積由 twse.yml 負責 commit）
+        if: ${{ !cancelled() && steps.guard.outputs.skip != 'true' && steps.record.outcome == 'success' && steps.integrity.outcome == 'success' }}
+        working-directory: backend
+        run: python -m stockta.data.twse fetch --out ../_twse || echo "證交所資料暫時抓不到，K 線沿用已累積的資料"
+
+      - name: 匯出靜態 JSON（含發布關卡；存證狀態是上鏈之後的快照）
+        if: ${{ !cancelled() && steps.guard.outputs.skip != 'true' && steps.record.outcome == 'success' && steps.integrity.outcome == 'success' }}
+        id: export
+        working-directory: backend
+        run: python -m stockta.export_static --out ../frontend/public/data --prev ../_state/site-data/meta.json
+
+      - uses: actions/setup-node@v4
+        if: ${{ !cancelled() && steps.export.outcome == 'success' }}
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build 靜態站
+        if: ${{ !cancelled() && steps.export.outcome == 'success' }}
+        id: build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_STATIC_DATA: "1"
+          NEXT_PUBLIC_NEWS_API_BASE: https://news.sekinv.com
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: 部署 Cloudflare Pages
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy frontend/out --project-name=stock-trend-assistant --branch=${{ env.PAGES_BRANCH }} --commit-dirty=true
+
+      - name: 保存網站資料（state 分支：部署成功才換成這一版的 site-data）
+        if: always() && steps.save_state.outcome == 'success'
+        run: |
+          cd _state
+          prev="${STATE_PREV}"
+          if [ "${{ steps.deploy.outcome }}" = "success" ] && [ "${PAGES_BRANCH}" = "master" ]; then
+            rm -rf site-data
+            cp -r ../frontend/public/data site-data
+          elif [ -f site-data/meta.json ] && ! python3 -c "import json,sys;sys.exit(json.load(open('site-data/meta.json')).get('candles_source')!='twse-openapi')"; then
+            # 沿用的上一版若還是 yfinance K 線（遷移前的 site-data），一併移除
+            find site-data/stocks -name candles.json -delete 2>/dev/null || true
           fi
           ok_for=""
           today=$(TZ=Asia/Taipei date +%F)
@@ -215,49 +273,13 @@ jobs:
           }, open("STATE.json", "w"), ensure_ascii=False, indent=1)
           PY
           git add -A
-          # 守門：公開的 state 分支絕不能出現明文價格快取
           if git diff --cached --name-only | grep -E '\.parquet$'; then
             echo "::error::拒絕提交明文價格資料（應只有 private.tar.gz.enc）"
             exit 1
           fi
-          git commit -qm "state: run ${GITHUB_RUN_ID}"
+          # 改寫同一個 commit（state 只留一個 commit）；資料庫與上鏈時公開的那一份完全相同
+          git commit -q --amend -m "state: run ${GITHUB_RUN_ID}"
           git push -qf origin next:state
-
-      - name: 預測存證上鏈（ledger 分支，一般 commit、從不強制推送）
-        # 在狀態保存之後才上鏈：鏈上每一節涵蓋的資料列，都已經在 state 分支公開的 predictions.db 裡。
-        # ledger.py 只用標準函式庫；先驗證整條鏈與資料庫相符才追加，對不上就失敗、不替被改過的資料背書。
-        # 沒有 pull --rebase：唯一的寫入者是本 workflow（concurrency group site），推送失敗時下次排程會把同一段資料列重新上鏈
-        if: always() && steps.save_state.outcome == 'success'
-        run: |
-          if [ ! -d _ledger/.git ]; then
-            echo "::error title=存證鏈::取不到 ledger 分支，本次新增的預測列未上鏈（下次排程會一併上鏈）"
-            exit 1
-          fi
-          if ! out=$(python backend/stockta/ledger.py append --db backend/predictions.db --chain _ledger/chain.jsonl --run-id "${GITHUB_RUN_ID}"); then
-            echo "${out}"
-            echo "::error title=存證鏈::鏈與 predictions.db 對不上，拒絕追加（見上方訊息）"
-            exit 1
-          fi
-          echo "${out}"
-          cd _ledger
-          git add chain.jsonl
-          if git diff --cached --quiet; then
-            echo "::notice title=存證鏈::${out}"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          seq=$(( $(grep -c . chain.jsonl) - 1 ))
-          git commit -qm "ledger: 第 ${seq} 節（run ${GITHUB_RUN_ID}）"
-          for attempt in 1 2 3; do
-            if git push -q origin HEAD:ledger; then
-              echo "::notice title=存證鏈::${out}"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "::error title=存證鏈::推送 ledger 分支失敗"
-          exit 1
 
       - name: 備份狀態（artifact，保留 30 天）
         if: always() && steps.integrity.outcome == 'success'

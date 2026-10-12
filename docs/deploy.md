@@ -8,10 +8,11 @@ GitHub Actions：每個交易日收盤後記錄線上預測、把 API 的回應�
 GitHub Actions（daily.yml，台北 15:20；16:50、19:30 補跑）
   還原狀態（state 分支：predictions.db、加密的價格快取封包、報告、上一版網站資料）＋取出 twse-data 分支
   → record_predictions / record_rank_predictions（--require-complete）→ report_*
+  → 保存資料庫（state 分支）→ 新增的預測列上鏈（ledger 分支的 chain.jsonl，一般 commit）
   → 補抓證交所今日盤後資料（只供本次匯出）
-  → export_static：TestClient 呼叫現有 API → frontend/public/data/*.json（含發布關卡）
-  → next build（NEXT_PUBLIC_STATIC_DATA=1）→ wrangler pages deploy → 保存狀態
-  → 新增的預測列上鏈（ledger 分支的 chain.jsonl，一般 commit）
+  → export_static：TestClient 呼叫現有 API → frontend/public/data/*.json（含發布關卡；
+    ledger.json 是上鏈之後的存證快照，排序表直接讀已記錄的排序列）
+  → next build（NEXT_PUBLIC_STATIC_DATA=1）→ wrangler pages deploy → 保存網站資料（state 分支）
 ```
 
 ## 重點設計
@@ -36,7 +37,7 @@ GitHub Actions（daily.yml，台北 15:20；16:50、19:30 補跑）
 
 | 檔案 | 觸發 | 做什麼 |
 |---|---|---|
-| `daily.yml` | 平日 07:20、08:50、11:30 UTC、手動 | 上述完整流程；後兩次是補跑，當天已完成（含 K 線已有今日的證交所資料）就略過；手動可指定 Pages 分支（非 master＝preview）。最後把新增的預測列上鏈到 `ledger` |
+| `daily.yml` | 平日 07:20、08:50、11:30 UTC、手動 | 上述完整流程；後兩次是補跑，當天已完成（含 K 線已有今日的證交所資料）就略過；手動可指定 Pages 分支（非 master＝preview）。保存資料庫後先把新增的預測列上鏈到 `ledger`，再匯出與部署 |
 | `deploy.yml` | master 上 `frontend/**` 變動、手動 | 用 state 分支上的上一版資料重新 build 部署，不跑 Python |
 | `leakage.yml` | master push、PR | 洩漏回歸測試 |
 | `twse.yml` | 平日 07:40、09:40、12:40 UTC，週六 02:00 UTC、手動 | 抓證交所開放資料的兩個官方出口（政府資料開放平臺 CSV 當晚換日、OpenAPI 隔天清晨換日），日期不同就各存一份，以一般 commit 累積到 `twse-data`；已收過的日子略過 |
