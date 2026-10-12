@@ -68,6 +68,10 @@ class RankSummaryResponse(BaseModel):
     test_rank_ic: float | None = None
     test_rank_ic_t: float | None = None  # 樸素 t（逐日 IC 視為獨立，會高估顯著性）
     test_rank_ic_t_nw: float | None = None  # Newey–West t（處理相鄰基準日的報酬重疊）
+    test_rank_ic_days: int | None = None
+    test_start: date | None = Field(default=None, description="Rank IC 測試期的起日；沒有用來選模型或持有期")
+    test_end: date | None = None
+    val_start: date | None = Field(default=None, description="驗證期起日；示意組合跑 val_start～test_end，含用來選模型與持有期的驗證期")
     val_rank_ic: float | None = None
     holding_days: int | None = None
     net_cum: float | None = None

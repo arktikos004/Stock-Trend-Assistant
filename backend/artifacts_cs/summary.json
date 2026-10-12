@@ -21,5 +21,8 @@
   "top_fraction": 0.2,
   "val_rank_ic_t_nw": 1.8834460379384348,
   "test_rank_ic_t_nw": 1.5470531767515519,
-  "rank_ic_nw_lags": 4
+  "rank_ic_nw_lags": 4,
+  "val_start": "2025-01-02",
+  "test_start": "2026-01-02",
+  "test_end": "2026-07-17"
 }

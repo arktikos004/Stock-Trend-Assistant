@@ -188,6 +188,10 @@ def _score_split(model, scaler, ds: CSData, mask: np.ndarray) -> np.ndarray:
     return model.predict_proba(scaler.transform(ds.X[mask]).astype(np.float32))[:, 1]
 
 
+def _iso_day(value) -> str:
+    return pd.Timestamp(value).date().isoformat()
+
+
 def report() -> None:
     """選型（驗證期 Rank IC）+ 對測試期產出 docs/cross_sectional_report.md。"""
     ohlcv = load_pool_ohlcv()
@@ -240,6 +244,9 @@ def report() -> None:
         "net_ann": bt.get("net_ann"), "bench_ann": bt.get("bench_ann"),
         "net_excess_cum": bt.get("net_excess_cum"), "win_rate": bt.get("win_rate"),
         "years": bt.get("years"), "cost_bps": CS_COST_BPS, "top_fraction": CS_TOP_FRACTION,
+        # 期間：Rank IC 的測試期是 test_start～test_end；示意組合跑驗證期加測試期（val_start～test_end）
+        "val_start": _iso_day(ds.dates[ds.is_val].min()),
+        "test_start": _iso_day(ds.dates[te].min()), "test_end": _iso_day(ds.dates[te].max()),
     }
     (ARTIFACTS_CS_DIR / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"

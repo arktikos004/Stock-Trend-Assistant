@@ -185,6 +185,7 @@ def test_rank_summary_shape(client):
     assert r.status_code == 200
     assert "available" in r.json()
     assert "test_rank_ic_t_nw" in r.json()
+    assert {"test_start", "test_end", "val_start", "test_rank_ic_days"} <= r.json().keys()
 
 
 def test_market_snapshot(client):
