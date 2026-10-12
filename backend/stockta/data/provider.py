@@ -80,8 +80,13 @@ def _download(ticker: str, start: date, end: date, auto_adjust: bool) -> pd.Data
 
     if isinstance(df.columns, pd.MultiIndex):
         df = df.droplevel(1, axis=1)
-    df = df.rename(columns=str.lower)
-    return df[_OHLCV_COLUMNS].sort_index()
+    df = df.rename(columns=str.lower)[_OHLCV_COLUMNS]
+    # Yahoo 偶爾回傳價格全空、只有成交量的列（例如開盤前查詢時的前一個交易日）。
+    # 這種列不能進快取：_merge 以新下載的為準，會把快取裡同一天的正確價格蓋成空值
+    df = df.dropna(subset=["open", "high", "low", "close"])
+    if df.empty:
+        raise DataProviderError(f"yfinance 回傳 {ticker} 的價格全為空值")
+    return df.sort_index()
 
 
 def _merge(old: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
