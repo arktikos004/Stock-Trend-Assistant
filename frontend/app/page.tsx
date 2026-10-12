@@ -5,10 +5,10 @@
  * 第一屏回答研究員收盤後的三個問題：今天的排序是什麼、封存了沒、模型最近可不可信。
  */
 
-import { ShieldCheck, ShieldX, Star } from "lucide-react";
+import { Info, ShieldCheck, ShieldX, Star } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import LedgerPanel from "@/components/overview/LedgerPanel";
+import LedgerPanel, { pendingDays } from "@/components/overview/LedgerPanel";
 import MarketPanel from "@/components/overview/MarketPanel";
 import MaturedPanel from "@/components/overview/MaturedPanel";
 import RankTable from "@/components/rank/RankTable";
@@ -17,30 +17,37 @@ import { EmptyState, Notice, TableSkeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import Segmented from "@/components/ui/Segmented";
-import { api, ledgerHead, type MonitorResponse } from "@/lib/api";
+import { api, ledgerSnapshot, type LedgerSnapshot, type RankResponse } from "@/lib/api";
 import { taipeiTime } from "@/lib/format";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { useWatchlist } from "@/lib/watchlist";
 
 const TOP = 10;
 
-/** 一句話的存證狀態：今天的排序有沒有全部上鏈、驗證結果如何 */
-function SealLine({ ledger, recordedAt }: { ledger: MonitorResponse["ledger"]; recordedAt?: string }) {
-  if (!ledger.available) {
+/**
+ * 一句話的存證狀態：這份排序是不是資料庫裡記錄、已串入存證鏈的那一份。
+ * 依據是上鏈之後匯出的快照（ledger.json）與排序的來源（rank 的 basis）；舊版網站資料沒有這兩項時不下結論。
+ */
+function SealLine({ snapshot, rank }: { snapshot: LedgerSnapshot | null | undefined; rank: RankResponse | undefined }) {
+  if (!snapshot || !rank || rank.basis === undefined) return null;
+  if (!snapshot.available) {
     return <Notice>這次匯出沒有取得存證鏈檔，下一次每日排程會重試。</Notice>;
   }
-  if (!ledger.ok) {
+  if (!snapshot.ok) {
     return (
       <Notice tone="warn" icon={ShieldX}>
-        存證鏈驗證不符：{ledger.problems[0] ?? "資料庫與鏈檔對不上"}。在問題排除前，請把這份排序當作未存證。
+        存證鏈驗證不符：{snapshot.problems[0] ?? "資料庫與鏈檔對不上"}。在問題排除前，請把這份排序當作未存證。
       </Notice>
     );
   }
-  const pending = (ledger.pending.predictions ?? 0) + (ledger.pending.rank_predictions ?? 0);
-  if (pending > 0) {
+  if (rank.basis === "recomputed") {
+    return <Notice icon={Info}>資料庫裡沒有 {rank.base_date} 的排序紀錄，這份是重新評分的結果，沒有存證。</Notice>;
+  }
+  const sealed = snapshot.verified_through != null && rank.base_date <= snapshot.verified_through;
+  if (!sealed) {
     return (
-      <Notice>
-        還有 {pending.toLocaleString()} 列預測等待上鏈；每日排程保存資料後，會串進下一節存證鏈。
+      <Notice icon={Info}>
+        這份排序已記錄在資料庫，還沒串入存證鏈（待上鏈的基準日 {pendingDays(snapshot.pending_base_dates) || rank.base_date}）；下一次每日排程會上鏈。
       </Notice>
     );
   }
@@ -48,8 +55,8 @@ function SealLine({ ledger, recordedAt }: { ledger: MonitorResponse["ledger"]; r
     <p className="mb-5 flex items-start gap-2 text-sm text-ink-2">
       <ShieldCheck size={17} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
       <span>
-        今天的排序已全部寫入存證鏈：共 {ledger.entries} 節
-        {recordedAt && `，最新一節 ${taipeiTime(recordedAt)} 寫入`}，驗證通過。之後任何一列被改動，驗證都會失敗。
+        這份排序就是資料庫記錄、並已串入存證鏈的那一份：驗證截至 {snapshot.verified_through} 的基準日
+        {snapshot.head && `，最新一節 ${taipeiTime(snapshot.head.recorded_at)} 寫入`}。之後任何一列被改動，驗證都會失敗。
       </span>
     </p>
   );
@@ -60,7 +67,7 @@ export default function OverviewPage() {
   const monitor = useAsync("monitor", () => api.monitor());
   const screener = useAsync("screener", () => api.screener());
   const market = useAsync("market", () => api.market());
-  const head = useAsync("ledger-head", ledgerHead);
+  const ledger = useAsync("ledger", ledgerSnapshot);
   const watchlist = useWatchlist();
   const [view, setView] = useState<"top" | "watch">("top");
 
@@ -84,7 +91,7 @@ export default function OverviewPage() {
         }
       />
 
-      {monitor.data && <SealLine ledger={monitor.data.ledger} recordedAt={head.data?.recorded_at} />}
+      <SealLine snapshot={ledger.error ? null : ledger.data} rank={rank.data} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <Panel
@@ -129,7 +136,7 @@ export default function OverviewPage() {
         </Panel>
 
         <div className="space-y-5">
-          <LedgerPanel ledger={monitor.data?.ledger} head={head.data} headFailed={head.error != null} />
+          <LedgerPanel snapshot={ledger.error ? null : ledger.data} fallback={monitor.data?.ledger} />
           <MaturedPanel model={monitor.data?.model} />
           <MarketPanel market={market.data} />
         </div>

@@ -10,7 +10,7 @@
 import { ShieldCheck, ShieldX, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { api, siteMeta, STATIC_DATA } from "@/lib/api";
+import { api, ledgerSnapshot, siteMeta, STATIC_DATA } from "@/lib/api";
 import { fixed, taipeiDate, taipeiTime } from "@/lib/format";
 import { MODEL_STATUS, skillTest } from "@/lib/status";
 import { useAsync } from "@/lib/useAsync";
@@ -49,12 +49,16 @@ export default function StatusStrip() {
   });
   const monitor = useAsync("monitor", () => api.monitor());
   const screener = useAsync("screener", () => api.screener());
+  const snapshot = useAsync("ledger", ledgerSnapshot);
 
   const m = monitor.data;
   const status = m ? MODEL_STATUS[m.model.status] : null;
   const skill = m ? skillTest(m.model) : null;
-  const ledger = m?.ledger;
+  // 存證：優先用上鏈之後的快照；舊版網站資料沒有快照時退回 monitor.json 的摘要
+  const snap = snapshot.error ? null : snapshot.data;
+  const ledger = snap ?? m?.ledger;
   const pending = ledger ? (ledger.pending.predictions ?? 0) + (ledger.pending.rank_predictions ?? 0) : 0;
+  const through = snap ? snap.verified_through : ledger && "last_recorded_at" in ledger && ledger.last_recorded_at ? taipeiDate(ledger.last_recorded_at) : null;
 
   return (
     <div className="border-b border-border bg-surface-2">
@@ -91,7 +95,7 @@ export default function StatusStrip() {
                   </span>
                 )}
                 <Sub>
-                  {ledger.last_recorded_at ? `截至 ${taipeiDate(ledger.last_recorded_at)}` : "還沒有鏈節"}
+                  {through ? `驗證截至 ${through}` : "還沒有鏈節"}
                   {pending > 0 && `，${pending.toLocaleString()} 列待上鏈`}
                 </Sub>
               </>

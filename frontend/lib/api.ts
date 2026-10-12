@@ -81,12 +81,30 @@ export interface PredictionHistoryResponse {
   records: PastPrediction[];
 }
 
+/** 一組已到期的方向預測：命中率、同一批樣本的兩條基線與精度、95% block bootstrap 區間 */
+export interface TrackSample {
+  key: "all" | "before_window" | "after_window"; // 全部；預測窗口開始（下一個交易日開盤）前寫入；之後才寫入
+  matured: number;
+  hits: number;
+  hit_rate: number | null;
+  n_days: number;
+  actual: Record<Signal, number>;
+  baseline_hold: number | null; // 全猜「觀望」的命中率
+  baseline_up: number | null; // 全猜「漲」的命中率
+  precision: Record<Signal, { called: number; hits: number }>;
+  ci_hit_rate: [number, number] | null;
+  ci_excess_hold: [number, number] | null;
+  ci_excess_up: [number, number] | null;
+}
+
 export interface TrackRecordResponse {
   total: number;
   matured: number;
   hits: number;
   hit_rate: number | null;
   since: string | null;
+  samples?: TrackSample[]; // 舊版站上資料沒有
+  bootstrap?: { block: number; replicates: number; seed: number } | null;
 }
 
 export interface HistoryRecord {
@@ -121,6 +139,9 @@ export interface RankResponse {
   base_date: string;
   model: string;
   is_historical: boolean;
+  /** recorded＝資料庫裡已記錄（並串入存證鏈）的排序列；recomputed＝沒有紀錄，依當時可得資料重新評分。舊版站上資料沒有 */
+  basis?: "recorded" | "recomputed";
+  recorded_source?: "live" | "pit" | null; // recorded 時：當天記錄或事後重建
   results: RankResult[];
   is_mock: boolean;
 }
@@ -172,6 +193,38 @@ export interface ScanResponse {
 
 // --- 模型監控與例外報表（/api/monitor；規則見 docs/monitor_prereg.md）---
 
+export interface IcGroup {
+  n_days: number;
+  mean_ic: number | null;
+  t_nw: number | null; // 平均 IC 對 0 的 Newey–West t
+  first_day: string | null;
+  last_day: string | null;
+}
+
+/** 存證鏈的狀態快照（/api/ledger；每日排程在上鏈之後、部署之前匯出成 ledger.json） */
+export interface LedgerSnapshot {
+  snapshot_at: string; // ISO UTC
+  available: boolean;
+  entries: number;
+  ok: boolean | null;
+  problems: string[];
+  chained: Record<string, number>;
+  pending: Record<string, number>;
+  pending_base_dates: string[];
+  verified_through: string | null; // 這一天（含）以前的基準日都已上鏈並通過驗證
+  head: {
+    number: number; // 從 1 起算＝chain.jsonl 的第幾行
+    seq: number; // 鏈節的 seq 欄位，從 0 起算
+    recorded_at: string;
+    rows: Record<string, number>;
+    hash: string;
+    prev_hash: string;
+    run_id: string | null;
+  } | null;
+  first_recorded_at: string | null;
+  first_note: string | null;
+}
+
 export type ModelStatus = "normal" | "watch" | "breakdown" | "insufficient";
 
 export interface MonitorResponse {
@@ -191,7 +244,18 @@ export interface MonitorResponse {
     t_breakdown: number | null; // < thresholds.breakdown_t＝失效警示
     recent_mean_ic: number | null;
     thresholds: { breakdown_t: number; min_days: number; recent_days: number; nw_lags: number; skill_t: number[] };
-    daily: { day: string; ic: number | null; n: number; source: "live" | "pit" }[];
+    daily: {
+      day: string;
+      ic: number | null;
+      n: number;
+      source: "live" | "pit";
+      sealed?: boolean; // 預測窗口開始前就已串入存證鏈
+      before_training?: boolean; // 基準日收盤時模型還沒訓練完成
+    }[];
+    /** live＝當日即時、pit＝事後重建、sealed＝預測窗口開始前已串入存證鏈。舊版站上資料沒有 */
+    groups?: Record<"live" | "pit" | "sealed", IcGroup>;
+    trained_at?: string | null;
+    sealed_since?: string | null;
   };
   quintile_moves: {
     from_date: string | null;
@@ -353,6 +417,7 @@ const liveApi = {
   rankSummary: () => request<RankSummaryResponse>("/api/rank/summary"),
   screener: () => request<ScreenerResponse>("/api/screener"),
   monitor: () => request<MonitorResponse>("/api/monitor"),
+  ledger: () => request<LedgerSnapshot>("/api/ledger"),
   stockHistory: (ticker: string, start: string, end: string) =>
     request<StockHistoryResponse>(
       `/api/stocks/${encodeURIComponent(ticker)}/history?start=${start}&end=${end}`,
@@ -474,6 +539,7 @@ export const staticApi: typeof liveApi = {
   rankSummary: () => staticOnce("/rank/summary.json"),
   screener: () => staticOnce("/screener/latest.json"),
   monitor: () => staticOnce("/monitor.json"),
+  ledger: () => staticOnce("/ledger.json"),
   stockHistory: async (ticker, start, end) => {
     const [meta, full] = await Promise.all([
       siteMeta(),
@@ -502,31 +568,10 @@ export const staticApi: typeof liveApi = {
 
 export const api = STATIC_DATA ? staticApi : liveApi;
 
-// --- 存證鏈最新一節（直接讀 GitHub 上公開的 ledger 分支；讀不到時頁面改用 monitor.json 的摘要）---
-
-export const LEDGER_CHAIN_URL = "https://raw.githubusercontent.com/arktikos004/Stock-Trend-Assistant/ledger/chain.jsonl";
-
-export interface LedgerLink {
-  seq: number; // 從 0 起算
-  recorded_at: string; // ISO UTC
-  ranges: Record<string, { rows: number }>;
-  rows_sha256: string;
-  prev_hash: string;
-  hash: string;
-  run_id?: string; // 寫入這一節的 GitHub Actions 執行編號
-}
-
-let ledgerPromise: Promise<LedgerLink | null> | null = null;
-export function ledgerHead(): Promise<LedgerLink | null> {
-  ledgerPromise ??= fetch(LEDGER_CHAIN_URL)
-    .then(async (res) => {
-      if (!res.ok) throw new ApiError(res.status, "LEDGER_UNAVAILABLE", "讀不到存證鏈檔");
-      const lines = (await res.text()).trim().split("\n").filter(Boolean);
-      return lines.length ? (JSON.parse(lines[lines.length - 1]) as LedgerLink) : null;
-    })
-    .catch((e) => {
-      ledgerPromise = null;
-      throw e;
-    });
-  return ledgerPromise;
+/** 存證快照；這一版網站資料還沒有（404）時回 null，頁面改用 monitor.json 的摘要 */
+export function ledgerSnapshot(): Promise<LedgerSnapshot | null> {
+  return api.ledger().catch((e: unknown) => {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  });
 }
