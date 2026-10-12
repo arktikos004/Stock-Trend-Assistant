@@ -85,7 +85,7 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
       ) : data && data.records.length > 0 ? (
         <>
           <HitStrip records={data.records} />
-          <p className="mt-1.5 text-xs text-ink-3">每格一次預測：實心＝命中、空心＝未命中，顏色是預測的方向；左舊右新。</p>
+          <p className="mt-1.5 text-sm text-ink-2">每格一次預測：實心＝命中、空心＝未命中，顏色是預測的方向；左舊右新。</p>
           <div className="relative mt-3 max-h-72 overflow-auto border-t border-border">
             <table className="w-full min-w-[19rem] text-table">
               <thead className="sticky top-0 bg-surface-2">
@@ -123,7 +123,7 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
         <p className="py-6 text-center text-sm text-ink-3">這段區間沒有已到期的預測。把起日往前調再試。</p>
       ) : null}
 
-      <p className="mt-3 text-xs leading-relaxed text-ink-3">
+      <p className="mt-3 text-sm leading-relaxed text-ink-2">
         回放是事後的 point-in-time 重算（特徵只用當日與更早的資料），只列已到期的樣本；與線上實證互相對照。
       </p>
     </div>

@@ -84,7 +84,7 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
         )}
       </Panel>
 
-      <p className="text-xs leading-relaxed text-ink-3">
+      <p className="text-sm leading-relaxed text-ink-2">
         模型分數是模型預測「未來 5 個交易日贏過全池中位數」的機率（模型輸出，未經機率校準）；百分位是這個分數在全池裡的名次位置，兩者不是同一個數字。分組是名次的前 20%、後 20%：排名靠前只代表相對位置，仍可能下跌。有紀錄的日子顯示資料庫裡的紀錄（就是串入存證鏈的那幾列），沒有紀錄的日子才依當時可得的資料重新評分。研究用的排序，不是投資建議。
       </p>
     </div>

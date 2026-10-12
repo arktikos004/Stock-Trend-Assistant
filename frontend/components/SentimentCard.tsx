@@ -32,13 +32,14 @@ function ScoreScale({ score }: { score: number }) {
  * 新聞情緒（跨專案：新聞站的每日匯出）。讀不到時說明原因，不影響其他區塊。
  * 新聞站只計入標題直接提到公司的新聞；則數太少時標「資料不足」，不顯示方向。較早的匯出沒有這兩個欄位，照舊顯示。
  */
-export default function SentimentCard({ twTicker }: { twTicker: string }) {
+/** compact：跨市場背景用的精簡版，不畫刻度、不列關鍵字 */
+export default function SentimentCard({ twTicker, compact = false }: { twTicker: string; compact?: boolean }) {
   const { ticker: usTicker, isProxy } = sentimentTickerFor(twTicker);
   const { data, error, loading } = useAsync(usTicker, () => fetchSentiment(usTicker));
 
   return (
     <div>
-      <p className="text-xs text-ink-3">{isProxy ? "這檔沒有美股 ADR，改看美股科技大盤（QQQ）的新聞情緒" : `美股 ADR ${usTicker} 的新聞情緒`}</p>
+      {!compact && isProxy && <p className="text-sm text-ink-2">這檔沒有美股 ADR，改看美股科技大盤（QQQ）的新聞情緒</p>}
 
       {error != null && (
         <p className="mt-3 rounded-md bg-surface-2 px-3 py-2 text-xs text-ink-2">
@@ -69,10 +70,10 @@ export default function SentimentCard({ twTicker }: { twTicker: string }) {
               標題直接提到 {usTicker} 的新聞只有 {data.index_count ?? 0} 則，或同向的則數不夠，新聞站不給方向判斷。
             </p>
           ) : (
-            <ScoreScale score={data.score} />
+            !compact && <ScoreScale score={data.score} />
           )}
 
-          {data.keywords.length > 0 && (
+          {!compact && data.keywords.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="熱門關鍵字">
               {data.keywords.slice(0, 5).map((k) => (
                 <li key={k.word} className="rounded-md bg-surface-2 px-2 py-0.5 text-xs text-ink-2">
@@ -90,8 +91,8 @@ export default function SentimentCard({ twTicker }: { twTicker: string }) {
         </>
       )}
 
-      <p className="mt-3 border-t border-border pt-2 text-xs leading-relaxed text-ink-3">
-        由新聞站（BERT 財經新聞情緒分析）提供，只涵蓋英文新聞；台股僅供跨市場參考，不是預測模型的輸入。這裡把正面標成紅色，與台股紅漲慣例一致。
+      <p className="mt-3 border-t border-border pt-2 text-sm leading-relaxed text-ink-2">
+        由新聞站（BERT 財經新聞情緒分析）提供，只涵蓋英文新聞，不是預測模型的輸入。這裡把正面標成紅色，與台股紅漲慣例一致。
       </p>
     </div>
   );

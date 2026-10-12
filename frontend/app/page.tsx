@@ -1,23 +1,23 @@
 "use client";
 
 /**
- * 總覽：今天的相對強弱排序，旁邊是它的存證狀態、上一份到期成績與大盤。
- * 第一屏回答研究員收盤後的三個問題：今天的排序是什麼、封存了沒、模型最近可不可信。
+ * 總覽。第一屏依序回答：資料是哪一天的 → 模型效果如何 → 目前有什麼限制，接著才是前 10 名與到期成績；
+ * 存證只留一行狀態，細節（雜湊、驗證指令）收在存證面板的展開區。
  */
 
 import { Info, ShieldCheck, ShieldX, Star } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import LedgerPanel, { pendingDays } from "@/components/overview/LedgerPanel";
+import TodayFacts from "@/components/overview/TodayFacts";
 import MarketPanel from "@/components/overview/MarketPanel";
 import MaturedPanel from "@/components/overview/MaturedPanel";
 import RankTable from "@/components/rank/RankTable";
-import SkillBanner from "@/components/rank/SkillBanner";
 import { EmptyState, Notice, TableSkeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import Segmented from "@/components/ui/Segmented";
-import { api, ledgerSnapshot, type LedgerSnapshot, type RankResponse } from "@/lib/api";
+import { api, ledgerSnapshot, siteMeta, STATIC_DATA, type LedgerSnapshot, type RankResponse } from "@/lib/api";
 import { taipeiTime } from "@/lib/format";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { useWatchlist } from "@/lib/watchlist";
@@ -68,6 +68,10 @@ export default function OverviewPage() {
   const screener = useAsync("screener", () => api.screener());
   const market = useAsync("market", () => api.market());
   const ledger = useAsync("ledger", ledgerSnapshot);
+  const meta = useAsync(STATIC_DATA ? "meta" : null, async () => {
+    const m = await siteMeta();
+    return { ...m, stale: Date.now() - Date.parse(m.generated_at) > 48 * 3600 * 1000 };
+  });
   const watchlist = useWatchlist();
   const [view, setView] = useState<"top" | "watch">("top");
 
@@ -80,16 +84,10 @@ export default function OverviewPage() {
     <>
       <PageHeader
         title="今天的相對強弱排序"
-        description={
-          rank.data ? (
-            <>
-              基準日 {rank.data.base_date}。模型依收盤資料，預測台灣 50 成分股在未來 5 個交易日誰相對強；分數是贏過全池中位數的機率。研究用的排序，不是投資建議。
-            </>
-          ) : (
-            "預測台灣 50 成分股在未來 5 個交易日誰相對強。研究用的排序，不是投資建議。"
-          )
-        }
+        description="模型依收盤資料，排出台灣 50 成分股在未來 5 個交易日的相對強弱；分數是贏過全池中位數的模型機率。研究用的排序，不是投資建議。"
       />
+
+      <TodayFacts rank={rank.data} model={monitor.data?.model} meta={meta.data} snapshot={ledger.error ? null : ledger.data} />
 
       <SealLine snapshot={ledger.error ? null : ledger.data} rank={rank.data} />
 
@@ -111,7 +109,6 @@ export default function OverviewPage() {
           }
           bodyClassName="p-0"
         >
-          <SkillBanner />
           {rank.error ? (
             <div className="p-4">
               <Notice tone="error">{errorText(rank.error, "今天的排序還沒有產生。每個交易日 15:20 後由排程產生。")}</Notice>
@@ -131,13 +128,13 @@ export default function OverviewPage() {
             <Link href="/scan" className="font-medium text-accent hover:underline">
               看全部 {results.length || 49} 檔的排序
             </Link>
-            <span className="text-xs text-ink-3">模型分數是模型輸出，不是百分位；分數條以 0.5 為中線。分組是名次在 49 檔裡的前 20%、後 20%；篩選欄是篩選器的層級。</span>
+            <span className="text-sm text-ink-2">模型分數是模型輸出，不是百分位；分數條以 0.5 為中線。分組是名次在 49 檔裡的前 20%、後 20%；篩選欄是篩選器的層級。</span>
           </div>
         </Panel>
 
         <div className="space-y-5">
-          <LedgerPanel snapshot={ledger.error ? null : ledger.data} fallback={monitor.data?.ledger} />
           <MaturedPanel model={monitor.data?.model} />
+          <LedgerPanel snapshot={ledger.error ? null : ledger.data} fallback={monitor.data?.ledger} />
           <MarketPanel market={market.data} />
         </div>
       </div>

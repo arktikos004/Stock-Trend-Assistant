@@ -3,7 +3,8 @@
 /**
  * lightweight-charts v5 K 線圖。
  * - 顏色讀 CSS token（漲紅跌綠），切換深淺主題時重畫
- * - 不到 40 根時固定 K 棒寬度並靠右，不把少數幾根拉成整張圖；左下角的 TradingView 標誌依授權保留
+ * - 依實際筆數撐滿寬度（fitContent），左右兩端固定在第一根與最後一根，不刻意靠右留白；
+ *   開放資料從 2026-10 才開始累積，筆數少時 K 棒會比較寬。左下角的 TradingView 標誌依授權保留
  * - useEffect 建圖＋cleanup chart.remove()：React StrictMode 雙掛載不會重複建圖
  */
 
@@ -39,7 +40,7 @@ export default function CandleChart({ candles, height = 380 }: { candles: Candle
       height,
       layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: c.text },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      timeScale: { borderColor: c.border },
+      timeScale: { borderColor: c.border, fixLeftEdge: true, fixRightEdge: true },
       rightPriceScale: { borderColor: c.border },
     });
 
@@ -59,14 +60,10 @@ export default function CandleChart({ candles, height = 380 }: { candles: Candle
       candles.map((k) => ({ time: k.time, value: k.volume, color: k.close >= k.open ? c.upVol : c.downVol })),
     );
 
-    if (candles.length < 40) {
-      chart.timeScale().applyOptions({ barSpacing: 14, rightOffset: 3 });
-      chart.timeScale().scrollToRealTime();
-    } else {
+    const resize = () => {
+      chart.applyOptions({ width: container.clientWidth });
       chart.timeScale().fitContent();
-    }
-
-    const resize = () => chart.applyOptions({ width: container.clientWidth });
+    };
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(container);

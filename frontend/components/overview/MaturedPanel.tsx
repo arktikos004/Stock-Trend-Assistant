@@ -70,7 +70,7 @@ export default function MaturedPanel({ model }: { model: MonitorResponse["model"
               <dd className="text-ink">{fixed(model.backtest_ic, 3, true)}</dd>
             </div>
           </dl>
-          <p className="mt-3 text-xs leading-relaxed text-ink-2">
+          <p className="mt-3 text-sm leading-relaxed text-ink-2">
             Rank IC 是預測排序與實際 5 日報酬排序的相關係數，0 代表沒有預測力。狀態「{status?.text}」依預先聲明用全部到期日判定：{status?.note}。
           </p>
           <Link href="/monitor" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">

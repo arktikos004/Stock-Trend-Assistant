@@ -74,7 +74,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
         <p className="mt-3 rounded-md bg-warn-soft px-3 py-2 text-xs text-ink">模型還沒載入，這是示意資料，不能拿來判斷。</p>
       )}
 
-      <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-ink-3">
+      <p className="mt-4 border-t border-border pt-3 text-sm leading-relaxed text-ink-2">
         漲＝未來 5 個交易日累積報酬大於 +2%，跌＝小於 −2%，其餘是觀望。百分比是模型輸出，未經機率校準，不等於實際發生的機率。只供研究參考，不構成投資建議。
       </p>
     </div>

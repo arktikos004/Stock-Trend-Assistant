@@ -335,7 +335,7 @@ function TrackTable({ samples, bootstrap }: { samples: TrackSample[]; bootstrap?
           。
         </p>
       )}
-      <p className="mt-2 text-xs leading-relaxed text-ink-2">
+      <p className="mt-2 text-sm leading-relaxed text-ink-2">
         基線是同一批樣本裡實際為「觀望」或「漲」的比例，也就是每次都猜同一類的命中率。95% 區間以基準日為單位、區塊長度 {bootstrap?.block ?? 5} 的 block
         bootstrap 重抽 {(bootstrap?.replicates ?? 2000).toLocaleString()} 次：同一天 49 檔互相相關，相鄰基準日的 5 日報酬也重疊。區間跨過 0 代表還不能說贏過基線。
       </p>
@@ -440,7 +440,7 @@ export default function MonitorPage() {
             <div className="mt-5">
               <IcChart data={m} />
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-ink-2">
+            <p className="mt-3 text-sm leading-relaxed text-ink-2">
               t 值用 Newey–West 標準誤（落後 {m.thresholds.nw_lags} 期）：相鄰基準日的 5 日報酬互相重疊，逐日 IC 會自我相關，樸素 t 會高估顯著性。尚未到期的排序紀錄 {m.pending_rows} 筆。
             </p>
           </Panel>

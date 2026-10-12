@@ -45,7 +45,7 @@ export default function MarketPanel({ market }: { market: MarketResponse | undef
               <div className="absolute inset-y-0 left-0 rounded-full bg-ink-3" style={{ width: `${market.breadth_up * 100}%` }} />
               <div className="absolute -top-1 h-3.5 w-px bg-ink" style={{ left: "50%" }} />
             </div>
-            <p className="mt-1.5 text-xs text-ink-3">
+            <p className="mt-1.5 text-sm text-ink-2">
               5 日平均 {share(market.breadth_ma5)}；中線為 50%。樣本是台灣 50 成分股。
             </p>
           </div>

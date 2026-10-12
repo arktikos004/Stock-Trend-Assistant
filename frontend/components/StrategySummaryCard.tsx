@@ -42,7 +42,7 @@ export default function StrategySummaryCard({ s }: { s: RankSummaryResponse | nu
       <p className="mt-2 text-sm leading-relaxed text-ink-2">
         持有期與模型都是用 2025 年的績效選的，這段期間不是獨立驗證；成本約 {s.cost_bps?.toFixed(0)} bp 來回，未計入滑價；全池等權的基準沒有扣成本。
       </p>
-      <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-ink-3">
+      <p className="mt-4 border-t border-border pt-3 text-sm leading-relaxed text-ink-2">
         Rank IC 是主要證據：不受多頭行情影響，測試期沒有用來選模型或持有期。組合只是示意，不是投資建議；絕對報酬多半來自市場 beta。方法依 Gu、Kelly 與 Xiu（2020）及 Grinold 主動管理基本定律。
         <a className="ml-1 text-accent underline-offset-2 hover:underline" href={LINKS.rankReport} target="_blank" rel="noopener noreferrer">
           完整回測報告

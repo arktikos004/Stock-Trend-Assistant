@@ -54,7 +54,7 @@ export default function DateQuery({
           回到最新收盤
         </button>
       )}
-      {min && <span className="text-xs text-ink-3">可查 {min} 至 {max}</span>}
+      {min && <span className="text-sm text-ink-2">可查 {min} 至 {max}</span>}
     </form>
   );
 }

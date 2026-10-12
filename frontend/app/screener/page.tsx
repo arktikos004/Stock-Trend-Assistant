@@ -111,7 +111,7 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
           </tbody>
         </table>
         {s.missing.length > 0 && (
-          <p className="mt-2 text-xs text-ink-3">
+          <p className="mt-2 text-sm text-ink-2">
             從缺：{s.missing.map((k) => COMPONENTS.find((c) => c.key === k)?.label).join("、")}，權重改由其他組成分攤。
           </p>
         )}
@@ -460,7 +460,7 @@ function ScreenerView() {
             )}
           </Panel>
 
-          <p className="mt-4 text-xs leading-relaxed text-ink-3">
+          <p className="mt-4 text-sm leading-relaxed text-ink-2">
             資料來源：評價（本益比、殖利率、股價淨值比）、月營收、融資融券餘額來自臺灣證券交易所；股權分散來自臺灣集中保管結算所（政府資料開放平臺資料集，依政府資料開放授權條款第 1 版利用）。動能、均線與突破前高以內部價格計算，只公開衍生值。每個組成是股票池 {data.stocks.length} 檔內的百分位（0 最差、100 最好）。綜合評分不存證、不算命中率；相對強弱排序的線上紀錄見「排序」與「監控」。
           </p>
         </>

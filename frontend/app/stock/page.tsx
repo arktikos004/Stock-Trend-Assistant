@@ -19,6 +19,7 @@ import RankBar, { QUANTILE, rankMaxDev } from "@/components/rank/RankBar";
 import SkillBanner from "@/components/rank/SkillBanner";
 import ScoreBar from "@/components/screener/ScoreBar";
 import SentimentCard from "@/components/SentimentCard";
+import { sentimentTickerFor } from "@/lib/newsApi";
 import TrackRecordCard from "@/components/TrackRecordCard";
 import Badge from "@/components/ui/Badge";
 import { EmptyState, Notice, Skeleton } from "@/components/ui/Feedback";
@@ -90,6 +91,7 @@ function StockView() {
   );
 
   const info = stocks.data?.stocks.find((s) => s.ticker === ticker);
+  const adr = sentimentTickerFor(ticker);
   const s = screener.data?.stocks.find((x) => x.ticker === ticker);
   const r = rank.data?.results.find((x) => x.ticker === ticker);
 
@@ -248,7 +250,7 @@ function StockView() {
           ) : (
             <EmptyState title="這段區間沒有 K 線資料">K 線使用臺灣證券交易所開放資料，自 {span?.start ?? "2026-10-02"} 起逐日累積。</EmptyState>
           )}
-          <p className="mt-2 text-xs text-ink-3">
+          <p className="mt-2 text-sm text-ink-2">
             資料來源：臺灣證券交易所開放資料（盤後資訊，未還原權值）。開放資料只提供最新一個交易日，本站自 {span?.start ?? "2026-10-02"} 起逐日累積。
           </p>
         </Panel>
@@ -286,7 +288,7 @@ function StockView() {
                 <p className="mt-3 text-sm leading-relaxed text-ink-2">
                   相對排名靠前，仍可能下跌；候選資格另依篩選條件判定。
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-ink-3">
+                <p className="mt-1.5 text-sm leading-relaxed text-ink-2">
                   模型分數是模型估計這一檔在未來 5 個交易日贏過全池中位數的機率，是模型輸出、未經機率校準；百分位是這個分數在全池裡的名次位置，兩者不是同一個數字。
                 </p>
                 <Link href="/scan" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
@@ -357,9 +359,11 @@ function StockView() {
             )}
           </Panel>
 
-          <Panel title="新聞情緒">
-            <SentimentCard twTicker={ticker} />
-          </Panel>
+          {adr.isProxy ? null : (
+            <Panel title={`對應 ADR 的新聞情緒（${adr.ticker}）`}>
+              <SentimentCard twTicker={ticker} />
+            </Panel>
+          )}
         </div>
       </div>
 
@@ -371,6 +375,16 @@ function StockView() {
           <HistoryReplayCard ticker={ticker} minDate={meta.data?.history_start} maxDate={meta.data?.data_as_of} />
         </Panel>
       </div>
+
+      {adr.isProxy && (
+        <details className="mt-5 rounded-lg border border-border bg-surface">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-ink">跨市場背景：美股科技大盤（QQQ）的新聞情緒</summary>
+          <div className="border-t border-border px-4 py-3">
+            <p className="mb-2 text-sm text-ink-2">{info?.name ?? code(ticker)} 沒有美股 ADR，新聞站也沒有它的英文新聞；這裡只是美股科技大盤的背景，不是這家公司的新聞。</p>
+            <SentimentCard twTicker={ticker} compact />
+          </div>
+        </details>
+      )}
     </>
   );
 }

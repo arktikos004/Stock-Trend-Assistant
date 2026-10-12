@@ -103,7 +103,7 @@ export default function TrackRecordCard({
         </div>
       )}
 
-      <p className="mt-3 text-xs leading-relaxed text-ink-2">
+      <p className="mt-3 text-sm leading-relaxed text-ink-2">
         每筆預測在推論當下寫入資料庫，2026-10-07 起串入存證鏈，之後改動任何一列驗證都會失敗；到期後用實際的 5 日走勢對照。部分基準日的預測在下一個交易日開盤後才寫入，監控頁另外列出它們的成績。
       </p>
     </div>

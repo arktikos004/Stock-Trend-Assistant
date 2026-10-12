@@ -93,7 +93,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
 
-        <footer className="mx-auto mt-10 w-full max-w-[1280px] px-4 text-xs leading-relaxed text-ink-3 lg:px-6">
+        <footer className="mx-auto mt-10 w-full max-w-[1280px] px-4 text-sm leading-relaxed text-ink-2 lg:px-6">
           <div className="border-t border-border py-6">
           <p>台股相對強弱排序與預測存證平台：研究工具，不構成投資建議。</p>
           <p className="mt-1">

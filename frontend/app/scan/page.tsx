@@ -194,7 +194,7 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
         </div>
       ) : null}
 
-      <p className="border-t border-border px-4 py-3 text-xs leading-relaxed text-ink-3">
+      <p className="border-t border-border px-4 py-3 text-sm leading-relaxed text-ink-2">
         方向訊號：未來 5 個交易日累積報酬大於 +2% 為漲、小於 −2% 為跌，其餘為觀望。百分比是模型輸出的類別機率，未經機率校準；漲或跌的機率未達決策門檻時轉為觀望（標「規則降級」）。全池掃描與模型走同一條特徵管線；歷史查詢只用當日與更早的資料重算。
       </p>
     </Panel>
