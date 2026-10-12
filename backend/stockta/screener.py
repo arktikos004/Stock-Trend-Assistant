@@ -5,6 +5,7 @@
 並公開每一個組成分數與權重。研究工作台用來把 49 檔縮成少數值得打開 K 線細看的股票。
 
 每個來源只取基準日 D 當天或以前的資料（價格截到 D；開放資料取日期 ≤ D 的檔案）。
+月營收表只列出已申報的公司，所以每家公司各取自己最近一次出現的那一列（見 revenue_rows）。
 目前只在每日排程即時計算：開放資料的檔名日期是資料日，要做歷史重算時須改以收集時間判斷可得性。
 """
 
@@ -21,7 +22,7 @@ import pandas as pd
 
 from stockta.data.twse import parse_number
 
-RULES_VERSION = "v1"
+RULES_VERSION = "v1.1"
 RULES_DOC = "docs/screener_prereg.md"
 
 # 綜合評分的權重（預先聲明；改了要升版文件，tests/test_screener.py 會比對）
@@ -37,6 +38,7 @@ MA_WINDOWS = (5, 20, 60)
 MARGIN_WINDOW = 5  # 融資餘額變化率：往前第 5 個交易日
 BIG_HOLDER_LEVEL = "15"  # 集保持股分級 15：1,000,001 股以上（千張大戶）
 FINANCIAL_INDUSTRY = "金融保險業"  # 月營收含投資損益，與一般產業不可比：營收組成不計、C4 不適用
+REVENUE_MONTHS = 2  # 月營收往回找的資料月份數：最新一份的月份與它的前一個月
 
 
 @dataclass(frozen=True)
@@ -131,6 +133,48 @@ def _latest(data_dir: Path, dataset: str, as_of: date) -> tuple[date | None, lis
     return (files[-1][0], _rows(files[-1][1])) if files else (None, [])
 
 
+def _month_index(ym: str) -> int | None:
+    """資料年月（民國年月，例如 11509）→ 可相減的月序；格式不對回 None。"""
+    if not ym.isdigit() or len(ym) < 4 or not 1 <= int(ym[-2:]) <= 12:
+        return None
+    return (int(ym[:-2]) + 1911) * 12 + int(ym[-2:]) - 1
+
+
+def _month_text(index: int) -> str:
+    return f"{index // 12}-{index % 12 + 1:02d}"
+
+
+def revenue_rows(
+    data_dir: Path, as_of: date, codes: set[str]
+) -> tuple[dict[str, dict[str, str]], dict[str, str], date | None, str | None]:
+    """每家公司最近一次出現的月營收列、那一列的資料月份（YYYY-MM）、最新一份的日期與資料月份。
+
+    月營收彙總表是每日快照，只列出當月已經申報的公司：月初還沒申報的公司不在最新一份裡。
+    所以由新到舊往回找，每家公司取自己最近一次出現的那一列（產業別也取自這一列）；
+    最多回溯 REVENUE_MONTHS 個資料月份，再舊的不用。找不到的公司不在回傳的 dict 裡。
+    """
+    files = _dated_files(data_dir, "t187ap05_L", as_of)
+    found: dict[str, dict[str, str]] = {}
+    months: dict[str, str] = {}
+    latest: int | None = None
+    for _, path in reversed(files):
+        rows = [(r, _month_index(r.get("資料年月", ""))) for r in _rows(path)]
+        newest = max((m for _, m in rows if m is not None), default=None)
+        if newest is None:
+            continue
+        if latest is None:
+            latest = newest
+        if latest - newest >= REVENUE_MONTHS:
+            break
+        for r, m in rows:
+            c = r.get("公司代號")
+            if c in codes and c not in found and m is not None and 0 <= latest - m < REVENUE_MONTHS:
+                found[c], months[c] = r, _month_text(m)
+        if len(found) == len(codes):
+            break
+    return found, months, files[-1][0] if files else None, None if latest is None else _month_text(latest)
+
+
 def _mean(values: list[float | None]) -> float | None:
     present = [v for v in values if v is not None]
     return statistics.fmean(present) if present else None
@@ -160,8 +204,7 @@ def build_screener(
 
     val_day, val_rows = _latest(data_dir, "BWIBBU_ALL", as_of)
     valuation = {r.get("Code"): r for r in val_rows}
-    rev_day, rev_rows = _latest(data_dir, "t187ap05_L", as_of)
-    revenue = {r.get("公司代號"): r for r in rev_rows}
+    revenue, revenue_months, rev_day, rev_month = revenue_rows(data_dir, as_of, set(code.values()))
     margin, margin_days, margin_day = margin_changes(data_dir, as_of)
     holders, holder_weeks = big_holder_changes(data_dir, as_of)
 
@@ -170,7 +213,8 @@ def build_screener(
         c, s, v, r = code[t], signals[t], valuation.get(code[t]), revenue.get(code[t])
         pe = parse_number(v.get("PEratio")) if v else None
         pb = parse_number(v.get("PBratio")) if v else None
-        industry = (r or {}).get("產業別", "")
+        # 近 REVENUE_MONTHS 個資料月份都沒有這家公司的列：產業別不明，不當成非金融業，列入資料品質問題
+        industry = r.get("產業別", "") if r else None
         financial = industry == FINANCIAL_INDUSTRY
         metrics[t] = {
             "rank_pct": rank_pct.get(t),
@@ -190,6 +234,7 @@ def build_screener(
             "big_holder_change": holders.get(c),
             "_industry": industry,
             "_financial": financial,
+            "_revenue_month": None if financial else revenue_months.get(c),
         }
 
     def pct(key: str, higher_is_better: bool = True) -> dict[str, float | None]:
@@ -237,7 +282,8 @@ def build_screener(
             {
                 "ticker": t,
                 "name": names[t],
-                "industry": m["_industry"],
+                "industry": m["_industry"] or "",
+                "revenue_month": m["_revenue_month"],
                 "composite": _round(composite),
                 "components": {k: _round(v) for k, v in components.items()},
                 "missing": [k for k, v in components.items() if v is None],
@@ -265,11 +311,12 @@ def build_screener(
             taken[tier] += 1
     stocks.sort(key=lambda s: (order[s["tier"]], -(s["composite"] if s["composite"] is not None else -1), s["ticker"]))
 
-    revenue_month = None
-    if rev_rows:
-        ym = rev_rows[0].get("資料年月", "")
-        if ym.isdigit() and len(ym) >= 4:
-            revenue_month = f"{int(ym[:-2]) + 1911}-{ym[-2:]}"
+    used_months = [m["_revenue_month"] for m in metrics.values() if m["_revenue_month"]]
+    data_quality = {
+        "industry_unknown": sorted(t for t in tickers if metrics[t]["_industry"] is None),
+        "revenue_lagging": sorted(t for t in tickers if metrics[t]["_revenue_month"] not in (None, rev_month)),
+        "revenue_month_counts": {month: used_months.count(month) for month in sorted(set(used_months), reverse=True)},
+    }
     price_days = [s.index.max().date() for s in closes.values() if len(s)]
     return {
         "base_date": as_of.isoformat(),
@@ -281,11 +328,12 @@ def build_screener(
             "prices": min(max(price_days), as_of).isoformat() if price_days else None,
             "valuation": val_day.isoformat() if val_day else None,
             "revenue": rev_day.isoformat() if rev_day else None,
-            "revenue_month": revenue_month,
+            "revenue_month": rev_month,
             "margin": margin_day.isoformat() if margin_day else None,
             "margin_days": margin_days,
             "big_holder_weeks": [d.isoformat() for d in holder_weeks],
         },
         "counts": {tier: sum(s["tier"] == tier for s in stocks) for tier in TIER_CAPS},
+        "data_quality": data_quality,
         "stocks": stocks,
     }

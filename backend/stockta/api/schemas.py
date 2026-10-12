@@ -309,7 +309,8 @@ class ScreenerMetrics(BaseModel):
 class ScreenerStock(BaseModel):
     ticker: str
     name: str
-    industry: str
+    industry: str = Field(description="月營收表最近一次出現的那一列的產業別；兩個資料月份都沒有時為空字串")
+    revenue_month: str | None = Field(default=None, description="這檔實際使用的營收月份 YYYY-MM；金融保險業不計、缺資料時為 null")
     composite: float | None = Field(description="綜合評分 0–100：依固定規則整理，不是預測")
     components: ScreenerComponents
     missing: list[str] = Field(description="從缺的組成（綜合評分在其他組成間重新正規化權重）")
@@ -323,11 +324,21 @@ class ScreenerStock(BaseModel):
 class ScreenerSources(BaseModel):
     prices: date | None
     valuation: date | None
-    revenue: date | None = Field(description="月營收彙總表的出表日期")
-    revenue_month: str | None = Field(description="月營收的資料月份 YYYY-MM")
+    revenue: date | None = Field(description="最新一份月營收彙總表的出表日期")
+    revenue_month: str | None = Field(description="最新一份的資料月份 YYYY-MM；還沒申報的公司沿用前一個月")
     margin: date | None
     margin_days: int = Field(description="融資餘額變化率實際涵蓋的交易日數（滿 5 日前會少於 5）")
     big_holder_weeks: list[date] = Field(description="大戶持股週變化用到的兩週；只有一週時沒有變化可算")
+
+
+class ScreenerDataQuality(BaseModel):
+    """月營收表是每日快照，只列出已申報的公司：這裡標出受影響的股票。"""
+
+    industry_unknown: list[str] = Field(
+        default_factory=list, description="最新資料月份與前一個月都沒有申報：產業別不明，營收條件算資料缺漏"
+    )
+    revenue_lagging: list[str] = Field(default_factory=list, description="還沒申報最新月份，營收沿用前一個月")
+    revenue_month_counts: dict[str, int] = Field(default_factory=dict, description="各營收月份有幾檔在用（不含金融保險業）")
 
 
 class ScreenerResponse(BaseModel):
@@ -340,5 +351,6 @@ class ScreenerResponse(BaseModel):
     tier_caps: dict[str, int]
     sources: ScreenerSources
     counts: dict[str, int]
+    data_quality: ScreenerDataQuality = Field(default_factory=ScreenerDataQuality)
     stocks: list[ScreenerStock]
     is_mock: bool = Field(default=False, description="排序模型未載入時為 True（排序組成全部從缺）")

@@ -6,7 +6,7 @@
  * 以可排序的表格比較；點一列展開分數拆解、逐項條件與入選理由。層級、展開的股票寫在網址，可以分享。
  */
 
-import { ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Download, Minus, Star, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Download, Info, Minus, Star, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useMemo, useState } from "react";
@@ -30,7 +30,7 @@ type SortKey = "tier" | "composite" | ScreenerComponentKey | "misses" | "name";
 const STATE: Record<ConditionState, { text: string; icon: typeof Check; className: string }> = {
   pass: { text: "符合", icon: Check, className: "text-accent" },
   fail: { text: "不符合", icon: X, className: "text-ink-3" },
-  missing: { text: "缺資料（算不符合）", icon: CircleHelp, className: "text-warn" },
+  missing: { text: "資料品質問題，依規則算不符合", icon: CircleHelp, className: "text-ink-2" },
   na: { text: "不適用", icon: Minus, className: "text-ink-3" },
 };
 
@@ -47,7 +47,9 @@ function evidence(k: ConditionKey, s: ScreenerStock): string {
     case "C3":
       return `評價分數 ${fixed(s.components.valuation, 0)}`;
     case "C4":
-      return s.conditions.C4 === "na" ? "金融保險業不計營收" : `月營收年增 ${fixed(m.revenue_yoy, 1, true)}%`;
+      if (s.conditions.C4 === "na") return "金融保險業不計營收";
+      if (m.revenue_yoy == null) return s.industry ? "月營收年增率缺資料" : "最近兩個月的月營收表都沒有這家公司，產業別不明";
+      return `${s.revenue_month ? `${s.revenue_month} ` : ""}月營收年增 ${fixed(m.revenue_yoy, 1, true)}%`;
     case "C5":
       return `融資餘額變化 ${pct(m.margin_change, 2)}`;
     case "C6":
@@ -72,7 +74,7 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
     ["本益比", m.pe == null ? "—（虧損或無法計算）" : fixed(m.pe, 1)],
     ["現金殖利率", m.dividend_yield == null ? "—" : `${fixed(m.dividend_yield, 2)}%`],
     ["股價淨值比", fixed(m.pb, 2)],
-    ["月營收年增", s.conditions.C4 === "na" ? "不計" : `${fixed(m.revenue_yoy, 1, true)}%`],
+    [s.revenue_month ? `月營收年增（${s.revenue_month}）` : "月營收年增", s.conditions.C4 === "na" ? "不計" : `${fixed(m.revenue_yoy, 1, true)}%`],
     [`融資 ${data.sources.margin_days} 日變化`, pct(m.margin_change, 2)],
     ["千張大戶週變化", `${fixed(m.big_holder_change, 2, true)} 個百分點`],
     ["20 日報酬", pct(m.ret20)],
@@ -151,6 +153,34 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
           看 {s.name} 的個股頁
         </Link>
       </section>
+    </div>
+  );
+}
+
+/** 月營收表只列出已申報的公司：說明哪些股票沿用前一個月、哪些完全沒有資料（說明框，不是警示） */
+function DataQuality({ data }: { data: ScreenerResponse }) {
+  const q = data.data_quality;
+  if (!q || (q.revenue_lagging.length === 0 && q.industry_unknown.length === 0)) return null;
+  const stock = (t: string) => data.stocks.find((s) => s.ticker === t);
+  const names = (tickers: string[]) => tickers.map((t) => stock(t)?.name ?? code(t)).join("、");
+  const lagMonth = stock(q.revenue_lagging[0])?.revenue_month;
+  return (
+    <div className="mb-4">
+      <Notice icon={Info}>
+        {q.revenue_lagging.length > 0 && (
+          <p>
+            <strong className="font-semibold text-ink">營收月份：</strong>
+            月營收表只列出已經申報的公司。{q.revenue_lagging.length} 檔還沒申報 {data.sources.revenue_month ?? "最新月份"}，營收的分數與條件沿用
+            {lagMonth ? ` ${lagMonth}` : "前一個月"}：{names(q.revenue_lagging)}。
+          </p>
+        )}
+        {q.industry_unknown.length > 0 && (
+          <p className={q.revenue_lagging.length > 0 ? "mt-1.5" : undefined}>
+            <strong className="font-semibold text-ink">資料品質問題：</strong>
+            {q.industry_unknown.length} 檔在最近兩個月的月營收表都沒有資料，產業別不明，營收條件依規則算不符合：{names(q.industry_unknown)}。
+          </p>
+        )}
+      </Notice>
     </div>
   );
 }
@@ -270,9 +300,11 @@ function ScreenerView() {
             ))}
           </ul>
 
+          <DataQuality data={data} />
+
           <Panel
             title={`基準日 ${data.base_date}`}
-            description={`規則 ${data.rules_version}；價格 ${data.sources.prices ?? "—"}、評價 ${data.sources.valuation ?? "—"}、月營收 ${data.sources.revenue_month ?? "—"}、融資 ${data.sources.margin ?? "—"}（變化涵蓋 ${data.sources.margin_days} 日）、集保 ${data.sources.big_holder_weeks.join("／") || "—"}`}
+            description={`規則 ${data.rules_version}；價格 ${data.sources.prices ?? "—"}、評價 ${data.sources.valuation ?? "—"}、月營收 ${data.sources.revenue_month ?? "—"}${data.data_quality?.revenue_lagging.length ? `（${data.data_quality.revenue_lagging.length} 檔沿用前一個月）` : ""}、融資 ${data.sources.margin ?? "—"}（變化涵蓋 ${data.sources.margin_days} 日）、集保 ${data.sources.big_holder_weeks.join("／") || "—"}`}
             actions={
               <button
                 type="button"
@@ -280,11 +312,12 @@ function ScreenerView() {
                 onClick={() =>
                   downloadCsv(
                     `screener-${data.base_date}.csv`,
-                    ["代號", "名稱", "產業", "層級", "綜合", ...COMPONENTS.map((c) => c.label), ...CONDITION_KEYS.map((k) => CONDITIONS[k]), "不符合"],
+                    ["代號", "名稱", "產業", "營收月份", "層級", "綜合", ...COMPONENTS.map((c) => c.label), ...CONDITION_KEYS.map((k) => CONDITIONS[k]), "不符合"],
                     rows.map((s) => [
                       code(s.ticker),
                       s.name,
                       s.industry,
+                      s.revenue_month ?? "",
                       s.tier ?? (s.over_cap ? "超過上限" : ""),
                       s.composite,
                       ...COMPONENTS.map((c) => s.components[c.key]),
@@ -334,7 +367,7 @@ function ScreenerView() {
               <EmptyState icon={scope === "watch" ? Star : undefined} title={scope === "watch" ? "自選股不在這份清單裡" : "沒有股票同時符合這些條件"}>
                 {scope === "watch"
                   ? "在個股頁按「加入自選」，或切到「全部」看 49 檔。"
-                  : "取消一個條件，或切到「全部」再看看。不適用的條件（例如金融保險業的營收）不算符合。"}
+                  : "取消一個條件，或切到「全部」再看看。這個篩選只留下「符合」的股票；條件不適用的（例如金融保險業的營收）不會留下。"}
               </EmptyState>
             ) : (
               // 不包水平捲動容器（會讓表頭的 sticky 失效）；欄位在窄螢幕依序隱藏，390 寬也放得下
@@ -384,7 +417,7 @@ function ScreenerView() {
                               <span className="font-medium text-ink">{s.name}</span>
                               <span className="ml-2 text-xs text-ink-3">{code(s.ticker)}</span>
                               {watchlist.includes(s.ticker) && <Star size={12} className="ml-1.5 inline fill-current text-warn" aria-label="自選" />}
-                              <span className="block text-xs text-ink-3">{s.industry}</span>
+                              <span className="block text-xs text-ink-3">{s.industry || "產業別不明"}</span>
                             </td>
                             <td className="px-3 py-2 text-center">
                               {s.tier ? <Badge tone="neutral">{s.tier}</Badge> : <span className="text-xs text-ink-3">{s.over_cap ? "超過上限" : "—"}</span>}

@@ -219,14 +219,15 @@ export interface MonitorResponse {
 
 export type ScreenerComponentKey = "rank" | "momentum" | "valuation" | "revenue" | "chips";
 export type ConditionKey = "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
-/** missing＝資料缺漏（算不符合）、na＝不適用（金融保險業的營收條件） */
+/** missing＝資料缺漏（應該有卻沒有，算不符合）、na＝不適用（金融保險業的營收條件） */
 export type ConditionState = "pass" | "fail" | "missing" | "na";
 export type Tier = "T1" | "T2" | "T3";
 
 export interface ScreenerStock {
   ticker: string;
   name: string;
-  industry: string;
+  industry: string; // 產業別不明時為空字串
+  revenue_month?: string | null; // 這檔實際使用的營收月份 YYYY-MM（金融保險業、缺資料時沒有）
   composite: number | null; // 0–100
   components: Record<ScreenerComponentKey, number | null>; // 股票池內的百分位 0–100
   missing: ScreenerComponentKey[];
@@ -268,6 +269,12 @@ export interface ScreenerResponse {
     big_holder_weeks: string[];
   };
   counts: Record<Tier, number>;
+  /** 月營收表只列出已申報的公司：哪些股票受影響。較舊的資料檔沒有這一欄 */
+  data_quality?: {
+    industry_unknown: string[]; // 兩個資料月份都沒有申報：產業別不明，營收條件算資料缺漏
+    revenue_lagging: string[]; // 還沒申報最新月份，沿用前一個月
+    revenue_month_counts: Record<string, number>;
+  };
   stocks: ScreenerStock[];
   is_mock: boolean;
 }

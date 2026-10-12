@@ -1,4 +1,4 @@
-"""篩選器與綜合評分（docs/screener_prereg.md v1）：百分位、價格衍生值、開放資料的 as-of、條件、分層與權重。
+"""篩選器與綜合評分（docs/screener_prereg.md）：百分位、價格衍生值、開放資料的 as-of、條件、分層與權重。
 
 規則是預先聲明的：這裡把文件寫的每一條釘死——程式改了規則而文件沒升版，測試就會失敗。
 洩漏測試：基準日之後的價格與檔案不得影響結果。全部不連網。
@@ -100,6 +100,11 @@ def test_big_holder_change_needs_two_weeks(tmp_path):
     assert changes["2330"] == pytest.approx(0.27) and weeks == [date(2026, 9, 25), date(2026, 10, 2)]
 
 
+def _revenue(code: str, ym: str, yoy: float, industry: str = "半導體業") -> dict:
+    return {"出表日期": "x", "資料年月": ym, "公司代號": code, "產業別": industry,
+            "營業收入-去年同月增減(%)": f"{yoy}", "累計營業收入-前期比較增減(%)": f"{yoy}"}
+
+
 def _pool(tmp_path: Path, n: int = 6):
     """n 檔：股票 0 各方面最好、越後面越差；最後一檔是金融股（營收不計）。"""
     names = {f"{1000 + i}.TW": f"股{i}" for i in range(n)}
@@ -157,8 +162,61 @@ def test_missing_data_counts_as_a_miss(tmp_path):
     assert best["tier"] == "T3"
 
 
+def test_revenue_uses_each_companys_latest_reported_month(tmp_path):
+    """月初的月營收表只有已申報的公司：其餘公司沿用自己最近一次出現的那一列，產業別也是。"""
+    names, rank, closes = _pool(tmp_path)  # 8 月的完整表（2026-09-17）
+    reported = ["1000", "1002", "1003", "1004"]  # 9 月的表還沒有 1001（一般股）與 1005（金融股）
+    _write(tmp_path, "t187ap05_L", date(2026, 10, 5), [_revenue(c, "11509", 99) for c in reported])
+    _write(tmp_path, "t187ap05_L", AS_OF, [_revenue(c, "11509", -5) for c in reported])
+    out = build_screener(as_of=AS_OF, names=names, rank_pct=rank, closes=closes, data_dir=tmp_path)
+    by = {s["ticker"]: s for s in out["stocks"]}
+
+    current = by["1000.TW"]  # 同一個月份有兩份快照：用最新的那一份
+    assert current["revenue_month"] == "2026-09" and current["metrics"]["revenue_yoy"] == -5.0
+    assert current["conditions"]["C4"] == "fail"
+
+    lagging = by["1001.TW"]  # 還沒申報 9 月：沿用 8 月，不算缺資料
+    assert lagging["revenue_month"] == "2026-08" and lagging["metrics"]["revenue_yoy"] == 20.0
+    assert lagging["conditions"]["C4"] == "pass" and lagging["industry"] == "半導體業"
+
+    fin = by["1005.TW"]  # 金融股不在最新一份裡：仍然是金融保險業，C4 不適用
+    assert fin["industry"] == "金融保險業" and fin["conditions"]["C4"] == "na"
+    assert fin["components"]["revenue"] is None and fin["revenue_month"] is None
+
+    assert out["sources"]["revenue"] == AS_OF.isoformat() and out["sources"]["revenue_month"] == "2026-09"
+    assert out["data_quality"] == {
+        "industry_unknown": [],
+        "revenue_lagging": ["1001.TW"],
+        "revenue_month_counts": {"2026-09": 4, "2026-08": 1},
+    }
+
+
+def test_no_revenue_row_in_two_months_is_missing_and_flagged(tmp_path):
+    """最新月份與前一個月都沒有申報：營收條件算缺資料（不符合），產業別不明並列入資料品質問題。"""
+    names, rank, closes = _pool(tmp_path)
+    codes = [t.removesuffix(".TW") for t in names]
+    reported = [c for c in codes if c not in ("1001", "1005")]
+    _write(tmp_path, "t187ap05_L", date(2026, 8, 17), [
+        _revenue(c, "11507", 50, "金融保險業" if c == "1005" else "半導體業") for c in codes
+    ])
+    _write(tmp_path, "t187ap05_L", date(2026, 9, 17), [_revenue(c, "11508", 10) for c in reported])
+    _write(tmp_path, "t187ap05_L", AS_OF, [_revenue(c, "11509", 10) for c in reported])
+    out = build_screener(as_of=AS_OF, names=names, rank_pct=rank, closes=closes, data_dir=tmp_path)
+    by = {s["ticker"]: s for s in out["stocks"]}
+
+    for ticker in ("1001.TW", "1005.TW"):  # 7 月的列太舊，不拿來用，也不拿來判斷產業
+        stale = by[ticker]
+        assert stale["industry"] == "" and stale["revenue_month"] is None
+        assert stale["metrics"]["revenue_yoy"] is None and stale["components"]["revenue"] is None
+        assert stale["conditions"]["C4"] == "missing"
+    assert by["1001.TW"]["misses"] == 1 and by["1001.TW"]["tier"] == "T2"
+    assert out["data_quality"]["industry_unknown"] == ["1001.TW", "1005.TW"]
+    assert out["data_quality"]["revenue_lagging"] == []
+
+
 def test_tier_caps_do_not_backfill(monkeypatch, tmp_path):
     names, rank, closes = _pool(tmp_path)
+    _write(tmp_path, "t187ap05_L", AS_OF, [_revenue(c, "11509", 10) for c in ("1000", "1001", "1002")])  # 9 月只到一半
     monkeypatch.setattr(screener, "TIER_CAPS", {"T1": 1, "T2": 1, "T3": 1})
     rank = {t: 0.9 for t in names}  # 讓多檔進同一層
     out = build_screener(as_of=AS_OF, names=names, rank_pct=rank, closes=closes, data_dir=tmp_path)
