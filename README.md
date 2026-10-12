@@ -82,10 +82,11 @@ npm test                                   # lib/ 的單元測試；靜態檢查
 
 | 端點 | 說明 |
 | --- | --- |
-| `GET /api/rank`（可加 `?date=`） | 相對強弱排序；帶日期時以 point-in-time 重算 |
+| `GET /api/rank`（可加 `?date=`） | 相對強弱排序：資料庫有紀錄的基準日回傳紀錄（就是串入存證鏈的那幾列），沒有紀錄才以 point-in-time 重算 |
 | `GET /api/rank/summary` | 回測摘要：Rank IC、Newey–West t、扣成本的組合報酬 |
 | `GET /api/screener` | 篩選器的組成分數、條件與分層 |
-| `GET /api/monitor` | 模型健康、例外報表、存證鏈驗證結果 |
+| `GET /api/monitor` | 模型健康（當日即時、事後重建、到期前已存證三組）、例外報表、存證鏈驗證結果 |
+| `GET /api/ledger` | 存證鏈的狀態快照：驗證截至哪一天、尚未上鏈的列、最新一節（每日排程在上鏈之後匯出） |
 | `GET /api/scan`（可加 `?date=`） | 全池 5 日方向訊號 |
 | `GET /api/stocks/{ticker}/…` | `candles`（證交所 K 線）、`prediction`、`indicators`、`predictions`（線上紀錄）、`history`（歷史回放） |
 | `GET /api/market`、`/api/track-record`、`/api/model`、`/api/stocks`、`/health` | 大盤情境、方向訊號的線上戰績、模型資訊、股票池 |
