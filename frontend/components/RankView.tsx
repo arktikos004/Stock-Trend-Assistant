@@ -20,10 +20,13 @@ import { errorText, useAsync } from "@/lib/useAsync";
 import { useWatchlist } from "@/lib/watchlist";
 import DateQuery from "./DateQuery";
 
-/** 這份排序的來源：資料庫裡的紀錄（當天記錄或事後重建）或沒有紀錄的重新評分；舊版站上資料沒有 basis */
+/** 這份排序的來源：資料庫裡的紀錄（每日排程記錄或事後重建）或沒有紀錄的重新評分；舊版站上資料沒有 basis */
 function basisText(r: RankResponse): string {
   if (r.basis === "recorded") {
-    return r.recorded_source === "live" ? "基準日當天記錄並串入存證鏈的排序" : "事後重建後記錄的排序（不是基準日當天的紀錄）";
+    if (r.recorded_source !== "live") return "事後重建後記錄的排序（不是預測窗口開始前的紀錄）";
+    return r.recorded_on_time === false
+      ? "每日排程在預測窗口開始後才補寫的排序（不是窗口開始前的紀錄）"
+      : "每日排程在預測窗口開始前記錄、並串入存證鏈的排序";
   }
   if (r.basis === "recomputed") return "資料庫沒有這一天的紀錄：依當時可得的資料重新評分，沒有存證";
   return r.is_historical ? "歷史查詢：point-in-time 重算" : "最新收盤的排序";

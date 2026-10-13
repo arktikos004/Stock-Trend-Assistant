@@ -2,8 +2,8 @@
 
 /**
  * 模型監控與例外報表（規則見 docs/monitor_prereg.md；門檻依期刊文獻預先聲明）：
- * - 模型健康：逐日 Rank IC 分成當日即時、事後重建、預測窗口開始前已存證三組；主數字是當日即時（前瞻）的成績，
- *   狀態照聲明用全部的到期日判定（含事後重建）。附 20 日滾動平均的趨勢線
+ * - 模型健康：逐日 Rank IC 分成即時記錄、事後重建或補寫、預測窗口開始前已存證三組；主數字是即時記錄（前瞻）的成績，
+ *   狀態照聲明用全部的到期日判定（含事後重建或補寫）。附 20 日滾動平均的趨勢線
  * - 方向訊號：命中率一定和同一批樣本的兩條基線、各訊號精度與 95% 區間一起列；依寫入時間分組
  * - 例外報表：排名分位遷移（5 個基準日）、52 週新高與新低（George & Hwang, 2004）
  * - 存證鏈：上鏈之後匯出的快照
@@ -46,12 +46,23 @@ function rolling(values: number[], window: number): (number | null)[] {
   return values.map((_, i) => (i + 1 < window ? null : values.slice(i + 1 - window, i + 1).reduce((a, b) => a + b, 0) / window));
 }
 
-const SOURCE_TEXT = { live: "當日即時", pit: "事後重建" } as const;
+type Day = Model["daily"][number];
+
+/** 即時記錄＝每日排程在預測窗口開始前寫入；排程晚跑、窗口開始後才補寫的和事後重建同一組（舊版站上資料沒有 on_time，只看 source） */
+function isLive(d: Day): boolean {
+  return d.source === "live" && d.on_time !== false;
+}
+
+function dayLabel(d: Day): string {
+  if (isLive(d)) return "即時記錄";
+  if (d.source === "live") return "補寫（窗口開始後才寫入）";
+  return d.before_training ? "事後重建（模型訓練完成前）" : "事後重建";
+}
 
 /**
  * 逐日 Rank IC：以零軸為基準的上下長條，左邊是 y 軸刻度。
- * 實心長條＝當日即時記錄，空心長條＝事後重建（形狀不同，不只靠透明度）；
- * 折線是 20 日滾動平均（實線段落在當日即時的日子、虛線段落在事後重建的日子）；水平虛線是回測平均。
+ * 實心長條＝即時記錄，空心長條＝事後重建或補寫（形狀不同，不只靠透明度）；
+ * 折線是 20 日滾動平均（實線段落在即時記錄的日子、虛線段落在事後重建或補寫的日子）；水平虛線是回測平均。
  * 指到或點一下長條會顯示當天的數值，完整數值在下方的表格。
  */
 function IcChart({ data }: { data: Model }) {
@@ -93,7 +104,7 @@ function IcChart({ data }: { data: Model }) {
           <div className="absolute inset-0 flex gap-px">
             {days.map((d, i) => {
               const v = d.ic as number;
-              const live = d.source === "live";
+              const live = isLive(d);
               return (
                 <div
                   key={d.day}
@@ -122,7 +133,7 @@ function IcChart({ data }: { data: Model }) {
                   y2={y(v)}
                   stroke="var(--ink)"
                   strokeWidth={2}
-                  strokeDasharray={days[i].source === "live" ? undefined : "4 3"}
+                  strokeDasharray={isLive(days[i]) ? undefined : "4 3"}
                   vectorEffect="non-scaling-stroke"
                 />
               );
@@ -140,7 +151,7 @@ function IcChart({ data }: { data: Model }) {
               <p className="font-semibold text-ink">Rank IC {fixed(h.ic, 3, true)}</p>
               {trend[hover] != null && <p className="text-ink-2">20 日滾動平均 {fixed(trend[hover], 3, true)}</p>}
               <p className="text-ink-3">
-                {h.n} 檔，{h.source === "live" ? "當日即時記錄" : h.before_training ? "事後重建（模型訓練完成前）" : "事後重建"}
+                {h.n} 檔，{dayLabel(h)}
               </p>
             </div>
           )}
@@ -160,17 +171,17 @@ function IcChart({ data }: { data: Model }) {
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
         <li className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-2 rounded-[1px] bg-accent" aria-hidden="true" />
-          當日即時記錄
+          即時記錄
         </li>
         <li className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-2 rounded-[1px] border border-accent" aria-hidden="true" />
-          事後重建
+          事後重建或補寫
         </li>
         <li className="flex items-center gap-1.5">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" y1="3" x2="22" y2="3" stroke="var(--ink)" strokeWidth="2" />
           </svg>
-          {window} 日滾動平均（虛線段＝落在事後重建的日子）
+          {window} 日滾動平均（虛線段＝落在事後重建或補寫的日子）
         </li>
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-5 border-t border-dashed border-ink-2" aria-hidden="true" />
@@ -196,10 +207,7 @@ function IcChart({ data }: { data: Model }) {
                   <td className="px-3 py-1 text-ink-2">{d.day}</td>
                   <td className="px-3 py-1 text-right text-ink">{fixed(d.ic, 3, true)}</td>
                   <td className="px-3 py-1 text-right text-ink-2">{d.n}</td>
-                  <td className="px-3 py-1 text-ink-2">
-                    {SOURCE_TEXT[d.source]}
-                    {d.before_training && "（模型訓練完成前）"}
-                  </td>
+                  <td className="px-3 py-1 text-ink-2">{dayLabel(d)}</td>
                   <td className="px-3 py-1 text-ink-2">{d.sealed ? "是" : "—"}</td>
                 </tr>
               ))}
@@ -211,17 +219,20 @@ function IcChart({ data }: { data: Model }) {
   );
 }
 
-/** 三組成績：當日即時（主）、事後重建、預測窗口開始前已串入存證鏈 */
+/** 三組成績：即時記錄（主）、事後重建或補寫、預測窗口開始前已串入存證鏈 */
 function Groups({ m }: { m: Model }) {
   const groups = m.groups;
   if (!groups) return null;
   const preTraining = m.daily.filter((d) => d.ic != null && d.before_training).length;
+  const late = m.daily.filter((d) => d.ic != null && d.source === "live" && d.on_time === false).length;
   const rows: { key: "live" | "pit" | "sealed"; label: string; note?: string; g: IcGroup }[] = [
-    { key: "live", label: "當日即時記錄", note: "基準日收盤後當天寫入；這是主要的前瞻成績", g: groups.live },
+    { key: "live", label: "即時記錄", note: "每日排程在預測窗口開始（下一個交易日開盤）前寫入；這是主要的前瞻成績", g: groups.live },
     {
       key: "pit",
-      label: "事後重建",
-      note: `資料延遲時隔天以後依當時可得的資料重算${preTraining ? `；其中 ${preTraining} 天在模型訓練完成之前` : ""}`,
+      label: "事後重建或補寫",
+      note: `窗口開始後才寫入：資料延遲時依當時可得的資料重算${late ? `，${late} 天是排程晚跑補寫` : ""}${
+        preTraining ? `；其中 ${preTraining} 天在模型訓練完成之前` : ""
+      }`,
       g: groups.pit,
     },
     {
@@ -415,15 +426,15 @@ export default function MonitorPage() {
             <dl className="grid grid-cols-2 gap-y-4 sm:grid-cols-4">
               {live ? (
                 <Stat
-                  label="當日即時記錄的平均 Rank IC"
+                  label="即時記錄的平均 Rank IC"
                   value={fixed(live.mean_ic, 4, true)}
                   sub={`${live.n_days} 個到期日，Newey–West t ${fixed(live.t_nw, 2, true)}`}
                 />
               ) : (
-                <Stat label="線上平均 Rank IC" value={fixed(m.mean_ic, 4, true)} sub={`${m.n_days} 個到期日（當日即時 ${m.n_live_days}）`} />
+                <Stat label="線上平均 Rank IC" value={fixed(m.mean_ic, 4, true)} sub={`${m.n_days} 個到期日（即時記錄 ${m.n_live_days}）`} />
               )}
               <Stat
-                label="全部到期日（含事後重建）"
+                label="全部到期日（含事後重建或補寫）"
                 value={fixed(m.mean_ic, 4, true)}
                 sub={`${m.n_days} 天，t ${fixed(m.t_skill, 2, true)}（門檻 ${m.thresholds.skill_t.map((t) => t.toFixed(1)).join("／")}）`}
               />
@@ -431,7 +442,7 @@ export default function MonitorPage() {
               <Stat label={`近 ${m.thresholds.recent_days} 日平均`} value={fixed(m.recent_mean_ic, 4, true)} sub="低於 0 時狀態為「留意」，描述性，不是檢定" />
             </dl>
             <p className="mt-4 text-sm leading-relaxed text-ink-2">
-              狀態「{status.text}」：{status.note}（依聲明用全部 {m.n_days} 天判定，含事後重建）。
+              狀態「{status.text}」：{status.note}（依聲明用全部 {m.n_days} 天判定，含事後重建或補寫）。
               <HelpLink to="model" className="ml-1" />
             </p>
             {m.groups && (

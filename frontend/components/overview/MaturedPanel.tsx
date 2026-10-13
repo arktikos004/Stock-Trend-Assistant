@@ -8,8 +8,8 @@ import { fixed } from "@/lib/format";
 import { MODEL_STATUS } from "@/lib/status";
 
 /**
- * 到期成績：最新一個已到期基準日的 Rank IC；主數字是當日即時記錄（前瞻）的平均與 Newey–West t，
- * 含事後重建的全部到期日另列（狀態依預先聲明用它判定）。t 未達門檻時直接寫「未達顯著」，不讓正的平均值看起來像已經證實。
+ * 到期成績：最新一個已到期基準日的 Rank IC；主數字是即時記錄（前瞻）的平均與 Newey–West t，
+ * 含事後重建或補寫的全部到期日另列（狀態依預先聲明用它判定）。t 未達門檻時直接寫「未達顯著」，不讓正的平均值看起來像已經證實。
  */
 export default function MaturedPanel({ model }: { model: MonitorResponse["model"] | undefined }) {
   const status = model ? MODEL_STATUS[model.status] : null;
@@ -40,7 +40,7 @@ export default function MaturedPanel({ model }: { model: MonitorResponse["model"
             <p className="text-sm text-ink-2">
               最新到期的是 {latest.day} 那份排序（{latest.n} 檔）：Rank IC{" "}
               <span className="font-semibold text-ink">{fixed(latest.ic, 3, true)}</span>
-              {latest.source === "pit" && "（事後重建）"}。
+              {latest.source === "pit" ? "（事後重建）" : latest.on_time === false && "（窗口開始後才補寫）"}。
             </p>
           ) : (
             <p className="text-sm text-ink-2">還沒有到期的交易日。</p>
@@ -48,7 +48,7 @@ export default function MaturedPanel({ model }: { model: MonitorResponse["model"
           <dl className="mt-3 space-y-2 text-sm">
             {live && (
               <div className="flex justify-between gap-2">
-                <dt className="text-ink-2">當日即時記錄 {live.n_days} 天平均</dt>
+                <dt className="text-ink-2">即時記錄 {live.n_days} 天平均</dt>
                 <dd className="text-right">
                   <span className="font-semibold text-ink">{fixed(live.mean_ic, 3, true)}</span>
                   <span className="block text-xs text-ink-2">
@@ -58,7 +58,7 @@ export default function MaturedPanel({ model }: { model: MonitorResponse["model"
               </div>
             )}
             <div className="flex justify-between gap-2">
-              <dt className="text-ink-2">{live ? `全部 ${model.n_days} 天（含事後重建）` : `近 ${model.n_days} 個到期日平均`}</dt>
+              <dt className="text-ink-2">{live ? `全部 ${model.n_days} 天（含事後重建或補寫）` : `近 ${model.n_days} 個到期日平均`}</dt>
               <dd className="text-right">
                 <span className={live ? "text-ink" : "font-semibold text-ink"}>{fixed(model.mean_ic, 3, true)}</span>
                 <span className="block text-xs text-ink-2">

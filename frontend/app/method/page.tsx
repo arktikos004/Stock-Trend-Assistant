@@ -102,14 +102,15 @@ export default function MethodPage() {
           </p>
           <p>
             <strong>技能檢定</strong>：線上平均 Rank IC 對 0 的 t 值，門檻 2（文獻對新因子另用 3）。
-            {live && live.t_nw != null && `目前當日即時記錄 ${live.n_days} 天的 t 為 ${fixed(live.t_nw, 2)}。`}
+            {live && live.t_nw != null && `目前即時記錄 ${live.n_days} 天的 t 為 ${fixed(live.t_nw, 2)}。`}
           </p>
           <p>
-            線上成績分三組：<strong>當日即時記錄</strong>（基準日收盤後當天寫入，主要的前瞻成績）、<strong>事後重建</strong>
-            （資料延遲時隔天以後依當時可得的資料重算，其中幾天在模型訓練完成之前）、<strong>到期前已公開存證</strong>（預測窗口開始前就串入存證鏈，2026-10-07 起才有）。
+            線上成績分三組：<strong>即時記錄</strong>（每日排程在預測窗口開始、也就是下一個交易日開盤前寫入，主要的前瞻成績）、
+            <strong>事後重建或補寫</strong>（窗口開始後才寫入：資料延遲時依當時可得的資料重算，或排程晚跑補記；其中幾天在模型訓練完成之前）、
+            <strong>到期前已公開存證</strong>（預測窗口開始前就串入存證鏈，2026-10-07 起才有）。窗口開始的時間依實際交易日計算，連假不算。
           </p>
           <p>
-            <strong>狀態</strong>依預先聲明的規則，用全部到期日（含事後重建）判定：
+            <strong>狀態</strong>依預先聲明的規則，用全部到期日（含事後重建或補寫）判定：
             {(["normal", "watch", "breakdown", "insufficient"] as const).map((k, i) => (
               <span key={k}>
                 {i > 0 && "；"}「{MODEL_STATUS[k].text}」＝{MODEL_STATUS[k].note}

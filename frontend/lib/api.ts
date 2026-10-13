@@ -141,7 +141,8 @@ export interface RankResponse {
   is_historical: boolean;
   /** recorded＝資料庫裡已記錄（並串入存證鏈）的排序列；recomputed＝沒有紀錄，依當時可得資料重新評分。舊版站上資料沒有 */
   basis?: "recorded" | "recomputed";
-  recorded_source?: "live" | "pit" | null; // recorded 時：當天記錄或事後重建
+  recorded_source?: "live" | "pit" | null; // recorded 時：每日排程記錄或事後重建
+  recorded_on_time?: boolean | null; // recorded 時：都在預測窗口開始（下一個交易日開盤）前寫入。舊版站上資料沒有
   results: RankResult[];
   is_mock: boolean;
 }
@@ -249,10 +250,11 @@ export interface MonitorResponse {
       ic: number | null;
       n: number;
       source: "live" | "pit";
+      on_time?: boolean; // 都在預測窗口開始（下一個交易日開盤）前寫入；舊版站上資料沒有
       sealed?: boolean; // 預測窗口開始前就已串入存證鏈
       before_training?: boolean; // 基準日收盤時模型還沒訓練完成
     }[];
-    /** live＝當日即時、pit＝事後重建、sealed＝預測窗口開始前已串入存證鏈。舊版站上資料沒有 */
+    /** live＝即時記錄（窗口開始前寫入的 live 列）、pit＝事後重建或補寫、sealed＝預測窗口開始前已串入存證鏈。舊版站上資料沒有 */
     groups?: Record<"live" | "pit" | "sealed", IcGroup>;
     trained_at?: string | null;
     sealed_since?: string | null;
