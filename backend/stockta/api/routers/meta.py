@@ -16,7 +16,7 @@ from stockta.api.schemas import (
 )
 from stockta.config import DATA_CACHE_DIR, PREDICTIONS_DB_PATH, STOCK_POOL
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import last_completed_trading_day
+from stockta.data.calendar import last_completed_trading_day, market_sessions
 from stockta.data.provider import DataProviderError
 from stockta.ml.report_predictions import actual_signal, current_production_version
 
@@ -98,6 +98,7 @@ def track_record() -> TrackRecordResponse:
         return TrackRecordResponse(total=0, matured=0, hits=0)
 
     cache = ParquetCache(DATA_CACHE_DIR)
+    sessions = market_sessions(cache)
     samples: dict[str, list[tuple[str, str, str]]] = {"all": [], "before_window": [], "after_window": []}
     for ticker, base_date, signal, created_at in rows:
         actual, _ = actual_signal(cache, ticker, base_date)
@@ -105,7 +106,7 @@ def track_record() -> TrackRecordResponse:
             continue
         record = (base_date, signal, actual)
         samples["all"].append(record)
-        early = evidence.written_before_window(date.fromisoformat(base_date), evidence.parse_time(created_at))
+        early = evidence.written_before_window(date.fromisoformat(base_date), evidence.parse_time(created_at), sessions)
         samples["before_window" if early else "after_window"].append(record)
     matured = len(samples["all"])
     hits = sum(signal == actual for _bd, signal, actual in samples["all"])

@@ -2,14 +2,17 @@
 
 - **寫入時間**：預測窗口從基準日的下一個交易日開盤（台北 09:00）起算。在那之前寫入資料庫或串入存證鏈的列，
   寫入時還看不到窗口內的任何價格；之後才寫入的（隔天補記、模型訓練完成後回補）另外標示。
-  下一個交易日以「下一個平日」近似：遇到連假時真正的開盤更晚，所以這個判定只會偏嚴、不會偏鬆。
-- **相對強弱的三組成績**：當日即時記錄（live）、事後重建（pit）、預測窗口開始前就已串入存證鏈（sealed）。
+  下一個交易日取實際交易日（大盤指數有 K 棒的日子，連假與颱風假不在裡面）；資料還沒到那一天時
+  （尚未到期）以下一個平日近似，只會偏嚴、不會偏鬆。
+- **相對強弱的三組成績**：即時記錄（live 且在窗口開始前寫入）、事後重建或補寫（pit，或窗口開始後才寫入的 live）、
+  預測窗口開始前就已串入存證鏈（sealed）。
 - **方向訊號的命中率**：同一批樣本的兩條基線（全猜觀望、全猜漲）與各訊號精度；95% 區間用以基準日為單位、
   區塊長度 5 的 circular block bootstrap（同一天 49 檔互相相關，相鄰基準日的 5 日報酬重疊）。
 """
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from datetime import date, datetime, time, timedelta, timezone
@@ -26,16 +29,23 @@ BOOTSTRAP_SEED = 20261012  # 固定種子：同一份資料每次匯出的區間
 SIGNALS = ("漲", "跌", "觀望")
 
 
-def window_opens(base_date: date) -> datetime:
-    """預測窗口開始的時間：基準日之後第一個平日的台北 09:00。"""
-    day = base_date + timedelta(days=1)
-    while day.weekday() >= 5:
-        day += timedelta(days=1)
+def window_opens(base_date: date, sessions: Sequence[date] = ()) -> datetime:
+    """預測窗口開始的時間：基準日之後第一個交易日的台北 09:00。
+
+    sessions＝已知的交易日（遞增）；基準日之後還沒有交易日資料時，以下一個平日近似。
+    """
+    i = bisect_right(sessions, base_date)
+    if i < len(sessions):
+        day = sessions[i]
+    else:
+        day = base_date + timedelta(days=1)
+        while day.weekday() >= 5:
+            day += timedelta(days=1)
     return datetime.combine(day, MARKET_OPEN, tzinfo=TAIPEI)
 
 
-def written_before_window(base_date: date, written_at: datetime) -> bool:
-    return written_at < window_opens(base_date)
+def written_before_window(base_date: date, written_at: datetime, sessions: Sequence[date] = ()) -> bool:
+    return written_at < window_opens(base_date, sessions)
 
 
 def parse_time(iso: str) -> datetime:
@@ -60,12 +70,14 @@ def chained_at(row_id: int, spans: Sequence[tuple[int, int, datetime]]) -> datet
     return None
 
 
-def sealed_base_dates(rows: Iterable[tuple[int, str]], spans: Sequence[tuple[int, int, datetime]]) -> set[str]:
+def sealed_base_dates(
+    rows: Iterable[tuple[int, str]], spans: Sequence[tuple[int, int, datetime]], sessions: Sequence[date] = ()
+) -> set[str]:
     """rows＝[(id, 基準日)]：回傳「每一列都在預測窗口開始前串入存證鏈」的基準日。"""
     ok: dict[str, bool] = {}
     for row_id, base_date in rows:
         at = chained_at(row_id, spans)
-        sealed = at is not None and written_before_window(date.fromisoformat(base_date), at)
+        sealed = at is not None and written_before_window(date.fromisoformat(base_date), at, sessions)
         ok[base_date] = ok.get(base_date, True) and sealed
     return {d for d, sealed in ok.items() if sealed}
 

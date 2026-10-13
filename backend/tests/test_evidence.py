@@ -5,11 +5,15 @@ import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from stockta import evidence, ledger
+from stockta.api.routers import monitor as monitor_router
 from stockta.api.routers import rank as rank_router
 from stockta.api.routers.ledger import ledger_snapshot
+from stockta.data.cache import ParquetCache
+from stockta.data.calendar import market_sessions
 
 TPE = evidence.TAIPEI
 
@@ -26,6 +30,24 @@ def test_written_before_window():
     assert not evidence.written_before_window(bd, datetime(2026, 8, 19, 15, 0, tzinfo=TPE))  # 隔天收盤後才補記
     # 資料庫存 UTC：2026-08-18T07:00Z＝台北 15:00
     assert evidence.written_before_window(bd, evidence.parse_time("2026-08-18T07:00:00+00:00"))
+
+
+def test_window_opens_on_the_next_session_when_known():
+    # 9/25 中秋、9/28 教師節休市：9/24 的窗口在 9/29 開盤才開始，週末寫入的不算晚寫
+    sessions = [date(2026, 9, 23), date(2026, 9, 24), date(2026, 9, 29)]
+    bd, written = date(2026, 9, 24), evidence.parse_time("2026-09-26T18:35:09+00:00")
+    assert evidence.window_opens(bd, sessions) == datetime(2026, 9, 29, 9, 0, tzinfo=TPE)
+    assert evidence.written_before_window(bd, written, sessions)
+    assert not evidence.written_before_window(bd, written)  # 只看平日會誤判成晚寫
+    # 還沒有基準日之後的交易日資料（尚未到期）：退回下一個平日
+    assert evidence.window_opens(date(2026, 9, 29), sessions) == datetime(2026, 9, 30, 9, 0, tzinfo=TPE)
+
+
+def test_market_sessions_come_from_the_index_cache(tmp_path):
+    cache = ParquetCache(tmp_path)
+    assert market_sessions(cache) == []
+    cache.write("^TWII", pd.DataFrame({"close": [1.0, 2.0]}, index=pd.to_datetime(["2026-09-24", "2026-09-29"])))
+    assert market_sessions(cache) == [date(2026, 9, 24), date(2026, 9, 29)]
 
 
 def _chain(*links):
@@ -142,3 +164,26 @@ def test_rank_uses_recorded_rows_when_they_exist(client_with_model, monkeypatch,
 
     monkeypatch.setattr(rank_router, "cs_production_version", lambda: "another-version")
     assert client.get("/api/rank").json()["basis"] == "recomputed"  # 別的模型版本的紀錄不算
+
+
+def test_recorded_rows_written_after_the_window_are_flagged(tmp_path):
+    db, v = tmp_path / "p.db", "xgb-cs-test"
+    _db(db, [
+        ("2330.TW", "2026-08-12", 0.6, v, "live", "2026-08-13T04:31:41+00:00"),  # 8/13 台北 12:31：開盤後才寫入
+        ("2330.TW", "2026-10-07", 0.6, v, "live", "2026-10-07T07:37:00+00:00"),
+    ])
+    _scored, source, on_time = rank_router.recorded_scores(db, v, date(2026, 8, 12))
+    assert source == "live" and on_time is False
+    assert rank_router.recorded_scores(db, v, date(2026, 10, 7))[2] is True
+
+
+def test_monitor_on_time_needs_every_row_before_the_window():
+    rows = [
+        (1, "2330.TW", "2026-08-12", 0.6, "live", "2026-08-13T04:31:41+00:00"),
+        (2, "2330.TW", "2026-10-07", 0.6, "live", "2026-10-07T07:37:00+00:00"),
+        (3, "2317.TW", "2026-10-07", 0.4, "live", "2026-10-08T07:37:00+00:00"),  # 同一天有一列晚寫：整天都不算
+        (4, "2330.TW", "2026-10-08", 0.6, "live", "2026-10-08T07:38:00+00:00"),
+        (5, "2317.TW", "2026-10-08", 0.4, "live", None),
+    ]
+    assert monitor_router._on_time(rows, []) == {"2026-08-12": False, "2026-10-07": False, "2026-10-08": False}
+    assert monitor_router._on_time(rows[3:4], []) == {"2026-10-08": True}

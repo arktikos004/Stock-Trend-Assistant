@@ -7,7 +7,8 @@ last_completed_trading_day() 的回傳值為錨點，不可直接用 date.today(
 
 from datetime import date, datetime, time, timedelta
 
-from stockta.config import MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE, TAIPEI_TZ
+from stockta.config import MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE, MARKET_INDEX_TICKER, TAIPEI_TZ
+from stockta.data.cache import ParquetCache
 
 
 def last_completed_trading_day(now: datetime | None = None) -> date:
@@ -22,6 +23,12 @@ def last_completed_trading_day(now: datetime | None = None) -> date:
     while candidate.weekday() >= 5:  # 5=Sat, 6=Sun
         candidate -= timedelta(days=1)
     return candidate
+
+
+def market_sessions(cache: ParquetCache) -> list[date]:
+    """實際交易日：快取裡大盤指數有 K 棒的日子（連假、颱風假不在裡面）；沒有快取時回空清單。"""
+    market = cache.read(MARKET_INDEX_TICKER)
+    return [] if market is None else [ts.date() for ts in market.index]
 
 
 def warmup_lookback_days(

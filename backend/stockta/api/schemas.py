@@ -62,7 +62,10 @@ class RankResponse(BaseModel):
         description="recorded＝讀資料庫裡已記錄（並串入存證鏈）的排序列；recomputed＝依當時可得的資料重新評分，沒有紀錄可對照",
     )
     recorded_source: Literal["live", "pit"] | None = Field(
-        default=None, description="basis＝recorded 時：live＝基準日當天記錄，pit＝事後重建後記錄"
+        default=None, description="basis＝recorded 時：live＝每日排程記錄，pit＝事後重建後記錄"
+    )
+    recorded_on_time: bool | None = Field(
+        default=None, description="basis＝recorded 時：這些列都在預測窗口開始（下一個交易日開盤）前寫入"
     )
     results: list[RankResult]
     is_mock: bool = False
@@ -249,6 +252,7 @@ class MonitorDay(BaseModel):
     ic: float | None = Field(description="當日線上 Rank IC；名數不足或沒有變異時為 null")
     n: int
     source: Literal["live", "pit"]
+    on_time: bool = Field(default=True, description="這一天的排序列都在預測窗口開始（下一個交易日開盤）前寫入")
     sealed: bool = Field(default=False, description="這一天的排序列在預測窗口開始前就已串入存證鏈")
     before_training: bool = Field(default=False, description="基準日收盤時模型還沒訓練完成（只可能是事後重建）")
 
@@ -276,7 +280,9 @@ class ModelHealth(BaseModel):
     thresholds: dict[str, float | list[float]]
     daily: list[MonitorDay]
     groups: dict[str, IcGroup] = Field(
-        default_factory=dict, description="live＝當日即時、pit＝事後重建、sealed＝預測窗口開始前已串入存證鏈；狀態判定照聲明用全部"
+        default_factory=dict,
+        description="live＝即時記錄（窗口開始前寫入的 live 列）、pit＝事後重建或補寫、sealed＝預測窗口開始前已串入存證鏈；"
+        "狀態判定照聲明用全部",
     )
     trained_at: str | None = Field(default=None, description="現行模型的訓練完成時間（ISO）")
     sealed_since: date | None = Field(default=None, description="第一個在預測窗口開始前就串入存證鏈的基準日")

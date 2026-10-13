@@ -3,12 +3,14 @@
 逐日線上 Rank IC 與線上報告共用同一段定義（ml/report_rank_predictions.daily_ic）；
 分位遷移直接讀 predictions.db 存證的排序分數；52 週新高新低用同一個價格快取（只輸出旗標與比率）；
 存證鏈以 ledger.verify 對 predictions.db 逐節重算。判定規則都在 stockta/monitor.py（純函式）。
-另外把逐日 IC 分成三組（當日即時、事後重建、預測窗口開始前已串入存證鏈）各自統計，只影響呈現，
-狀態判定照預先聲明用全部的到期日（stockta/evidence.py）。
+另外把逐日 IC 分成三組（即時記錄、事後重建或補寫、預測窗口開始前已串入存證鏈）各自統計，只影響呈現，
+狀態判定照預先聲明用全部的到期日（stockta/evidence.py）。即時記錄只收在預測窗口開始前寫入的 live 列；
+排程晚跑、窗口開始後才寫入的 live 列和事後重建歸在同一組。
 """
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
@@ -27,7 +29,7 @@ from stockta.api.schemas import (
 )
 from stockta.config import ARTIFACTS_CS_DIR, CS_PRODUCTION_MODEL, DATA_CACHE_DIR, LEDGER_CHAIN_PATH, PREDICTIONS_DB_PATH, STOCK_POOL
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import last_completed_trading_day
+from stockta.data.calendar import last_completed_trading_day, market_sessions
 from stockta.data.provider import DataProvider, DataProviderError
 from stockta.ml.report_rank_predictions import collect_matured, cs_production_version, daily_ic
 from stockta.monitor import MIGRATION_SESSIONS, RULES_DOC, RULES_VERSION, model_health, quintile_moves, week52
@@ -36,19 +38,29 @@ router = APIRouter(tags=["monitor"])
 
 
 def _rank_rows(db_path: Path, version: str | None) -> list[tuple]:
-    """(id, ticker, base_date, score, source)；資料庫或表不存在時回空清單。"""
+    """(id, ticker, base_date, score, source, created_at)；資料庫或表不存在時回空清單。"""
     if not Path(db_path).exists():
         return []
     conn = sqlite3.connect(f"file:{Path(db_path).as_posix()}?mode=ro", uri=True)
     try:
         return conn.execute(
-            "SELECT id, ticker, base_date, score, source FROM rank_predictions WHERE model_version=? ORDER BY base_date, ticker",
+            "SELECT id, ticker, base_date, score, source, created_at FROM rank_predictions "
+            "WHERE model_version=? ORDER BY base_date, ticker",
             (version,),
         ).fetchall()
     except sqlite3.OperationalError:
         return []  # 尚未建表
     finally:
         conn.close()
+
+
+def _on_time(id_rows: list[tuple], sessions: Sequence[date]) -> dict[str, bool]:
+    """基準日 → 這一天的列是否都在預測窗口開始（下一個交易日開盤）前寫入。"""
+    out: dict[str, bool] = {}
+    for _id, _t, bd, _s, _src, at in id_rows:
+        early = at is not None and evidence.written_before_window(date.fromisoformat(bd), evidence.parse_time(at), sessions)
+        out[bd] = out.get(bd, True) and early
+    return out
 
 
 def _backtest_ic() -> float | None:
@@ -91,14 +103,19 @@ def _ledger_status(db_path: Path, chain_path: Path) -> LedgerStatus:
 def get_monitor(request: Request) -> MonitorResponse:
     version = cs_production_version()
     id_rows = _rank_rows(PREDICTIONS_DB_PATH, version)
-    rows = [(t, bd, s, src) for _id, t, bd, s, src in id_rows]
+    rows = [(t, bd, s, src) for _id, t, bd, s, src, _at in id_rows]
 
-    dates, scores, rets, sources, pending = collect_matured(rows, ParquetCache(DATA_CACHE_DIR))
+    cache = ParquetCache(DATA_CACHE_DIR)
+    dates, scores, rets, sources, pending = collect_matured(rows, cache)
     per_day = daily_ic(dates, scores, rets, sources)
     health = model_health([(d.date(), ic) for d, _n, ic, _src in per_day if ic is not None], _backtest_ic())
 
-    chain = ledger.read_chain(Path(LEDGER_CHAIN_PATH)) if Path(LEDGER_CHAIN_PATH).exists() else []
-    sealed = evidence.sealed_base_dates(((i, bd) for i, _t, bd, _s, _src in id_rows), evidence.link_spans(chain, "rank_predictions"))
+    sessions = market_sessions(cache)
+    on_time = _on_time(id_rows, sessions)
+    chain =ledger.read_chain(Path(LEDGER_CHAIN_PATH)) if Path(LEDGER_CHAIN_PATH).exists() else []
+    sealed = evidence.sealed_base_dates(
+        ((i, bd) for i, _t, bd, _s, _src, _at in id_rows), evidence.link_spans(chain, "rank_predictions"), sessions
+    )
     trained_at = _trained_at()
     days = [
         MonitorDay(
@@ -106,6 +123,7 @@ def get_monitor(request: Request) -> MonitorResponse:
             ic=ic,
             n=n,
             source=src,
+            on_time=on_time.get(d.date().isoformat(), False),
             sealed=d.date().isoformat() in sealed,
             before_training=_before_training(d.date(), trained_at),
         )
@@ -113,8 +131,8 @@ def get_monitor(request: Request) -> MonitorResponse:
     ]
     scored_days = [x for x in days if x.ic is not None]
     groups = {
-        "live": [(x.day, x.ic) for x in scored_days if x.source == "live"],
-        "pit": [(x.day, x.ic) for x in scored_days if x.source == "pit"],
+        "live": [(x.day, x.ic) for x in scored_days if x.source == "live" and x.on_time],
+        "pit": [(x.day, x.ic) for x in scored_days if not (x.source == "live" and x.on_time)],
         "sealed": [(x.day, x.ic) for x in scored_days if x.sealed],
     }
     model = ModelHealth(

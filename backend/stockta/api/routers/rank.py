@@ -9,11 +9,13 @@ GET /api/rank/summary 回傳回測摘要供前端策略卡。唯讀分析端點�
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Query, Request
 
+from stockta import evidence
 from stockta.api.errors import DataSourceUnavailableError
 from stockta.api.params import parse_iso_date
 from stockta.api.schemas import RankResponse, RankResult, RankSummaryResponse
@@ -28,7 +30,7 @@ from stockta.config import (
     WINDOW_LENGTH_DAYS,
 )
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
+from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day, market_sessions
 from stockta.data.provider import DataProvider, DataProviderError, YFinanceProvider
 from stockta.inference.replay import context_fetch_start, load_pool_context
 from stockta.ml.cross_sectional import score_asof
@@ -37,14 +39,17 @@ from stockta.ml.report_rank_predictions import cs_production_version
 router = APIRouter(tags=["rank"])
 
 
-def recorded_scores(db_path: Path, version: str | None, base_date: date) -> tuple[list[tuple[str, float, date]], str] | None:
-    """資料庫裡這個基準日、這個模型版本的排序紀錄：([(ticker, score, 基準日)], 'live'／'pit')；沒有紀錄回 None。"""
+def recorded_scores(
+    db_path: Path, version: str | None, base_date: date, sessions: Sequence[date] = ()
+) -> tuple[list[tuple[str, float, date]], str, bool] | None:
+    """資料庫裡這個基準日、這個模型版本的排序紀錄：([(ticker, score, 基準日)], 'live'／'pit', 是否都在預測窗口開始前寫入)；
+    沒有紀錄回 None。"""
     if version is None or not Path(db_path).exists():
         return None
     conn = sqlite3.connect(f"file:{Path(db_path).as_posix()}?mode=ro", uri=True)
     try:
         rows = conn.execute(
-            "SELECT ticker, score, source FROM rank_predictions WHERE model_version=? AND base_date=?",
+            "SELECT ticker, score, source, created_at FROM rank_predictions WHERE model_version=? AND base_date=?",
             (version, base_date.isoformat()),
         ).fetchall()
     except sqlite3.OperationalError:
@@ -53,8 +58,12 @@ def recorded_scores(db_path: Path, version: str | None, base_date: date) -> tupl
         conn.close()
     if not rows:
         return None
-    source = "live" if any(src == "live" for _t, _s, src in rows) else "pit"
-    return [(ticker, score, base_date) for ticker, score, _src in rows], source
+    source = "live" if any(src == "live" for _t, _s, src, _at in rows) else "pit"
+    on_time = all(
+        at is not None and evidence.written_before_window(base_date, evidence.parse_time(at), sessions)
+        for _t, _s, _src, at in rows
+    )
+    return [(ticker, score, base_date) for ticker, score, _src, _at in rows], source, on_time
 
 
 def _rank_results(scored: list[tuple[str, float, date]]) -> list[RankResult]:
@@ -121,12 +130,13 @@ def rank(
 
     if not scored:
         raise DataSourceUnavailableError("無足夠資料可排名（快取過舊或日期過早）")
-    recorded = recorded_scores(PREDICTIONS_DB_PATH, cs_production_version(), base_seen)
+    sessions = market_sessions(ParquetCache(DATA_CACHE_DIR))
+    recorded = recorded_scores(PREDICTIONS_DB_PATH, cs_production_version(), base_seen, sessions)
     if recorded is not None:
-        scored, source = recorded
+        scored, source, on_time = recorded
         return RankResponse(
             base_date=base_seen, model=meta.get("model_name", "cs"), is_historical=historical,
-            basis="recorded", recorded_source=source, results=_rank_results(scored),
+            basis="recorded", recorded_source=source, recorded_on_time=on_time, results=_rank_results(scored),
         )
     return RankResponse(
         base_date=base_seen, model=meta.get("model_name", "cs"),
