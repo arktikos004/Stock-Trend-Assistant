@@ -188,7 +188,7 @@ function StockView() {
         <HelpLink to="reading" className="ml-1" />
       </p>
 
-      {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列是技術指標與篩選器、融資融券、新聞情緒。
+      {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列左邊是模型輸入的技術指標與篩選器，右邊是融資融券與新聞情緒。
           元素順序就是手機單欄的順序，也是鍵盤與螢幕閱讀器的順序 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <Panel
@@ -318,17 +318,17 @@ function StockView() {
           </Panel>
         </div>
 
-        <Panel title="模型輸入的技術指標">
-          {indicators.data ? (
-            <IndicatorPanel indicators={indicators.data} />
-          ) : indicators.error ? (
-            <p className="text-sm text-ink-3">{errorText(indicators.error, "這一檔的技術指標還沒有產生。")}</p>
-          ) : (
-            <Skeleton className="h-64 w-full" />
-          )}
-        </Panel>
-
         <div className="space-y-5">
+          <Panel title="模型輸入的技術指標">
+            {indicators.data ? (
+              <IndicatorPanel indicators={indicators.data} />
+            ) : indicators.error ? (
+              <p className="text-sm text-ink-3">{errorText(indicators.error, "這一檔的技術指標還沒有產生。")}</p>
+            ) : (
+              <Skeleton className="h-64 w-full" />
+            )}
+          </Panel>
+
           <Panel
             title="篩選器綜合評分"
             description={screener.data ? `規則 ${screener.data.rules_version}，基準日 ${screener.data.base_date}` : undefined}
@@ -361,7 +361,9 @@ function StockView() {
               <Skeleton className="h-24 w-full" />
             )}
           </Panel>
+        </div>
 
+        <div className="space-y-5">
           <ChipsPanel ticker={ticker} />
 
           {adr.isProxy ? null : (
