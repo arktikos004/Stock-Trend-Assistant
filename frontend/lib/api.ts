@@ -470,6 +470,9 @@ const liveApi = {
         : `range=${range}`;
     return request<CandlesResponse>(`/api/stocks/${encodeURIComponent(ticker)}/candles?${q}`);
   },
+  /** 全部已累積的 K 線：K 線圖的指標在完整序列上計算再切到畫面區間；5y 是後端最長的區間 */
+  candleHistory: (ticker: string) =>
+    request<CandlesResponse>(`/api/stocks/${encodeURIComponent(ticker)}/candles?range=5y`),
   prediction: (ticker: string) =>
     request<PredictionResponse>(`/api/stocks/${encodeURIComponent(ticker)}/prediction`),
   modelInfo: () => request<ModelInfoResponse>("/api/model"),
@@ -576,13 +579,19 @@ async function staticDated<T>(kind: "scan" | "rank", date?: string): Promise<T> 
   return staticGet<T>(`/${kind}/${session}.json`);
 }
 
+/** 只顯示證交所開放資料：還沒有資料（或舊版 site-data 的 yfinance K 線已被移除）時沒有 K 線，由頁面顯示說明 */
+const hasTwseCandles = (meta: SiteMeta): meta is SiteMeta & { candles_start: string } =>
+  meta.candles_source === "twse-openapi" && !!meta.candles_start;
+
+/** 證交所 K 線整檔；candles 與 candleHistory 共用同一次下載 */
+const twseCandles = (ticker: string) => staticOnce<CandlesResponse>(`/stocks/${enc(ticker)}/candles-twse.json`);
+
 export const staticApi: typeof liveApi = {
   stocks: () => staticOnce("/stocks.json"),
   candles: async (ticker, range, start, end) => {
     const meta = await siteMeta();
-    // 只顯示證交所開放資料；還沒有資料（或舊版 site-data 的 yfinance K 線已被移除）時回空清單，由頁面顯示說明
-    if (meta.candles_source !== "twse-openapi" || !meta.candles_start) return { ticker, candles: [] };
-    const full = await staticGet<CandlesResponse>(`/stocks/${enc(ticker)}/candles-twse.json`);
+    if (!hasTwseCandles(meta)) return { ticker, candles: [] };
+    const full = await twseCandles(ticker);
     let lo: string;
     let hi: string;
     if (start && end) {
@@ -599,6 +608,12 @@ export const staticApi: typeof liveApi = {
     }
     // 後端 _slice 兩端皆含
     return { ticker: full.ticker, candles: full.candles.filter((c) => c.time >= lo && c.time <= hi) };
+  },
+  candleHistory: async (ticker) => {
+    const meta = await siteMeta();
+    if (!hasTwseCandles(meta)) return { ticker, candles: [] };
+    const full = await twseCandles(ticker);
+    return { ticker: full.ticker, candles: full.candles };
   },
   prediction: (ticker) => staticGet(`/stocks/${enc(ticker)}/prediction.json`),
   modelInfo: () => staticOnce("/model.json"),

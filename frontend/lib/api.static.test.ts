@@ -115,6 +115,31 @@ describe("staticApi.candles", () => {
   });
 });
 
+describe("staticApi.candleHistory", () => {
+  /** 對某個路徑發出幾次請求 */
+  const fetchCount = (path: string) => vi.mocked(fetch).mock.calls.filter(([url]) => url === path).length;
+
+  it("回傳全部已累積的 K 線（指標暖機用）", async () => {
+    const api = await loadStaticApi();
+    expect(times(await api.candleHistory("2330.TW"))).toEqual(CANDLES.candles.map((c) => c.time));
+  });
+
+  it("舊版網站資料回空清單，也不下載 K 線檔", async () => {
+    const legacyMeta: Record<string, unknown> = { ...META };
+    delete legacyMeta.candles_source;
+    const api = await loadStaticApi({ ...ROUTES, "/data/meta.json": legacyMeta });
+    expect((await api.candleHistory("2330.TW")).candles).toEqual([]);
+    expect(fetchCount("/data/stocks/2330.TW/candles-twse.json")).toBe(0);
+  });
+
+  it("candles 與 candleHistory 共用同一次下載", async () => {
+    const api = await loadStaticApi();
+    await Promise.all([api.candles("2330.TW", "1mo"), api.candleHistory("2330.TW")]);
+    await api.candles("2330.TW", "1y");
+    expect(fetchCount("/data/stocks/2330.TW/candles-twse.json")).toBe(1);
+  });
+});
+
 describe("staticApi.stockHistory", () => {
   it("取 (start, end]，並依篩選後的紀錄重算命中率", async () => {
     const api = await loadStaticApi();
