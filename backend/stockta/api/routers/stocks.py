@@ -14,6 +14,7 @@ from stockta.api.params import parse_iso_date, require_ordered
 from stockta.api.schemas import (
     Candle,
     CandlesResponse,
+    ChipsResponse,
     HistoryRecord,
     IndicatorsResponse,
     PastPrediction,
@@ -30,6 +31,7 @@ from stockta.config import (
     TWSE_DATA_DIR,
     WINDOW_LENGTH_DAYS,
 )
+from stockta.chips import build_chips
 from stockta.data.cache import ParquetCache
 from stockta.data.twse import load_candles as load_twse_candles
 from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
@@ -263,3 +265,13 @@ def get_history(
         hit_rate=(hits / len(series)) if series else None,
         records=[HistoryRecord(**r) for r in series],
     )
+
+
+@router.get("/{ticker}/chips", response_model=ChipsResponse)
+def get_chips(request: Request, ticker: str = Depends(get_valid_ticker)) -> ChipsResponse:
+    """融資融券與大戶持股：只讀每日累積的證交所、集保開放資料（與 K 線同一個目錄）。
+
+    融資成本與維持率是本站估算（stockta/chips.py）；還沒有資料的標的回空序列，前端顯示說明而非錯誤。
+    """
+    twse_dir = getattr(request.app.state, "twse_dir", TWSE_DATA_DIR)
+    return ChipsResponse(**build_chips(twse_dir, ticker))

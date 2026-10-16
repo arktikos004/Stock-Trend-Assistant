@@ -49,6 +49,10 @@ TICKER_ENDPOINTS: tuple[tuple[str, str], ...] = (
     (f"/api/stocks/{{t}}/candles?range={CANDLE_EXPORT_RANGE}", "candles-twse.json"),
     ("/api/stocks/{t}/history?start={history_start}&end={last_day}", "history.json"),
 )
+# 每檔的非必要檔案（與篩選器同一個原則）：失敗只記在 meta.failures、不算進覆蓋率，不擋整站部署
+OPTIONAL_TICKER_ENDPOINTS: tuple[tuple[str, str], ...] = (
+    ("/api/stocks/{t}/chips", "chips.json"),  # 融資融券與大戶持股（stockta/chips.py）
+)
 
 
 class ExportError(Exception):
@@ -98,6 +102,7 @@ def run_export(
     data_as_of: date,
     scan_dates: list[date],
     ticker_endpoints: tuple[tuple[str, str], ...] = TICKER_ENDPOINTS,
+    optional_ticker_endpoints: tuple[tuple[str, str], ...] = OPTIONAL_TICKER_ENDPOINTS,
     prev_meta: dict | None = None,
     log=print,
 ) -> dict:
@@ -161,6 +166,13 @@ def run_export(
             url = tmpl.format(t=t, history_start=history_start.isoformat(), last_day=last_day.isoformat())
             ticker_total += 1
             ticker_ok += d.dump(url, f"stocks/{t}/{name}") is not None
+        for tmpl, name in optional_ticker_endpoints:
+            url = tmpl.format(t=t)
+            try:
+                d.dump(url, f"stocks/{t}/{name}")
+            except Exception as exc:  # TestClient 會把端點沒接住的例外直接拋出來
+                d.result.failures.append(f"{url} → {exc!r}")
+                log(f"[略過] {url}：{exc!r}")
         if i % 10 == 0 or i == len(tickers):
             log(f"個股 {i}/{len(tickers)}（{time.monotonic() - t0:.0f}s）")
 

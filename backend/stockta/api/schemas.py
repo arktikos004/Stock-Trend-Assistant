@@ -187,6 +187,80 @@ class StockHistoryResponse(BaseModel):
     records: list[HistoryRecord]
 
 
+# --- 融資融券與大戶持股（GET /api/stocks/{ticker}/chips；只用證交所、集保的開放資料）---
+
+
+class ChipsMarginDay(BaseModel):
+    """一個交易日的融資融券（張）與同一天的證交所行情；margin_cost、maintenance_pct 是本站估算。"""
+
+    date: date
+    close: float | None = Field(description="證交所收盤價（未還原權值）；當天沒有成交或沒有收到行情時為 null")
+    volume_lots: int | None = Field(description="成交張數＝成交股數 ÷ 1000，四捨五入")
+    margin_buy: int | None
+    margin_sell: int | None
+    margin_redeem: int | None = Field(description="融資現金償還")
+    margin_balance: int | None = Field(description="融資今日餘額")
+    margin_change: int | None = Field(description="融資今日餘額 − 前日餘額")
+    margin_limit: int | None
+    margin_usage_pct: float | None = Field(description="融資使用率（%）＝今日餘額 ÷ 融資限額；限額為 0 或缺漏時為 null")
+    short_sell: int | None
+    short_buy: int | None
+    short_redeem: int | None = Field(description="融券現券償還")
+    short_balance: int | None = Field(description="融券今日餘額")
+    short_change: int | None = Field(description="融券今日餘額 − 前日餘額")
+    short_margin_pct: float | None = Field(description="券資比（%）＝融券今日餘額 ÷ 融資今日餘額；融資餘額為 0 時為 null")
+    offset: int | None = Field(description="資券互抵")
+    margin_cost: float | None = Field(description="融資成本（本站估算，不是證交所公布的數字）")
+    maintenance_pct: float | None = Field(description="融資維持率（本站估算，%）＝收盤價 ÷（融資成本 × 融資成數）")
+
+
+class ChipsHolderWeek(BaseModel):
+    """一週的集保戶股權分散：比例照集保公布的數字（%），變化是和前一份週資料相比。"""
+
+    date: date
+    big_pct: float | None = Field(description="千張大戶（持股分級 15：1,000,001 股以上）占集保庫存數比例（%）")
+    big_holders: int | None
+    big_pct_change: float | None = Field(description="百分點")
+    big_holders_change: int | None
+    over400_pct: float | None = Field(description="400 張以上（持股分級 12–15：400,001 股以上）四級比例相加（%）")
+    over400_holders: int | None
+    over400_pct_change: float | None
+    over400_holders_change: int | None
+
+
+class ChipsSource(BaseModel):
+    dataset: str
+    title: str = Field(description="政府資料開放平臺上的資料集名稱")
+    provider: str
+    gov_id: int
+    dataset_url: str
+    source_urls: list[str]
+    attribution: str = Field(description="政府資料開放授權條款要求的顯名聲明")
+
+
+class ChipsMeta(BaseModel):
+    margin_start: date | None = Field(description="第一個有融資融券資料的交易日（開放資料自這天起逐日累積）")
+    margin_end: date | None
+    cost_start: date | None = Field(description="目前這段融資成本估算的起算日；餘額歸零或缺收盤價後會重新起算")
+    holders_start: date | None
+    holders_end: date | None
+    estimates: list[str] = Field(description="本站估算的欄位：不是證交所公布的數字")
+    estimate_label: str
+    margin_rate: float = Field(description="維持率估算用的融資成數")
+    sources: list[ChipsSource]
+    license: str
+    license_url: str
+
+
+class ChipsResponse(BaseModel):
+    """融資融券與大戶持股：逐日與逐週的序列（由舊到新）；沒有資料時序列是空的。"""
+
+    ticker: str
+    margin: list[ChipsMarginDay]
+    holders: list[ChipsHolderWeek]
+    meta: ChipsMeta
+
+
 class SignalPrecision(BaseModel):
     called: int = Field(description="喊出這個訊號的到期筆數")
     hits: int

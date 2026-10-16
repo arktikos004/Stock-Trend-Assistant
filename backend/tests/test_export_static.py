@@ -49,7 +49,7 @@ def test_writes_site_layout_and_meta(client_with_model, tmp_path):
         "model.json", "stocks.json", "market.json", "track-record.json",
         "scan/latest.json", "scan/index.json", "rank/latest.json", "rank/index.json", "rank/summary.json",
         "screener/latest.json", "monitor.json", "ledger.json", "stocks/2330.TW/prediction.json", "stocks/2330.TW/indicators.json",
-        "stocks/2330.TW/predictions.json", "stocks/2330.TW/candles-twse.json", "meta.json",
+        "stocks/2330.TW/predictions.json", "stocks/2330.TW/candles-twse.json", "stocks/2330.TW/chips.json", "meta.json",
     ]:
         assert (out / rel).is_file(), rel
 
@@ -80,6 +80,21 @@ def test_screener_failure_does_not_block_the_export(client_with_model, tmp_path,
     assert not (out / "screener/latest.json").exists()
     assert (out / "rank/latest.json").is_file() and (out / "meta.json").is_file()
     assert any("/api/screener" in f and "壞掉的開放資料" in f for f in meta["failures"])
+
+
+def test_chips_failure_does_not_block_the_export(client_with_model, tmp_path, monkeypatch):
+    """個股的融資融券檔是非必要的：出錯時不寫這個檔、不算進覆蓋率，錯誤記在 meta.failures。"""
+    from stockta.api.routers import stocks as stocks_router
+
+    def broken(*_):
+        raise RuntimeError("壞掉的融資融券檔")
+
+    monkeypatch.setattr(stocks_router, "build_chips", broken)
+    out = tmp_path / "data"
+    meta = _export(client_with_model, out)
+    assert not (out / "stocks/2330.TW/chips.json").exists()
+    assert (out / "stocks/2330.TW/prediction.json").is_file() and meta["coverage"] == 1.0
+    assert any("/api/stocks/2330.TW/chips" in f and "壞掉的融資融券檔" in f for f in meta["failures"])
 
 
 def test_refuses_mock_model(client, tmp_path):
