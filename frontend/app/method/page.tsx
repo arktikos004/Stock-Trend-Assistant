@@ -45,6 +45,7 @@ const TOC: { id: MethodSection; label: string }[] = [
   { id: "screener", label: "篩選器" },
   { id: "chips", label: "融資融券與大戶" },
   { id: "ledger", label: "預測存證" },
+  { id: "market", label: "大盤多空標籤" },
   { id: "data", label: "資料與授權" },
 ];
 
@@ -224,6 +225,26 @@ export default function MethodPage() {
           <p>
             <Doc href={LINKS.ledger}>下載方式與驗證說明</Doc>
           </p>
+        </Section>
+
+        <Section id="market" title="大盤多空標籤">
+          <p>
+            總覽「大盤」面板的標籤只看三個數字：5 日報酬大於 0、20 日均線乖離大於 0、上漲家數比高於 50%，三項都成立才標
+            <strong>偏多</strong>；三項都反過來（小於 0、小於 0、低於 50%）才標
+            <strong>偏空</strong>，其餘是<strong>中性</strong>。剛好等於 0 或 50% 不算任何一邊；任一項缺值時不標。
+          </p>
+          <p>
+            <strong>5 日報酬</strong>是加權指數收盤價相對 5 個交易日前的漲跌幅；
+            <strong>20 日均線乖離</strong>是加權指數收盤價 ÷ 最近 20 個交易日（含當天）的平均收盤價 − 1；
+            <strong>上漲家數比</strong>是本站股票池 49 檔裡，當天收盤價比前一個交易日高的檔數 ÷ 當天有價格的檔數（平盤不算上漲）。
+          </p>
+          <p>
+            三個數字和模型的大盤特徵是同一份計算，每日排程收盤後匯出。價格來自模型訓練與推論用的 Yahoo Finance 資料（個股為還原權值，缺漏的交易日才以證交所盤後資料補上），和 K 線圖的來源不同，所以可能和證交所公布的數字略有出入。
+          </p>
+          <p>
+            股票池是人工維護的台灣 50 參考清單，和官方成分股名單有出入（已知限制），所以上漲家數比只代表這 49 檔，不是全市場的漲跌家數。
+          </p>
+          <p>標籤描述的是最近已經發生的狀態，不是預測，也不是買賣建議。</p>
         </Section>
 
         <Section id="data" title="資料與授權">

@@ -1,12 +1,23 @@
+import Badge from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Feedback";
+import HelpLink from "@/components/ui/HelpLink";
 import Panel from "@/components/ui/Panel";
 import type { MarketResponse } from "@/lib/api";
 import { pct, share, toneVar } from "@/lib/format";
+import { MARKET_BIAS_TONE, marketBias } from "@/lib/market";
 
-/** 大盤：加權指數漲跌、上漲家數比、均線乖離與波動。這些也是模型的市場特徵。 */
+/**
+ * 大盤：加權指數漲跌、上漲家數比、均線乖離與波動。這些也是模型的市場特徵。
+ * 標題旁的偏多／中性／偏空只描述最近的狀態（規則在 lib/market.ts）；缺值時不標。
+ */
 export default function MarketPanel({ market }: { market: MarketResponse | undefined }) {
+  const bias = market ? marketBias(market) : null;
   return (
-    <Panel title="大盤" description={market ? `加權指數，資料日 ${market.as_of}` : undefined}>
+    <Panel
+      title="大盤"
+      description={market ? `加權指數，資料日 ${market.as_of}` : undefined}
+      actions={bias && <Badge tone={MARKET_BIAS_TONE[bias]}>{bias}</Badge>}
+    >
       {!market ? (
         <div className="space-y-2">
           <Skeleton className="h-4 w-2/3" />
@@ -49,6 +60,12 @@ export default function MarketPanel({ market }: { market: MarketResponse | undef
               5 日平均 {share(market.breadth_ma5)}；中線為 50%。樣本是台灣 50 成分股。
             </p>
           </div>
+          {bias && (
+            <p className="mt-3 text-sm text-ink-2">
+              5 日、20 日乖離、上漲家數比同向才標多空。
+              <HelpLink to="market" className="ml-1" />
+            </p>
+          )}
         </>
       )}
     </Panel>
