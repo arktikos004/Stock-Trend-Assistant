@@ -92,6 +92,8 @@ function StockView() {
   const candles = useAsync(custom ? `candles|${ticker}|${custom.start}|${custom.end}` : `candles|${ticker}|${activeRange}`, () =>
     custom ? api.candles(ticker, activeRange, custom.start, custom.end) : api.candles(ticker, activeRange),
   );
+  // 均線與指標在全部已累積的 K 線上計算，再切到所選區間
+  const candleHistory = useAsync(`candle-history|${ticker}`, () => api.candleHistory(ticker));
 
   const info = stocks.data?.stocks.find((s) => s.ticker === ticker);
   const adr = sentimentTickerFor(ticker);
@@ -244,17 +246,17 @@ function StockView() {
           </form>
 
           {candles.loading ? (
-            <Skeleton className="h-[380px] w-full" />
+            <Skeleton className="h-[620px] w-full" />
           ) : candles.error ? (
             <Notice>{errorText(candles.error, "這一檔的 K 線還沒有資料。")}</Notice>
           ) : candles.data && candles.data.candles.length > 0 ? (
-            <CandleChart candles={candles.data.candles} />
+            <CandleChart candles={candles.data.candles} history={candleHistory.data?.candles} />
           ) : (
             <EmptyState title="這段區間沒有 K 線資料">K 線使用臺灣證券交易所開放資料，自 {span?.start ?? "2026-10-02"} 起逐日累積。</EmptyState>
           )}
           <p className="mt-2 text-sm text-ink-2">
-            證交所開放資料，未還原權值，自 {span?.start ?? "2026-10-02"} 起逐日累積。
-            <HelpLink to="data" className="ml-1" />
+            證交所開放資料，未還原權值，自 {span?.start ?? "2026-10-02"} 起逐日累積；均線、指標與放量標記是價量計算，不是模型訊號。
+            <HelpLink to="chart" className="ml-1" />
           </p>
         </Panel>
 
@@ -316,7 +318,7 @@ function StockView() {
           </Panel>
         </div>
 
-        <Panel title="技術指標">
+        <Panel title="模型輸入的技術指標">
           {indicators.data ? (
             <IndicatorPanel indicators={indicators.data} />
           ) : indicators.error ? (

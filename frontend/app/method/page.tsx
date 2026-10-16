@@ -12,6 +12,7 @@ import type { MethodSection } from "@/components/ui/HelpLink";
 import PageHeader from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { fixed, share } from "@/lib/format";
+import { BIAS_PERIODS, LOOKBACK, MA_PERIODS, VOLUME_SURGE, WARMUP } from "@/lib/indicators";
 import { LINKS } from "@/lib/links";
 import { MODEL_STATUS } from "@/lib/status";
 import { useAsync } from "@/lib/useAsync";
@@ -46,6 +47,7 @@ const TOC: { id: MethodSection; label: string }[] = [
   { id: "chips", label: "融資融券與大戶" },
   { id: "ledger", label: "預測存證" },
   { id: "market", label: "大盤多空標籤" },
+  { id: "chart", label: "K 線圖的均線與指標" },
   { id: "data", label: "資料與授權" },
 ];
 
@@ -245,6 +247,39 @@ export default function MethodPage() {
             股票池是人工維護的台灣 50 參考清單，和官方成分股名單有出入（已知限制），所以上漲家數比只代表這 49 檔，不是全市場的漲跌家數。
           </p>
           <p>標籤描述的是最近已經發生的狀態，不是預測，也不是買賣建議。</p>
+        </Section>
+
+        <Section id="chart" title="K 線圖的均線與指標">
+          <p>
+            <strong>均線</strong>是收盤價的簡單平均，週期 {MA_PERIODS.join("、")} 日。<strong>乖離率</strong>＝（收盤 − N 日均線）÷ N 日均線 × 100%，N＝
+            {BIAS_PERIODS.join("、")}。副圖的算法與台灣常用的 XQ 內建指標相同：
+          </p>
+          <p>
+            <strong>KD（9,3,3）</strong>：RSV＝100 ×（收盤 − 9 日最低）÷（9 日最高 − 9 日最低），最高等於最低時記為 50。
+            K＝（2 × 前一日 K＋RSV）÷ 3，D＝（2 × 前一日 D＋K）÷ 3，第一天的 K、D 都從 50 起算。
+          </p>
+          <p>
+            <strong>RSI（6,12）</strong>：第一個值用 N 日漲幅與跌幅的簡單平均，之後每天的平均＝前一日平均＋（當日漲跌幅 − 前一日平均）÷ N。
+            RSI＝100 × 平均漲幅 ÷（平均漲幅＋平均跌幅），漲跌都是 0 時記為 0。
+          </p>
+          <p>
+            <strong>MACD（12,26,9）</strong>：價格用（最高＋最低＋2 × 收盤）÷ 4；DIF＝12 日 EMA − 26 日 EMA，MACD＝DIF 的 9 日 EMA，OSC＝DIF − MACD。
+            EMA 的平滑係數是 2 ÷（N＋1），從第一個值起算。
+          </p>
+          <p>
+            指標用已累積的全部 K 線計算，再切到所選的區間，所以短區間的第一根也有長週期的值。
+            起算值要經過一段時間才不影響結果，累積到足夠的交易日才畫：均線與乖離率要 N 個，KD 要 {WARMUP.kd} 個，RSI6 要 {WARMUP.rsi6} 個，RSI12 要 {WARMUP.rsi12} 個，MACD 要 {WARMUP.macd} 個。
+            因為 K 線未還原權值，除權息日的價格缺口會讓均線、乖離率與指標失真。
+          </p>
+          <p>
+            <strong>前高／前低</strong>是畫面最後一根之前 {LOOKBACK} 個交易日的最高價與最低價。<strong>放量突破／跌破</strong>：當日成交量至少是前 {LOOKBACK} 日平均量的{" "}
+            {VOLUME_SURGE} 倍，且收盤高於前 {LOOKBACK} 日最高價（突破）或低於前 {LOOKBACK} 日最低價（跌破）。
+          </p>
+          <p>這些都是價量計算，不是模型訊號，也不是買賣建議。</p>
+          <p>
+            個股頁的「模型輸入的技術指標」是另一組數字：用 Yahoo 還原權值的歷史價格計算，是預測模型的輸入特徵，參數與算法依模型的特徵管線（例如 RSI 取
+            14 日、MACD 柱除以收盤價），和 K 線副圖的值不會一樣。
+          </p>
         </Section>
 
         <Section id="data" title="資料與授權">

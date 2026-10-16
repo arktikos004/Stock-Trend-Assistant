@@ -46,6 +46,14 @@
   --chart-up-vol: rgba(246, 70, 93, 0.35);
   --chart-down-vol: rgba(14, 203, 129, 0.35);
   --chart-grid: rgba(122, 156, 214, 0.08);
+  /* K 線圖的線色：依序是 MA5、10、20、60、120；乖離率沿用同週期均線的顏色，KD、RSI、MACD 的兩條線用 1、2。
+     避開漲紅跌綠；相鄰兩色以 dataviz 的 validate_palette 在 #0f1623 上驗過，對面板底色都 ≥ 3:1 */
+  --chart-line-1: #c98500;
+  --chart-line-2: #6887ff;
+  --chart-line-3: #bf1db2;
+  --chart-line-4: #6440fd;
+  --chart-line-5: #0ca3be;
+  --chart-ref: #66758b; /* 參考線：前高／前低、KD 與 RSI 的 80／50／20、MACD 與乖離率的 0 */
 
   --selection: rgba(61, 139, 255, 0.3);
   --scrim: rgba(2, 6, 14, 0.62);
@@ -105,6 +113,13 @@
   --chart-up-vol: rgba(217, 58, 58, 0.3);
   --chart-down-vol: rgba(20, 145, 90, 0.3);
   --chart-grid: rgba(17, 24, 39, 0.06);
+  /* K 線圖的線色（順序與用法同深色）；相鄰兩色以 dataviz 的 validate_palette 在白底上驗過，都 ≥ 3:1 */
+  --chart-line-1: #b3880f;
+  --chart-line-2: #03528e;
+  --chart-line-3: #df4efe;
+  --chart-line-4: #4b03d3;
+  --chart-line-5: #148ec3;
+  --chart-ref: #8a94a3;
 
   --selection: rgba(29, 78, 216, 0.18);
   --scrim: rgba(17, 24, 39, 0.42);
@@ -164,6 +179,13 @@
     --chart-up-vol: rgba(217, 58, 58, 0.3);
     --chart-down-vol: rgba(20, 145, 90, 0.3);
     --chart-grid: rgba(17, 24, 39, 0.06);
+    /* K 線圖的線色（順序與用法同深色）；相鄰兩色以 dataviz 的 validate_palette 在白底上驗過，都 ≥ 3:1 */
+    --chart-line-1: #b3880f;
+    --chart-line-2: #03528e;
+    --chart-line-3: #df4efe;
+    --chart-line-4: #4b03d3;
+    --chart-line-5: #148ec3;
+    --chart-ref: #8a94a3;
 
     --selection: rgba(29, 78, 216, 0.18);
     --scrim: rgba(17, 24, 39, 0.42);

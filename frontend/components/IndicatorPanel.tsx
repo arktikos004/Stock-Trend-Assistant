@@ -22,6 +22,7 @@ export default function IndicatorPanel({ indicators }: { indicators: IndicatorsR
   const k = indicators.kd_k;
   return (
     <div>
+      <p className="mb-1 text-sm text-ink-2">Yahoo 還原權值計算，供預測模型使用；看盤用的指標在上方 K 線副圖。</p>
       <dl className="divide-y divide-border">
         <Row
           name="RSI（14）"
@@ -51,7 +52,7 @@ export default function IndicatorPanel({ indicators }: { indicators: IndicatorsR
         <Row name="乖離 20 日" value={pct(indicators.ma_bias_20)} tone={indicators.ma_bias_20 > 0 ? "hot" : "cold"} />
         <Row name="乖離 60 日" value={pct(indicators.ma_bias_60)} tone={indicators.ma_bias_60 > 0 ? "hot" : "cold"} />
       </dl>
-      <p className="mt-2 text-sm text-ink-2">資料日 {indicators.as_of}；與模型輸入同一條特徵管線。</p>
+      <p className="mt-2 text-sm text-ink-2">資料日 {indicators.as_of}</p>
     </div>
   );
 }
