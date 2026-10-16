@@ -126,6 +126,73 @@ export interface StockHistoryResponse {
   records: HistoryRecord[];
 }
 
+// --- 融資融券與大戶持股（/api/stocks/{t}/chips）：證交所、集保開放資料；margin_cost、maintenance_pct 是本站估算 ---
+
+/** 一個交易日的融資融券（張）與同一天的證交所行情 */
+export interface ChipsMarginDay {
+  date: string;
+  close: number | null; // 證交所收盤價（未還原權值）；當天沒有成交時為 null
+  volume_lots: number | null; // 成交張數
+  margin_buy: number | null;
+  margin_sell: number | null;
+  margin_redeem: number | null; // 融資現金償還
+  margin_balance: number | null;
+  margin_change: number | null; // 今日 − 前日餘額
+  margin_limit: number | null;
+  margin_usage_pct: number | null; // 融資使用率（%）
+  short_sell: number | null;
+  short_buy: number | null;
+  short_redeem: number | null; // 融券現券償還
+  short_balance: number | null;
+  short_change: number | null;
+  short_margin_pct: number | null; // 券資比（%）
+  offset: number | null; // 資券互抵
+  margin_cost: number | null; // 融資成本（本站估算）
+  maintenance_pct: number | null; // 融資維持率（本站估算，%）
+}
+
+/** 一週的集保戶股權分散：比例（%）照集保公布的數字，變化是和前一份週資料相比 */
+export interface ChipsHolderWeek {
+  date: string;
+  big_pct: number | null; // 千張大戶（分級 15）
+  big_holders: number | null;
+  big_pct_change: number | null; // 百分點
+  big_holders_change: number | null;
+  over400_pct: number | null; // 400 張以上（分級 12–15）
+  over400_holders: number | null;
+  over400_pct_change: number | null;
+  over400_holders_change: number | null;
+}
+
+export interface ChipsSource {
+  dataset: string;
+  title: string; // 政府資料開放平臺上的資料集名稱
+  provider: string;
+  gov_id: number;
+  dataset_url: string;
+  source_urls: string[];
+  attribution: string; // 政府資料開放授權條款要求的顯名聲明
+}
+
+export interface ChipsResponse {
+  ticker: string;
+  margin: ChipsMarginDay[]; // 由舊到新
+  holders: ChipsHolderWeek[];
+  meta: {
+    margin_start: string | null; // 第一個有融資融券資料的交易日
+    margin_end: string | null;
+    cost_start: string | null; // 目前這段融資成本估算的起算日
+    holders_start: string | null;
+    holders_end: string | null;
+    estimates: string[];
+    estimate_label: string;
+    margin_rate: number;
+    sources: ChipsSource[];
+    license: string;
+    license_url: string;
+  };
+}
+
 export interface RankResult {
   ticker: string;
   name: string;
@@ -424,6 +491,9 @@ const liveApi = {
     request<StockHistoryResponse>(
       `/api/stocks/${encodeURIComponent(ticker)}/history?start=${start}&end=${end}`,
     ),
+  // 股票池內的代號一定有回應（沒有資料時序列是空的）；null 只出現在靜態站（見 staticApi）
+  chips: (ticker: string): Promise<ChipsResponse | null> =>
+    request<ChipsResponse>(`/api/stocks/${encodeURIComponent(ticker)}/chips`),
 };
 
 /** 靜態站的匯出摘要（export_static.py 的 meta.json）。 */
@@ -566,6 +636,12 @@ export const staticApi: typeof liveApi = {
       records,
     };
   },
+  // 非必要檔案：這一版網站資料沒有（新功能上線前、或當天匯出失敗）時回 null，面板顯示說明而不是錯誤
+  chips: (ticker) =>
+    staticGet<ChipsResponse>(`/stocks/${enc(ticker)}/chips.json`).catch((e: unknown) => {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }),
 };
 
 export const api = STATIC_DATA ? staticApi : liveApi;

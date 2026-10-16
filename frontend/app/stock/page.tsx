@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * 個股：報價列、日 K 線、相對強弱排序（主模型）、5 日方向訊號、篩選器綜合評分、技術指標、新聞情緒、線上實證與歷史回放。
+ * 個股：報價列、日 K 線、相對強弱排序（主模型）、5 日方向訊號、篩選器綜合評分、融資融券與大戶持股、技術指標、新聞情緒、
+ * 線上實證與歷史回放。
  * 從總覽或排序頁點進來的人要先看到主模型的結果，所以右欄第一個面板是相對強弱排序。
  * 代號放在網址（/stock?t=2330.TW），可以分享、重新整理不會跑掉。
  * 主資料失敗只影響該區塊；K 線取不到時說明原因，其他區塊照常顯示。
@@ -12,6 +13,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import CandleChart from "@/components/CandleChart";
+import ChipsPanel from "@/components/ChipsPanel";
 import HistoryReplayCard from "@/components/HistoryReplayCard";
 import IndicatorPanel from "@/components/IndicatorPanel";
 import PredictionCard from "@/components/PredictionCard";
@@ -184,7 +186,7 @@ function StockView() {
         <HelpLink to="reading" className="ml-1" />
       </p>
 
-      {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列是技術指標與篩選器、新聞情緒。
+      {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列是技術指標與篩選器、融資融券、新聞情緒。
           元素順序就是手機單欄的順序，也是鍵盤與螢幕閱讀器的順序 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <Panel
@@ -357,6 +359,8 @@ function StockView() {
               <Skeleton className="h-24 w-full" />
             )}
           </Panel>
+
+          <ChipsPanel ticker={ticker} />
 
           {adr.isProxy ? null : (
             <Panel title={`對應 ADR 的新聞情緒（${adr.ticker}）`}>

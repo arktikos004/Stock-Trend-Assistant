@@ -151,3 +151,23 @@ describe("staticApi.scan（歷史某日）", () => {
     await expect(api.scan("2026-09-30")).rejects.toMatchObject({ status: 422, code: "OUT_OF_RANGE" });
   });
 });
+
+describe("staticApi.chips", () => {
+  const CHIPS = { ticker: "2330.TW", margin: [], holders: [], meta: { margin_start: null } };
+
+  it("讀個股的 chips.json", async () => {
+    const api = await loadStaticApi({ ...ROUTES, "/data/stocks/2330.TW/chips.json": CHIPS });
+    expect(await api.chips("2330.TW")).toEqual(CHIPS);
+  });
+
+  it("這一版網站資料還沒有這個檔（404）時回 null：面板顯示說明，不是錯誤", async () => {
+    const api = await loadStaticApi();
+    expect(await api.chips("2330.TW")).toBeNull();
+  });
+
+  it("其他錯誤照常拋出", async () => {
+    const api = await loadStaticApi();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("oops", { status: 500 })));
+    await expect(api.chips("2330.TW")).rejects.toMatchObject({ status: 500 });
+  });
+});
