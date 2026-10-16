@@ -3,6 +3,7 @@
 /**
  * 總覽。第一屏依序回答：資料是哪一天的 → 模型效果如何 → 目前有什麼限制，接著才是前 10 名與到期成績；
  * 存證只留一行狀態，細節（雜湊、驗證指令）收在存證面板的展開區。
+ * 右欄依序是到期成績、存證、大盤，最後才是名次前三與後三（前三就是左表的前三列，不必排在前面）。
  */
 
 import { ShieldX, Star } from "lucide-react";
@@ -13,6 +14,7 @@ import TodayFacts from "@/components/overview/TodayFacts";
 import HelpLink from "@/components/ui/HelpLink";
 import MarketPanel from "@/components/overview/MarketPanel";
 import MaturedPanel from "@/components/overview/MaturedPanel";
+import RankEndsPanel from "@/components/overview/RankEndsPanel";
 import RankTable from "@/components/rank/RankTable";
 import { EmptyState, Notice, TableSkeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
@@ -120,6 +122,7 @@ export default function OverviewPage() {
           <MaturedPanel model={monitor.data?.model} />
           <LedgerPanel snapshot={ledger.error ? null : ledger.data} fallback={monitor.data?.ledger} />
           <MarketPanel market={market.data} />
+          <RankEndsPanel rank={rank.data} error={rank.error} />
         </div>
       </div>
     </>
