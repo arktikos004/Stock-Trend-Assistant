@@ -38,7 +38,7 @@ describe("code 與 toneVar", () => {
     expect(code("^TWII")).toBe("^TWII");
   });
 
-  it("台股慣例：漲紅、跌綠、平盤與缺值為一般文字色", () => {
+  it("漲用 --up、跌用 --down（紅綠由漲跌顏色設定決定），平盤與缺值為一般文字色", () => {
     expect(toneVar(0.01)).toBe("var(--up)");
     expect(toneVar(-0.01)).toBe("var(--down)");
     expect(toneVar(0)).toBe("var(--ink)");

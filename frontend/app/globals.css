@@ -2,7 +2,8 @@
 
 /* ── 設計 token：深色交易終端──────────
    預設深色（使用者 2026-10-10 指定）：深藍黑底、單一電光藍強調色、交易所式鮮明紅綠；選單可切淺色或跟隨系統，
-   html[data-theme] 決定。漲紅跌綠只表示方向，等級與狀態一律另附文字；每個文字色在所有底色上都 ≥ 4.5:1（WCAG AA）。
+   html[data-theme] 決定。漲跌色只表示方向（預設漲紅跌綠，選單可改綠漲紅跌，html[data-updown] 決定），等級與狀態一律另附文字；
+   每個文字色在所有底色上都 ≥ 4.5:1（WCAG AA）。
    光暈只用在選中分頁與鍵盤焦點框，面板不加光暈也不加陰影。 */
 :root,
 :root[data-theme="dark"] {
@@ -51,6 +52,19 @@
   --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.55);
 }
 
+/* 綠漲紅跌（html[data-updown="green-up"]）：只對調漲跌的 token，狀態、警示與強調色不動。每個主題的色值不同，各寫一份：
+   深色這份與上面同權重，靠寫在後面生效；淺色與跟隨系統那兩份多一個屬性選擇器，權重較高，蓋過這份 */
+:root[data-updown="green-up"] {
+  --up: #0ecb81;
+  --up-soft: #0b2a20;
+  --down: #f85a6e;
+  --down-soft: #2e121b;
+  --chart-up: #0ecb81;
+  --chart-down: #f6465d;
+  --chart-up-vol: rgba(14, 203, 129, 0.35);
+  --chart-down-vol: rgba(246, 70, 93, 0.35);
+}
+
 :root[data-theme="light"] {
   color-scheme: light;
   --background: #f5f6f8;
@@ -95,6 +109,17 @@
   --selection: rgba(29, 78, 216, 0.18);
   --scrim: rgba(17, 24, 39, 0.42);
   --shadow-pop: 0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06);
+}
+
+:root[data-theme="light"][data-updown="green-up"] {
+  --up: #13703a;
+  --up-soft: #e6f4ea;
+  --down: #c0262d;
+  --down-soft: #fdecec;
+  --chart-up: #14915a;
+  --chart-down: #d93a3a;
+  --chart-up-vol: rgba(20, 145, 90, 0.3);
+  --chart-down-vol: rgba(217, 58, 58, 0.3);
 }
 
 /* 「跟隨系統」：作業系統是淺色時用上面的淺色值，否則沿用預設的深色 */
@@ -143,6 +168,17 @@
     --selection: rgba(29, 78, 216, 0.18);
     --scrim: rgba(17, 24, 39, 0.42);
     --shadow-pop: 0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06);
+  }
+
+  :root[data-theme="system"][data-updown="green-up"] {
+    --up: #13703a;
+    --up-soft: #e6f4ea;
+    --down: #c0262d;
+    --down-soft: #fdecec;
+    --chart-up: #14915a;
+    --chart-down: #d93a3a;
+    --chart-up-vol: rgba(20, 145, 90, 0.3);
+    --chart-down-vol: rgba(217, 58, 58, 0.3);
   }
 }
 

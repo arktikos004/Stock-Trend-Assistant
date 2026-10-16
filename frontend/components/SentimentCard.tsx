@@ -4,7 +4,7 @@ import { fetchSentiment, sentimentTickerFor, type SentimentResponse } from "@/li
 import { fixed } from "@/lib/format";
 import { useAsync } from "@/lib/useAsync";
 
-// 放在台股脈絡下對齊台股慣例：正面＝偏多＝紅、負面＝偏空＝綠（與新聞站的美股頁相反，卡上註明）
+// 對齊漲跌色：正面＝偏多＝漲的顏色、負面＝偏空＝跌的顏色（預設紅漲綠跌，與新聞站的美股頁相反，卡上註明）
 const LABEL: Record<SentimentResponse["label"], { text: string; varName: string }> = {
   positive: { text: "偏多", varName: "--up" },
   negative: { text: "偏空", varName: "--down" },
@@ -92,7 +92,7 @@ export default function SentimentCard({ twTicker, compact = false }: { twTicker:
       )}
 
       <p className="mt-3 border-t border-border pt-2 text-sm leading-relaxed text-ink-2">
-        英文新聞的情緒，不是預測模型的輸入；正面標紅色（台股慣例）。
+        英文新聞的情緒，不是預測模型的輸入；正面用「漲」的顏色（預設紅色，可在選單切換）。
       </p>
     </div>
   );

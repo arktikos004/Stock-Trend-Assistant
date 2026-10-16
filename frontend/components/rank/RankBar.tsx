@@ -3,7 +3,7 @@ import type { BadgeTone } from "@/lib/status";
 
 /**
  * 百分位分組：寫出它在 49 檔裡的相對位置，不寫「強、弱」——排名靠前仍可能下跌。
- * 顏色沿用台股慣例（前段紅、後段綠），文字一定在。
+ * 顏色沿用漲跌色（前段＝漲、後段＝跌），文字一定在。
  */
 export const QUANTILE: Record<RankResult["quantile"], { text: string; tone: BadgeTone }> = {
   top: { text: "前 20%", tone: "up" },

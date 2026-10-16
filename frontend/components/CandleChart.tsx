@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react";
 import { CandlestickSeries, ColorType, createChart, HistogramSeries } from "lightweight-charts";
 import type { Candle } from "@/lib/api";
 import { useResolvedTheme } from "@/lib/theme";
+import { useUpDown } from "@/lib/updown";
 
 function palette() {
   const style = getComputedStyle(document.documentElement);
@@ -30,6 +31,7 @@ function palette() {
 export default function CandleChart({ candles, height = 380 }: { candles: Candle[]; height?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const theme = useResolvedTheme();
+  const upDown = useUpDown();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -72,7 +74,7 @@ export default function CandleChart({ candles, height = 380 }: { candles: Candle
       observer.disconnect();
       chart.remove();
     };
-  }, [candles, height, theme]);
+  }, [candles, height, theme, upDown]);
 
   const last = candles[candles.length - 1];
   return (

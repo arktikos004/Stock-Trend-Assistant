@@ -4,7 +4,7 @@ import type { PredictionResponse, Signal } from "@/lib/api";
 import { share } from "@/lib/format";
 import RiskBadge from "./RiskBadge";
 
-// 台股慣例：漲紅、跌綠、觀望灰（另附文字）
+// 漲、跌用漲跌色（預設漲紅跌綠），觀望灰（另附文字）
 const SIGNAL_VAR: Record<Signal, string> = { 漲: "--up", 跌: "--down", 觀望: "--hold" };
 const ORDER: Signal[] = ["漲", "觀望", "跌"];
 

@@ -1,7 +1,7 @@
 import type { IndicatorsResponse } from "@/lib/api";
 import { fixed, pct } from "@/lib/format";
 
-/** 單一指標列：名稱、數值與簡短解讀。偏多用紅、偏空用綠（台股慣例），解讀一定有文字。 */
+/** 單一指標列：名稱、數值與簡短解讀。偏多用漲的顏色、偏空用跌的顏色，解讀一定有文字。 */
 function Row({ name, value, hint, tone = "neutral" }: { name: string; value: string; hint?: string; tone?: "hot" | "cold" | "neutral" }) {
   const color = tone === "hot" ? "var(--up)" : tone === "cold" ? "var(--down)" : "var(--ink)";
   return (

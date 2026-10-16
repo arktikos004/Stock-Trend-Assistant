@@ -18,7 +18,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="zh-Hant" data-theme="dark" suppressHydrationWarning className="h-full antialiased">
       <head>
-        {/* 首次繪製前套用已儲存的主題，避免深淺閃爍 */}
+        {/* 首次繪製前套用已儲存的主題與漲跌顏色，避免閃爍 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">

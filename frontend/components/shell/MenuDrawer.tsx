@@ -1,20 +1,26 @@
 "use client";
 
 /**
- * 選單抽屜（原生 <dialog>）：主題、規則文件、存證鏈、資料來源與授權。
+ * 選單抽屜（原生 <dialog>）：主題、漲跌顏色、規則文件、存證鏈、資料來源與授權。
  * showModal() 讓焦點留在抽屜裡、Esc 可關；關閉後瀏覽器把焦點還給開啟它的按鈕。
  */
 
-import { BookOpen, ExternalLink, Monitor, Moon, Sun, X } from "lucide-react";
+import { BookOpen, ExternalLink, Monitor, Moon, Sun, TrendingDown, TrendingUp, X } from "lucide-react";
 import Link from "next/link";
 import type { Ref } from "react";
 import { LINKS } from "@/lib/links";
 import { setThemeMode, useThemeMode, type ThemeMode } from "@/lib/theme";
+import { setUpDown, useUpDown, type UpDown } from "@/lib/updown";
 
 const THEMES: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "dark", label: "深色", icon: Moon },
   { value: "light", label: "淺色", icon: Sun },
   { value: "system", label: "跟隨系統", icon: Monitor },
+];
+
+const UPDOWNS: { value: UpDown; label: string }[] = [
+  { value: "red-up", label: "紅漲綠跌（台股）" },
+  { value: "green-up", label: "綠漲紅跌（美股）" },
 ];
 
 const DOCS: { href: string; label: string; note: string }[] = [
@@ -27,6 +33,10 @@ const DOCS: { href: string; label: string; note: string }[] = [
 
 export default function MenuDrawer({ ref }: { ref: Ref<HTMLDialogElement> }) {
   const theme = useThemeMode();
+  const upDown = useUpDown();
+  // --up／--down 跟著目前的設定對調；預覽圖示要固定畫出這個主題的紅與綠
+  const red = upDown === "red-up" ? "var(--up)" : "var(--down)";
+  const green = upDown === "red-up" ? "var(--down)" : "var(--up)";
   return (
     <dialog
       ref={ref}
@@ -73,6 +83,36 @@ export default function MenuDrawer({ ref }: { ref: Ref<HTMLDialogElement> }) {
                     }`}
                   >
                     <Icon size={16} aria-hidden="true" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section aria-labelledby="menu-updown">
+            <h3 id="menu-updown" className="mb-2 text-xs font-semibold text-ink-3">
+              漲跌顏色
+            </h3>
+            <div role="radiogroup" aria-labelledby="menu-updown" className="grid grid-cols-2 gap-1 rounded-md border border-border bg-surface-2 p-1">
+              {UPDOWNS.map(({ value, label }) => {
+                const active = upDown === value;
+                const [up, down] = value === "red-up" ? [red, green] : [green, red];
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setUpDown(value)}
+                    className={`flex min-h-10 flex-col items-center justify-center gap-0.5 rounded-[5px] text-xs font-medium transition-colors duration-150 ${
+                      active ? "bg-surface text-ink ring-1 ring-border-strong" : "text-ink-2 hover:text-ink"
+                    }`}
+                  >
+                    <span className="flex gap-1" aria-hidden="true">
+                      <TrendingUp size={16} style={{ color: up }} />
+                      <TrendingDown size={16} style={{ color: down }} />
+                    </span>
                     {label}
                   </button>
                 );

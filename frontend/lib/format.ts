@@ -26,7 +26,7 @@ export function fixed(v: number | null | undefined, digits = 2, signed = false):
 /** 2330.TW → 2330 */
 export const code = (ticker: string) => ticker.replace(/\.TW$/, "");
 
-/** 漲跌的方向色（台股：漲紅、跌綠、平盤為一般文字色） */
+/** 漲跌的方向色（預設漲紅跌綠，選單可對調；平盤為一般文字色） */
 export const toneVar = (v: number | null | undefined) =>
   v == null || v === 0 ? "var(--ink)" : v > 0 ? "var(--up)" : "var(--down)";
 
