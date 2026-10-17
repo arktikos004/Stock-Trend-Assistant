@@ -1,8 +1,9 @@
-"""模型監控與例外報表：GET /api/monitor（規則見 docs/monitor_prereg.md）。
+"""模型監控與例外報表：GET /api/monitor（規則見 docs/monitor_prereg.md）；
+簡單因子對照與可成交性：GET /api/monitor/baselines（規則見 docs/baseline_prereg.md）。
 
 逐日線上 Rank IC 與線上報告共用同一段定義（ml/report_rank_predictions.daily_ic）；
 分位遷移直接讀 predictions.db 存證的排序分數；52 週新高新低用同一個價格快取（只輸出旗標與比率）；
-存證鏈以 ledger.verify 對 predictions.db 逐節重算。判定規則都在 stockta/monitor.py（純函式）。
+存證鏈以 ledger.verify 對 predictions.db 逐節重算。判定規則都在 stockta/monitor.py 與 stockta/baselines.py（純函式）。
 另外把逐日 IC 分成三組（即時記錄、事後重建或補寫、預測窗口開始前已串入存證鏈）各自統計，只影響呈現，
 狀態判定照預先聲明用全部的到期日（stockta/evidence.py）。即時記錄只收在預測窗口開始前寫入的 live 列；
 排程晚跑、窗口開始後才寫入的 live 列和事後重建歸在同一組。
@@ -10,14 +11,21 @@
 
 import json
 import sqlite3
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 from fastapi import APIRouter, Request
 
-from stockta import evidence, ledger
+from stockta import baselines, evidence, ledger
 from stockta.api.schemas import (
+    BaselinesResponse,
+    DaysNeeded,
+    FactorComparison,
     IcGroup,
     LedgerStatus,
     ModelHealth,
@@ -25,6 +33,8 @@ from stockta.api.schemas import (
     MonitorResponse,
     QuintileMove,
     QuintileMoves,
+    QuintileReturns,
+    TradableIc,
     Week52Extreme,
 )
 from stockta.config import ARTIFACTS_CS_DIR, CS_PRODUCTION_MODEL, DATA_CACHE_DIR, LEDGER_CHAIN_PATH, PREDICTIONS_DB_PATH, STOCK_POOL, stock_name
@@ -35,6 +45,43 @@ from stockta.ml.report_rank_predictions import collect_matured, cs_production_ve
 from stockta.monitor import MIGRATION_SESSIONS, RULES_DOC, RULES_VERSION, model_health, quintile_moves, week52
 
 router = APIRouter(tags=["monitor"])
+
+
+@dataclass(frozen=True)
+class _RankData:
+    """兩個端點共用的輸入：現行版本的排序列、價格快取、交易日曆、各基準日是否準時，以及逐日 Rank IC。"""
+
+    version: str | None
+    id_rows: list[tuple]  # (id, ticker, base_date, score, source, created_at)
+    rows: list[tuple]  # (ticker, base_date, score, source)
+    cache: ParquetCache
+    sessions: list[date]
+    on_time: dict[str, bool]
+    per_day: list[tuple]  # daily_ic 的輸出：(基準日, 名數, IC 或 None, 'live'／'pit')
+    pending: int
+
+
+def _rank_data() -> _RankData:
+    version = cs_production_version()
+    id_rows = _rank_rows(PREDICTIONS_DB_PATH, version)
+    rows = [(t, bd, s, src) for _id, t, bd, s, src, _at in id_rows]
+    cache = ParquetCache(DATA_CACHE_DIR)
+    dates, scores, rets, sources, pending = collect_matured(rows, cache)
+    sessions = list(market_sessions(cache))
+    return _RankData(
+        version=version,
+        id_rows=id_rows,
+        rows=rows,
+        cache=cache,
+        sessions=sessions,
+        on_time=_on_time(id_rows, sessions),
+        per_day=daily_ic(dates, scores, rets, sources),
+        pending=pending,
+    )
+
+
+def _health(data: _RankData) -> dict:
+    return model_health([(d.date(), ic) for d, _n, ic, _src in data.per_day if ic is not None], _backtest_ic())
 
 
 def _rank_rows(db_path: Path, version: str | None) -> list[tuple]:
@@ -101,20 +148,13 @@ def _ledger_status(db_path: Path, chain_path: Path) -> LedgerStatus:
 
 @router.get("/api/monitor", response_model=MonitorResponse)
 def get_monitor(request: Request) -> MonitorResponse:
-    version = cs_production_version()
-    id_rows = _rank_rows(PREDICTIONS_DB_PATH, version)
-    rows = [(t, bd, s, src) for _id, t, bd, s, src, _at in id_rows]
+    data = _rank_data()
+    version, id_rows, rows, per_day, on_time = data.version, data.id_rows, data.rows, data.per_day, data.on_time
+    health = _health(data)
 
-    cache = ParquetCache(DATA_CACHE_DIR)
-    dates, scores, rets, sources, pending = collect_matured(rows, cache)
-    per_day = daily_ic(dates, scores, rets, sources)
-    health = model_health([(d.date(), ic) for d, _n, ic, _src in per_day if ic is not None], _backtest_ic())
-
-    sessions = market_sessions(cache)
-    on_time = _on_time(id_rows, sessions)
-    chain =ledger.read_chain(Path(LEDGER_CHAIN_PATH)) if Path(LEDGER_CHAIN_PATH).exists() else []
+    chain = ledger.read_chain(Path(LEDGER_CHAIN_PATH)) if Path(LEDGER_CHAIN_PATH).exists() else []
     sealed = evidence.sealed_base_dates(
-        ((i, bd) for i, _t, bd, _s, _src, _at in id_rows), evidence.link_spans(chain, "rank_predictions"), sessions
+        ((i, bd) for i, _t, bd, _s, _src, _at in id_rows), evidence.link_spans(chain, "rank_predictions"), data.sessions
     )
     trained_at = _trained_at()
     days = [
@@ -138,7 +178,7 @@ def get_monitor(request: Request) -> MonitorResponse:
     model = ModelHealth(
         version=version,
         n_live_days=len(groups["live"]),
-        pending_rows=pending,
+        pending_rows=data.pending,
         daily=days,
         groups={key: IcGroup(**evidence.ic_group(values)) for key, values in groups.items()},
         trained_at=trained_at.isoformat() if trained_at else None,
@@ -183,4 +223,65 @@ def get_monitor(request: Request) -> MonitorResponse:
         new_highs=highs,
         new_lows=lows,
         ledger=_ledger_status(PREDICTIONS_DB_PATH, LEDGER_CHAIN_PATH),
+    )
+
+
+def _panels(data: _RankData) -> list[baselines.DayPanel]:
+    """已到期（5 日報酬可算）的基準日，每檔附上三個因子與兩種起點的 5 日報酬；即時記錄與 groups.live 同一定義。"""
+    matured = {d.date().isoformat(): src for d, _n, _ic, src in data.per_day}
+    closes: dict[str, tuple[pd.DatetimeIndex, np.ndarray]] = {}
+    for ticker in sorted({t for t, _bd, _s, _src in data.rows}):
+        df = data.cache.read(ticker)
+        if df is not None and not df.empty:
+            closes[ticker] = (df.index, df["close"].to_numpy(dtype=float))
+    by_day: dict[str, list[baselines.Obs]] = defaultdict(list)
+    for ticker, bd, score, _src in data.rows:
+        if bd not in matured or ticker not in closes:
+            continue
+        index, close = closes[ticker]
+        pos = int(index.get_indexer([pd.Timestamp(bd)])[0])
+        if pos < 0:
+            continue
+        by_day[bd].append(
+            baselines.Obs(
+                ticker=ticker,
+                score=float(score),
+                factors=baselines.factor_values(close, pos),
+                ret=baselines.forward_return(close, pos),
+                ret_next=baselines.forward_return(close, pos, start=baselines.NEXT_CLOSE),
+            )
+        )
+    return [
+        baselines.DayPanel(day=date.fromisoformat(bd), live=matured[bd] == "live" and data.on_time.get(bd, False), obs=tuple(obs))
+        for bd, obs in sorted(by_day.items())
+    ]
+
+
+@router.get("/api/monitor/baselines", response_model=BaselinesResponse)
+def get_baselines() -> BaselinesResponse:
+    data = _rank_data()
+    panels = _panels(data)
+    health = _health(data)
+    failures: list[str] = []
+
+    def section(name: str, build: Callable[[], object]):
+        try:
+            return build()
+        except Exception as exc:  # 一個區塊算不出來，不拖垮其他區塊
+            failures.append(f"{name}: {type(exc).__name__}")
+            return None
+
+    base_dates = sorted({bd for _t, bd, _s, _src in data.rows})
+    return BaselinesResponse(
+        base_date=date.fromisoformat(base_dates[-1]) if base_dates else None,
+        rules_version=baselines.RULES_VERSION,
+        rules_doc=baselines.RULES_DOC,
+        model_version=data.version,
+        factors=section("factors", lambda: FactorComparison(**baselines.factor_comparison(panels))),
+        tradable=section("tradable", lambda: TradableIc(**baselines.tradable_ic(panels))),
+        days_needed=section(
+            "days_needed", lambda: DaysNeeded(**baselines.days_needed(health["n_days"], health["se_nw"], health["backtest_ic"]))
+        ),
+        quintiles=section("quintiles", lambda: QuintileReturns(**baselines.quintile_returns(panels))),
+        failures=failures,
     )

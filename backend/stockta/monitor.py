@@ -87,8 +87,9 @@ def quintile(rank: int, n: int) -> int:
     return (rank - 1) * QUINTILES // n + 1
 
 
-def _ranks(scores: dict[str, float]) -> dict[str, int]:
-    ordered = sorted(scores, key=lambda t: (-scores[t], t))  # 同分依代號，結果可重現
+def rank_order(scores: dict[str, float]) -> dict[str, int]:
+    """分數由高到低的名次（1＝最強）；同分依代號，結果可重現。"""
+    ordered = sorted(scores, key=lambda t: (-scores[t], t))
     return {t: i + 1 for i, t in enumerate(ordered)}
 
 
@@ -97,7 +98,7 @@ def quintile_moves(now: dict[str, float], before: dict[str, float]) -> list[dict
     common = sorted(set(now) & set(before))
     if not common:
         return []
-    rank_now, rank_before = _ranks({t: now[t] for t in common}), _ranks({t: before[t] for t in common})
+    rank_now, rank_before = rank_order({t: now[t] for t in common}), rank_order({t: before[t] for t in common})
     n = len(common)
     moves = []
     for t in common:

@@ -48,7 +48,8 @@ def test_writes_site_layout_and_meta(client_with_model, tmp_path):
     for rel in [
         "model.json", "stocks.json", "market.json", "track-record.json",
         "scan/latest.json", "scan/index.json", "rank/latest.json", "rank/index.json", "rank/summary.json",
-        "screener/latest.json", "monitor.json", "ledger.json", "stocks/2330.TW/prediction.json", "stocks/2330.TW/indicators.json",
+        "screener/latest.json", "monitor.json", "baselines.json", "ledger.json",
+        "stocks/2330.TW/prediction.json", "stocks/2330.TW/indicators.json",
         "stocks/2330.TW/predictions.json", "stocks/2330.TW/candles-twse.json", "stocks/2330.TW/chips.json", "meta.json",
     ]:
         assert (out / rel).is_file(), rel

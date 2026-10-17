@@ -130,11 +130,12 @@ def run_export(
     _require_real(rank, "/api/rank")
     # 篩選器與綜合評分（docs/screener_prereg.md）：非必要，失敗只記在 meta.failures，網站其餘部分照常部署。
     # TestClient 會把端點裡沒接住的例外直接拋出來，所以連例外也接住，不讓新功能擋住整站部署
-    # 模型監控與例外報表（docs/monitor_prereg.md）、存證鏈的狀態快照同樣非必要；
+    # 模型監控與例外報表（docs/monitor_prereg.md）、簡單因子對照（docs/baseline_prereg.md）、存證鏈的狀態快照同樣非必要；
     # daily.yml 在上鏈之後才匯出，網站上的存證狀態與鏈檔是同一個時間點
     for url, relpath in (
         ("/api/screener", "screener/latest.json"),
         ("/api/monitor", "monitor.json"),
+        ("/api/monitor/baselines", "baselines.json"),
         ("/api/ledger", "ledger.json"),
     ):
         try:

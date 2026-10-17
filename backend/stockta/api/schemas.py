@@ -433,6 +433,76 @@ class MonitorResponse(BaseModel):
     ledger: LedgerStatus
 
 
+# --- 簡單因子對照與可成交性（GET /api/monitor/baselines；規則見 docs/baseline_prereg.md）---
+
+
+class IcStat(BaseModel):
+    n_days: int
+    mean: float | None
+    t_nw: float | None = Field(description="平均對 0 的 Newey–West t；少於 2 天為 null")
+
+
+class NeutralIc(IcGroup):
+    verdict: Literal["beyond", "negative", "indistinct", "insufficient"] = Field(
+        description="beyond＝排除反轉與動量後仍有資訊、negative＝排除後為負、indistinct＝無法區分、insufficient＝不足 20 天"
+    )
+
+
+class FactorBaseline(BaseModel):
+    key: str
+    label: str
+    lookback: int = Field(description="回看的交易日數")
+    ic: IcStat = Field(description="因子自己的 Rank IC")
+    diff: IcStat = Field(description="模型 IC − 因子 IC 的逐日差")
+    corr_mean: float | None = Field(description="模型分數與因子的逐日 Spearman 相關的平均")
+
+
+class FactorComparison(BaseModel):
+    n_days: int = Field(description="計入的基準日數（分數、三個因子與報酬都齊全的股票至少 10 檔）")
+    model: IcStat = Field(description="同一批天數與股票上的模型 Rank IC")
+    neutral: NeutralIc = Field(description="中和後 Rank IC（主要檢定）")
+    factors: list[FactorBaseline]
+    thresholds: dict[str, float]
+
+
+class TradableIc(BaseModel):
+    all: IcGroup
+    live: IcGroup
+
+
+class DaysNeeded(BaseModel):
+    status: Literal["ok", "insufficient"]
+    n_days: int
+    se_nw: float | None
+    backtest_ic: float | None
+    target_t: float
+    needed: int | None = Field(description="t 的期望值到 target_t 所需的已到期天數")
+    remaining: int | None
+
+
+class QuintileReturns(BaseModel):
+    n_days: int = Field(description="即時記錄、可成交版報酬已到期的基準日數")
+    first_day: date | None
+    last_day: date | None
+    top_mean: float | None = Field(description="前 20% 的平均 5 日報酬（t+1 收盤起算，等權、未扣成本）")
+    bottom_mean: float | None
+    pool_mean: float | None
+    spread_mean: float | None
+    spread_t: float | None
+
+
+class BaselinesResponse(BaseModel):
+    base_date: date | None
+    rules_version: str
+    rules_doc: str
+    model_version: str | None
+    factors: FactorComparison | None = None
+    tradable: TradableIc | None = None
+    days_needed: DaysNeeded | None = None
+    quintiles: QuintileReturns | None = None
+    failures: list[str] = Field(default_factory=list, description="算不出來的區塊與原因；其餘區塊照常輸出")
+
+
 # --- 篩選器與綜合評分（GET /api/screener；規則見 docs/screener_prereg.md）---
 
 ConditionState = Literal["pass", "fail", "missing", "na"]
