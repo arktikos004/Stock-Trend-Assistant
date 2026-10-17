@@ -41,6 +41,8 @@ const TOC: { id: MethodSection; label: string }[] = [
   { id: "reading", label: "三個數字各回答什麼" },
   { id: "rank", label: "相對強弱排序" },
   { id: "model", label: "模型效果怎麼看" },
+  { id: "baselines", label: "和簡單因子比" },
+  { id: "tradable", label: "收盤後才買得到的成績" },
   { id: "backtest", label: "回測與示意組合" },
   { id: "direction", label: "方向訊號" },
   { id: "screener", label: "篩選器" },
@@ -127,8 +129,36 @@ export default function MethodPage() {
             。狀態只顯示，不會自動停用模型。
           </p>
           <p>
+            <strong>還要多久</strong>：若真實 Rank IC 等於回測測試期的平均
+            {s && s.test_rank_ic != null ? `（${fixed(s.test_rank_ic, 3, true)}）` : ""}
+            ，照目前逐日 IC 的雜訊，t 的期望值要到 2 所需的到期日數。到那時大約只有五成機會真的到 2，要八成把握約需兩倍；真實 IC 若比回測小，需要更久。
+          </p>
+          <p>
             <Doc href={LINKS.monitorRules}>監控規則的預先聲明</Doc>
           </p>
+        </Section>
+
+        <Section id="baselines" title="和簡單因子比">
+          <p>
+            <strong>三個因子</strong>：短期反轉（過去 5 個交易日的報酬取負號）、20 日動量、60 日動量，都在基準日收盤時就能算出。只取 60 日以內，因為模型的輸入就是 60 個交易日。
+          </p>
+          <p>
+            <strong>中和後 Rank IC</strong>：每天把模型分數對三個因子做截面迴歸，取殘差和 5 日報酬的 Rank IC，回答「排除反轉與動量之後，模型還剩多少預測力」。累積 20 天以上才判讀：t ≥ 2 為「排除後仍有資訊」，t ≤ −2 為「排除後為負」，其餘為「無法和反轉、動量區分」。
+          </p>
+          <p>因子自己的 Rank IC、模型減因子的差與兩者的相關只描述，不判讀：三個因子各比一次，等於做了三次比較。</p>
+          <p>
+            <Doc href={LINKS.baselineRules}>對照規則的預先聲明</Doc>
+          </p>
+        </Section>
+
+        <Section id="tradable" title="收盤後才買得到的成績">
+          <p>
+            排序在收盤後才寫入，基準日當天的收盤價買不到。<strong>可成交版</strong>把報酬改成從下一個交易日收盤起算，持有 5 個交易日（t+1 到 t+6）。
+          </p>
+          <p>
+            <strong>前 20% 與後 20%</strong>：只用即時記錄的基準日，依當天分數分成五組，取最強一組、最弱一組與全池的平均報酬，等權、沒有扣交易成本。相鄰基準日的報酬互相重疊，這是排序兩端實際發生的結果，不是一個每天換股的組合報酬。
+          </p>
+          <p>這兩項都只描述；模型的狀態仍依監控規則判定。</p>
         </Section>
 
         <Section id="backtest" title="回測與示意組合">
@@ -140,7 +170,7 @@ export default function MethodPage() {
             示意組合：每 {s?.holding_days ?? 20} 個交易日買進名次前 20% 的股票。<strong>扣成本後比全池等權多幾個百分點</strong>
             是兩個累積報酬相減（{s && s.net_cum != null && s.bench_cum != null ? `${share(s.net_cum, 1)} − ${share(s.bench_cum, 1)}` : "組合 − 全池"}），不是比率。
             這段期間包含用來選模型與持有期的 2025 年，<strong>不是獨立驗證</strong>；成本約 {s?.cost_bps?.toFixed(0) ?? 59} bp 來回，<strong>沒有計入滑價</strong>，全池等權的基準也沒有扣成本。
-            最大回撤、滑價敏感度與簡單動能策略的比較還沒有做。
+            最大回撤與滑價敏感度還沒有做；和簡單動能、反轉因子的比較目前只有線上紀錄（見「和簡單因子比」），回測期間還沒有做。
           </p>
           <p>
             <Doc href={LINKS.rankReport}>完整回測報告</Doc>

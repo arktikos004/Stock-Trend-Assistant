@@ -5,11 +5,13 @@
  * - 模型健康：逐日 Rank IC 分成即時記錄、事後重建或補寫、預測窗口開始前已存證三組；主數字是即時記錄（前瞻）的成績，
  *   狀態照聲明用全部的到期日判定（含事後重建或補寫）。附 20 日滾動平均的趨勢線
  * - 方向訊號：命中率一定和同一批樣本的兩條基線、各訊號精度與 95% 區間一起列；依寫入時間分組
+ * - 和簡單因子比、收盤後才買得到的成績、還要多久（規則見 docs/baseline_prereg.md）：只有中和後 Rank IC 有判讀
  * - 例外報表：排名分位遷移（5 個基準日）、52 週新高與新低（George & Hwang, 2004）
  * - 存證鏈：上鏈之後匯出的快照
  * 只顯示、不自動處置；不是投資建議。
  */
 
+import { CircleCheck, CircleDashed, CircleMinus, ShieldX, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import LedgerPanel from "@/components/overview/LedgerPanel";
 import MarketPanel from "@/components/overview/MarketPanel";
@@ -18,17 +20,17 @@ import HelpLink from "@/components/ui/HelpLink";
 import { Notice, Skeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
-import { api, ledgerSnapshot, type IcGroup, type MonitorResponse, type TrackSample } from "@/lib/api";
-import { fixed, share } from "@/lib/format";
+import { api, ledgerSnapshot, type BaselinesResponse, type IcGroup, type MonitorResponse, type NeutralVerdict, type TrackSample } from "@/lib/api";
+import { fixed, pct, share, toneVar } from "@/lib/format";
 import { LINKS } from "@/lib/links";
-import { MODEL_STATUS } from "@/lib/status";
+import { MODEL_STATUS, type BadgeTone } from "@/lib/status";
 import { errorText, useAsync } from "@/lib/useAsync";
 
 type Model = MonitorResponse["model"];
 
 function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="border-l border-border pl-3 first:border-l-0 first:pl-0 max-sm:[&:nth-child(3)]:border-l-0 max-sm:[&:nth-child(3)]:pl-0">
+    <div className="border-l border-border pl-3 first:border-l-0 first:pl-0 max-sm:[&:nth-child(odd)]:border-l-0 max-sm:[&:nth-child(odd)]:pl-0">
       <dt className="text-xs text-ink-3">{label}</dt>
       <dd className="mt-0.5 text-lg font-semibold text-ink">{value}</dd>
       {sub && <dd className="mt-0.5 text-xs text-ink-2">{sub}</dd>}
@@ -376,11 +378,122 @@ function Names({ title, items, empty }: { title: string; items: { key: string; t
   );
 }
 
+/** 中和後 Rank IC 的判讀（docs/baseline_prereg.md 2.2）：負的結論用實心深色底，不用紅綠 */
+const VERDICT: Record<NeutralVerdict, { text: string; tone: BadgeTone; icon: LucideIcon }> = {
+  beyond: { text: "排除後仍有資訊", tone: "accent", icon: CircleCheck },
+  negative: { text: "排除後為負", tone: "solid", icon: ShieldX },
+  indistinct: { text: "無法和反轉、動量區分", tone: "neutral", icon: CircleMinus },
+  insufficient: { text: "資料不足", tone: "neutral", icon: CircleDashed },
+};
+
+/** 若真實 IC 等於回測，t 的期望值到門檻還要幾個到期日（一個月約 21 個交易日） */
+function horizonText(d: BaselinesResponse["days_needed"] | undefined): string | null {
+  if (!d) return null;
+  if (d.status !== "ok" || d.remaining == null) return "到期日不足 20 天，還不推算要多久才能判斷。";
+  const ic = fixed(d.backtest_ic, 3, true);
+  const target = d.target_t.toFixed(0);
+  if (d.remaining === 0) return `若真實 Rank IC 等於回測（${ic}），目前的天數已足以讓 t 的期望值到 ${target}。`;
+  const months = Math.max(1, Math.round(d.remaining / 21));
+  return `若真實 Rank IC 等於回測（${ic}），照目前的雜訊還要約 ${d.remaining} 個到期日（約 ${months} 個月），t 才可能到 ${target}。`;
+}
+
+/** 「N 天，t x.xx」：統計卡的補充說明 */
+const daysAndT = (s: { n_days: number; t_nw: number | null }) => `${s.n_days} 天，t ${fixed(s.t_nw, 2, true)}`;
+
+/** 和簡單因子比：主數字是中和後 Rank IC，三個因子的對照只描述 */
+function FactorPanel({ f }: { f: NonNullable<BaselinesResponse["factors"]> }) {
+  const v = VERDICT[f.neutral.verdict];
+  return (
+    <Panel
+      className="lg:col-span-2"
+      title="和簡單因子比"
+      description="排除短期反轉與動量之後，模型還剩多少預測力"
+      actions={
+        <Badge tone={v.tone} icon={v.icon}>
+          {v.text}
+        </Badge>
+      }
+    >
+      <dl className="grid grid-cols-2 gap-y-4 sm:grid-cols-4">
+        <Stat
+          label="中和後 Rank IC"
+          value={fixed(f.neutral.mean_ic, 4, true)}
+          sub={`${daysAndT(f.neutral)}（門檻 ${f.thresholds.verdict_t.toFixed(1)}／${f.thresholds.hlz_t.toFixed(1)}）`}
+        />
+        <Stat label="模型 Rank IC（同一批）" value={fixed(f.model.mean, 4, true)} sub={daysAndT(f.model)} />
+      </dl>
+      <div className="mt-4">
+        <table className="w-full text-table">
+          <caption className="sr-only">模型和三個簡單因子的 Rank IC 對照</caption>
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-ink-3">
+              <th scope="col" className="py-2 pr-3 font-medium">因子</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">因子 IC</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">模型 − 因子</th>
+              <th scope="col" className="py-2 text-right font-medium">和模型的相關</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {f.factors.map((x) => (
+              <tr key={x.key}>
+                <th scope="row" className="whitespace-nowrap py-2 pr-3 text-left font-normal text-ink">
+                  {x.label}
+                </th>
+                <td className="py-2 pr-3 text-right text-ink">
+                  {fixed(x.ic.mean, 4, true)}
+                  <span className="block text-xs text-ink-2 sm:ml-1.5 sm:inline">t {fixed(x.ic.t_nw, 2, true)}</span>
+                </td>
+                <td className="py-2 pr-3 text-right text-ink">
+                  {fixed(x.diff.mean, 4, true)}
+                  <span className="block text-xs text-ink-2 sm:ml-1.5 sm:inline">t {fixed(x.diff.t_nw, 2, true)}</span>
+                </td>
+                <td className="py-2 text-right text-ink">{fixed(x.corr_mean, 2, true)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-ink-2">
+        因子在基準日收盤時就能算出；表上的比較只描述，不判讀。
+        <HelpLink to="baselines" className="ml-1" />
+      </p>
+    </Panel>
+  );
+}
+
+/** 收盤後才買得到的成績：報酬從 t+1 收盤起算；前後 20% 只用即時記錄的基準日 */
+function TradablePanel({ q, t }: { q: BaselinesResponse["quintiles"]; t: BaselinesResponse["tradable"] }) {
+  const tinted = (v: number | null) => <span style={{ color: toneVar(v) }}>{pct(v, 2)}</span>;
+  return (
+    <Panel className="lg:col-span-2" title="收盤後才買得到的成績" description="報酬從下一個交易日收盤起算（t+1 到 t+6），等權、未扣交易成本">
+      {q && (
+        <dl className="grid grid-cols-2 gap-y-4 sm:grid-cols-4">
+          <Stat label="前 20% 的平均 5 日報酬" value={tinted(q.top_mean)} sub={`即時記錄 ${q.n_days} 個基準日`} />
+          <Stat label="後 20%" value={tinted(q.bottom_mean)} />
+          <Stat label="全池" value={tinted(q.pool_mean)} />
+          <Stat label="前 20% − 後 20%" value={pct(q.spread_mean, 2)} sub={`t ${fixed(q.spread_t, 2, true)}`} />
+        </dl>
+      )}
+      {t && (
+        <dl className={`grid grid-cols-2 gap-y-4 sm:grid-cols-4 ${q ? "mt-4 border-t border-border pt-4" : ""}`}>
+          <Stat label="可成交版 Rank IC（即時記錄）" value={fixed(t.live.mean_ic, 4, true)} sub={daysAndT(t.live)} />
+          <Stat label="可成交版 Rank IC（全部）" value={fixed(t.all.mean_ic, 4, true)} sub={daysAndT(t.all)} />
+        </dl>
+      )}
+      <p className="mt-3 text-sm leading-relaxed text-ink-2">
+        排名靠前仍可能下跌；相鄰基準日的報酬互相重疊，這不是每天換股的組合報酬。
+        <HelpLink to="tradable" className="ml-1" />
+      </p>
+    </Panel>
+  );
+}
+
 export default function MonitorPage() {
   const monitor = useAsync("monitor", () => api.monitor());
   const market = useAsync("market", () => api.market());
   const record = useAsync("track-record", () => api.trackRecord());
   const ledger = useAsync("ledger", ledgerSnapshot);
+  const base = useAsync("baselines", () => api.baselines());
 
   const data = monitor.data;
   const m = data?.model;
@@ -443,6 +556,7 @@ export default function MonitorPage() {
             </dl>
             <p className="mt-4 text-sm leading-relaxed text-ink-2">
               狀態「{status.text}」：{status.note}（依聲明用全部 {m.n_days} 天判定，含事後重建或補寫）。
+              {horizonText(base.data?.days_needed)}
               <HelpLink to="model" className="ml-1" />
             </p>
             {m.groups && (
@@ -457,6 +571,14 @@ export default function MonitorPage() {
               t 值用 Newey–West 標準誤（落後 {m.thresholds.nw_lags} 期）。尚未到期的排序紀錄 {m.pending_rows} 筆。
             </p>
           </Panel>
+
+          {base.error != null && (
+            <div className="lg:col-span-2">
+              <Notice tone="error">{errorText(base.error, "簡單因子對照由每日排程產生，目前還沒有這一份。")}</Notice>
+            </div>
+          )}
+          {base.data?.factors && <FactorPanel f={base.data.factors} />}
+          {base.data && (base.data.quintiles || base.data.tradable) && <TradablePanel q={base.data.quintiles} t={base.data.tradable} />}
 
           <Panel className="lg:col-span-2" title="方向訊號的線上命中率" description="漲跌＝5 日累積報酬超過 ±2%">
             {tr ? (

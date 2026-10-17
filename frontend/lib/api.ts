@@ -353,6 +353,62 @@ export interface MonitorResponse {
   };
 }
 
+// --- 簡單因子對照與可成交性（/api/monitor/baselines；規則見 docs/baseline_prereg.md）---
+
+export interface IcStat {
+  n_days: number;
+  mean: number | null;
+  t_nw: number | null; // 少於 2 天為 null
+}
+
+/** beyond＝排除反轉與動量後仍有資訊、negative＝排除後為負、indistinct＝無法區分、insufficient＝不足 20 天 */
+export type NeutralVerdict = "beyond" | "negative" | "indistinct" | "insufficient";
+
+export interface FactorBaseline {
+  key: string;
+  label: string;
+  lookback: number; // 回看的交易日數
+  ic: IcStat; // 因子自己的 Rank IC
+  diff: IcStat; // 模型 IC − 因子 IC
+  corr_mean: number | null; // 模型分數與因子的平均截面相關
+}
+
+export interface BaselinesResponse {
+  base_date: string | null;
+  rules_version: string;
+  rules_doc: string;
+  model_version: string | null;
+  /** 各區塊算不出來時為 null，原因列在 failures */
+  factors: {
+    n_days: number;
+    model: IcStat;
+    neutral: IcGroup & { verdict: NeutralVerdict };
+    factors: FactorBaseline[];
+    thresholds: { verdict_t: number; hlz_t: number; min_days: number; min_names: number };
+  } | null;
+  tradable: { all: IcGroup; live: IcGroup } | null; // 報酬從 t+1 收盤起算
+  days_needed: {
+    status: "ok" | "insufficient";
+    n_days: number;
+    se_nw: number | null;
+    backtest_ic: number | null;
+    target_t: number;
+    needed: number | null;
+    remaining: number | null;
+  } | null;
+  quintiles: {
+    n_days: number;
+    first_day: string | null;
+    last_day: string | null;
+    top_mean: number | null;
+    bottom_mean: number | null;
+    pool_mean: number | null;
+    spread_mean: number | null;
+    spread_t: number | null;
+  } | null;
+  failures: string[];
+}
+
 // --- 篩選器與綜合評分（/api/screener；規則見 docs/screener_prereg.md）：研究用候選清單，不是預測 ---
 
 export type ScreenerComponentKey = "rank" | "momentum" | "valuation" | "revenue" | "chips";
@@ -489,6 +545,8 @@ const liveApi = {
   rankSummary: () => request<RankSummaryResponse>("/api/rank/summary"),
   screener: () => request<ScreenerResponse>("/api/screener"),
   monitor: () => request<MonitorResponse>("/api/monitor"),
+  // null 只出現在靜態站：這一版網站資料還沒有這個檔案
+  baselines: (): Promise<BaselinesResponse | null> => request<BaselinesResponse>("/api/monitor/baselines"),
   ledger: () => request<LedgerSnapshot>("/api/ledger"),
   stockHistory: (ticker: string, start: string, end: string) =>
     request<StockHistoryResponse>(
@@ -626,6 +684,11 @@ export const staticApi: typeof liveApi = {
   rankSummary: () => staticOnce("/rank/summary.json"),
   screener: () => staticOnce("/screener/latest.json"),
   monitor: () => staticOnce("/monitor.json"),
+  baselines: () =>
+    staticOnce<BaselinesResponse>("/baselines.json").catch((e: unknown) => {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }),
   ledger: () => staticOnce("/ledger.json"),
   stockHistory: async (ticker, start, end) => {
     const [meta, full] = await Promise.all([

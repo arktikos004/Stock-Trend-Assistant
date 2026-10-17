@@ -7,6 +7,7 @@ export const LINKS = {
   ledger: `${REPO_URL}/tree/ledger`,
   screenerRules: `${REPO_URL}/blob/master/docs/screener_prereg.md`,
   monitorRules: `${REPO_URL}/blob/master/docs/monitor_prereg.md`,
+  baselineRules: `${REPO_URL}/blob/master/docs/baseline_prereg.md`,
   dataSources: `${REPO_URL}/blob/master/DATA_SOURCES.md`,
   onlineReport: `${REPO_URL}/blob/master/docs/online_predictions.md`,
   rankReport: `${REPO_URL}/blob/master/docs/cross_sectional_report.md`,
