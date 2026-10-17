@@ -46,7 +46,7 @@
 | 相對強弱排序：線上 | 每天更新：[線上 Rank IC 報告](https://github.com/arktikos004/Stock-Trend-Assistant/blob/state/reports/online_rank_ic.md)、網站的「監控」頁 |
 | 5 日方向訊號 | [回測](docs/backtest_report.md)與[線上實證](https://github.com/arktikos004/Stock-Trend-Assistant/blob/state/reports/online_predictions.md)；線上命中率要和「全猜觀望」的基線比 |
 | 洩漏防治 | [打亂標籤測試](docs/leakage_report.md)、竄改未來資料的無前視測試、[特徵可用時點](docs/feature_availability.md) |
-| 已知限制 | 股票池是人工維護的台灣 50 名單，與官方名單有出入（[倖存者偏誤研究](docs/survivorship_study.md)）；yfinance 會回頭改寫歷史價格（[實測](docs/data_revision_study.md)） |
+| 已知限制 | 股票池依台灣 50 指數每季的定期審核更新（[調整事件表](backend/data/universe/README.md)），回測用的是今天的名單，仍有倖存者偏誤（[研究](docs/survivorship_study.md)）；yfinance 會回頭改寫歷史價格（[實測](docs/data_revision_study.md)） |
 
 ## 快速開始
 

@@ -27,6 +27,7 @@ from stockta.config import (
     INDICATOR_WARMUP_DAYS,
     PREDICTIONS_DB_PATH,
     STOCK_POOL,
+    stock_name,
     WINDOW_LENGTH_DAYS,
 )
 from stockta.data.cache import ParquetCache
@@ -76,7 +77,7 @@ def _rank_results(scored: list[tuple[str, float, date]]) -> list[RankResult]:
         q = "top" if pct >= 1 - CS_TOP_FRACTION else "bottom" if pct <= CS_TOP_FRACTION else "mid"
         out.append(
             RankResult(
-                ticker=ticker, name=STOCK_POOL.get(ticker, ""), score=score,
+                ticker=ticker, name=stock_name(ticker), score=score,
                 rank=i + 1, percentile=pct, quantile=q,
             )
         )

@@ -367,7 +367,7 @@ function ScreenerView() {
             {rows.length === 0 ? (
               <EmptyState icon={scope === "watch" ? Star : undefined} title={scope === "watch" ? "自選股不在這份清單裡" : "沒有股票同時符合這些條件"}>
                 {scope === "watch"
-                  ? "在個股頁按「加入自選」，或切到「全部」看 49 檔。"
+                  ? "在個股頁按「加入自選」，或切到「全部」看整個股票池。"
                   : "取消一個條件，或切到「全部」再看看。這個篩選只留下「符合」的股票；條件不適用的（例如金融保險業的營收）不會留下。"}
               </EmptyState>
             ) : (

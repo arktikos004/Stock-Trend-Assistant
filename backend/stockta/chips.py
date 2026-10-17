@@ -41,7 +41,7 @@ def _code_rows(path: str, size: int, code_key: str, codes: frozenset[str]) -> di
 
 def _dated_rows(data_dir: Path, dataset: str, code_key: str, code: str) -> list[tuple[date, tuple[dict[str, str], ...]]]:
     """某資料集每一份檔案裡這個代號的列，由舊到新；檔案裡沒有這個代號的日子略過。"""
-    # 股票池的代號一起讀進快取：49 檔共用同一次解析
+    # 股票池的代號一起讀進快取：整個股票池共用同一次解析
     codes = _POOL_CODES if code in _POOL_CODES else frozenset({code})
     out = []
     for day, path in _dated_files(data_dir, dataset, date.max):

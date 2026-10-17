@@ -27,7 +27,7 @@ from stockta.api.schemas import (
     QuintileMoves,
     Week52Extreme,
 )
-from stockta.config import ARTIFACTS_CS_DIR, CS_PRODUCTION_MODEL, DATA_CACHE_DIR, LEDGER_CHAIN_PATH, PREDICTIONS_DB_PATH, STOCK_POOL
+from stockta.config import ARTIFACTS_CS_DIR, CS_PRODUCTION_MODEL, DATA_CACHE_DIR, LEDGER_CHAIN_PATH, PREDICTIONS_DB_PATH, STOCK_POOL, stock_name
 from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day, market_sessions
 from stockta.data.provider import DataProvider, DataProviderError
@@ -157,7 +157,7 @@ def get_monitor(request: Request) -> MonitorResponse:
             from_date=date.fromisoformat(from_d),
             to_date=date.fromisoformat(to_d),
             n=len(set(now) & set(before)),
-            moves=[QuintileMove(name=STOCK_POOL.get(m["ticker"], ""), **m) for m in quintile_moves(now, before)],
+            moves=[QuintileMove(name=stock_name(m["ticker"]), **m) for m in quintile_moves(now, before)],
         )
 
     provider: DataProvider = request.app.state.data_provider

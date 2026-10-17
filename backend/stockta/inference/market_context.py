@@ -1,5 +1,5 @@
 """API 端市場情境服務：^TWII 走 DataProvider（快取＋網路降級），
-市場寬度只讀本地 parquet 快取（單檔預測不打 49 檔網路）。
+市場寬度只讀本地 parquet 快取（單檔預測不為整個股票池連網）。
 
 寬度依賴全池快取的新鮮度——每日排程 record_predictions 會刷新全池；
 若快取落後大盤（例如排程沒跑），拋 DataProviderError 提示，而不是

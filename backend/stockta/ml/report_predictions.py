@@ -29,7 +29,7 @@ from stockta.config import (
     LABEL_UP_THRESHOLD,
     PREDICTIONS_DB_PATH,
     PRODUCTION_MODEL,
-    STOCK_POOL,
+    stock_name,
 )
 from stockta.data.cache import ParquetCache
 from stockta.inference.predictor import model_version
@@ -81,7 +81,7 @@ def main() -> None:
     for ticker, base_date, signal, confidence, version, _created in rows:
         first_date[version] = min(first_date.get(version, base_date), base_date)
         actual, ret = actual_signal(cache, ticker, base_date)
-        name = STOCK_POOL.get(ticker, "")
+        name = stock_name(ticker)
         if actual is None:
             pending[version].append((ticker, name, base_date, signal, confidence))
         else:

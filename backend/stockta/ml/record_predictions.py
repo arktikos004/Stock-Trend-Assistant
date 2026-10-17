@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
-from datetime import timedelta
+from datetime import date, timedelta
 
 from stockta.config import (
     AUTO_ADJUST,
@@ -24,10 +24,11 @@ from stockta.config import (
     PREDICTIONS_DB_PATH,
     PRODUCTION_MODEL,
     STOCK_POOL,
+    STOCK_POOL_EFFECTIVE,
     WINDOW_LENGTH_DAYS,
 )
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
+from stockta.data.calendar import backfill_sessions, calendar_lookback_days, last_completed_trading_day
 from stockta.data.provider import DataProviderError, YFinanceProvider
 from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
@@ -98,7 +99,8 @@ def main() -> int:
     context = build_market_context(market, pool_ohlcv)
 
     # 最近 N 個交易日（以市場情境索引為交易日曆），跳過已記錄者→自癒漏記、避免每次重算
-    recent_days = list(context.index[-args.days:])
+    # 回補不跨越換池日：換池前的基準日只屬於當時的股票池
+    recent_days = backfill_sessions(context.index, args.days, date.fromisoformat(STOCK_POOL_EFFECTIVE))
     already = _recorded_pairs(PREDICTIONS_DB_PATH, predictor.version)
     covered: list[str] = []
     missing: list[str] = []

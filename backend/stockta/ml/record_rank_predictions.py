@@ -28,10 +28,11 @@ from stockta.config import (
     MARKET_INDEX_TICKER,
     PREDICTIONS_DB_PATH,
     STOCK_POOL,
+    STOCK_POOL_EFFECTIVE,
     WINDOW_LENGTH_DAYS,
 )
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
+from stockta.data.calendar import backfill_sessions, calendar_lookback_days, last_completed_trading_day
 from stockta.data.provider import DataProviderError, YFinanceProvider
 from stockta.features.market import build_market_context
 from stockta.inference.replay import context_fetch_start, load_pool_context
@@ -80,7 +81,8 @@ def run_live(
         return 1
     context = build_market_context(market, pool_ohlcv)
 
-    recent_days = list(context.index[-days:])
+    # 回補不跨越換池日：換池前的基準日只屬於當時的股票池
+    recent_days = backfill_sessions(context.index, days, date.fromisoformat(STOCK_POOL_EFFECTIVE))
     newest = recent_days[-1] if recent_days else None
     already = _recorded_rank_pairs(PREDICTIONS_DB_PATH, version)
     covered: list[str] = []

@@ -31,6 +31,26 @@ def _to_ticker(code: str) -> str:
     return code if code.endswith(".TW") else f"{code}.TW"
 
 
+def pool_discrepancies(pool: set[str], events: list) -> dict:
+    """每個生效日：{日期: (應納入但池中沒有, 應剔除但池中還在)}。
+
+    同一檔可能先被剔除、之後又被納入（貿聯-KY 在 2026-03 剔除、2026-06 再納入），
+    所以每檔只看最後一次事件；較早、已被取代的事件不算不一致。
+    """
+    ordered = sorted(events, key=lambda e: e.effective_date)
+    latest = {e.ticker: e for e in ordered}
+    found: dict = {}
+    for event in ordered:
+        missing, stale = found.setdefault(event.effective_date, ([], []))
+        if latest[event.ticker] is not event:
+            continue
+        if event.action == "add" and event.ticker not in pool:
+            missing.append(event)
+        elif event.action == "drop" and event.ticker in pool:
+            stale.append(event)
+    return found
+
+
 def audit_against_events() -> int:
     """以已查證的指數調整事件對照 STOCK_POOL。回傳發現的問題數。"""
     from datetime import date
@@ -42,10 +62,6 @@ def audit_against_events() -> int:
     pool = set(STOCK_POOL)
 
     problems = 0
-    by_date: dict = {}
-    for event in events:
-        by_date.setdefault(event.effective_date, []).append(event)
-
     print(f"STOCK_POOL 檔數：{len(STOCK_POOL)}（台灣 50 指數規模為 {INDEX_SIZE}）")
     if len(STOCK_POOL) != INDEX_SIZE:
         print(f"  ⚠️ 檔數就對不上，差 {INDEX_SIZE - len(STOCK_POOL)} 檔")
@@ -60,10 +76,7 @@ def audit_against_events() -> int:
         problems += missed
     print()
 
-    for effective_date in sorted(by_date):
-        group = by_date[effective_date]
-        missing = [e for e in group if e.action == "add" and e.ticker not in pool]
-        stale = [e for e in group if e.action == "drop" and e.ticker in pool]
+    for effective_date, (missing, stale) in sorted(pool_discrepancies(pool, events).items()):
         print(f"[{effective_date} 生效]")
         print(
             "  應納入但池中沒有："

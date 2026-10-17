@@ -2,7 +2,7 @@ import type { RankResult } from "@/lib/api";
 import type { BadgeTone } from "@/lib/status";
 
 /**
- * 百分位分組：寫出它在 49 檔裡的相對位置，不寫「強、弱」——排名靠前仍可能下跌。
+ * 百分位分組：寫出它在股票池裡的相對位置，不寫「強、弱」——排名靠前仍可能下跌。
  * 顏色沿用漲跌色（前段＝漲、後段＝跌），文字一定在。
  */
 export const QUANTILE: Record<RankResult["quantile"], { text: string; tone: BadgeTone }> = {

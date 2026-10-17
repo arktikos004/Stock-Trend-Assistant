@@ -109,7 +109,7 @@ export default function OverviewPage() {
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-sm">
             <Link href="/scan" className="font-medium text-accent hover:underline">
-              看全部 {results.length || 49} 檔的排序
+              看全部 {results.length || 50} 檔的排序
             </Link>
             <span className="text-sm text-ink-2">
               分組＝名次的前 20%、後 20%；模型分數不是百分位。

@@ -55,3 +55,12 @@ def calendar_lookback_days(
     """推論抓取起日的回溯「日曆天數」（get_ohlcv 以日曆日期指定區間）。"""
     trading_days = warmup_lookback_days(window_length_days, indicator_warmup_days, buffer_days)
     return int(trading_days * _TRADING_TO_CALENDAR_RATIO) + 1
+
+
+def backfill_sessions(sessions, days: int, not_before: date) -> list:
+    """記錄預測時要回補的交易日：最近 days 個交易日，但不早於 not_before（換股票池的生效日）。
+
+    sessions 是依日期排序的交易日索引（市場情境的 DatetimeIndex）。
+    """
+    recent = list(sessions[-days:]) if days > 0 else []
+    return [d for d in recent if d.date() >= not_before]
