@@ -1,7 +1,7 @@
 import { CircleCheck, CircleX, Clock } from "lucide-react";
 import type { PastPrediction, Signal, TrackRecordResponse } from "@/lib/api";
 import Link from "next/link";
-import HelpLink from "@/components/ui/HelpLink";
+import Hint from "@/components/ui/Hint";
 import { fixed, pct, share } from "@/lib/format";
 
 const SIGNAL_VAR: Record<Signal, string> = { 漲: "--up", 跌: "--down", 觀望: "--hold" };
@@ -45,7 +45,7 @@ function Baseline({ trackRecord }: { trackRecord: TrackRecordResponse }) {
       ) : (
         "。"
       )}
-      <Link href="/monitor" className="ml-1 text-accent underline-offset-2 hover:underline">
+      <Link href="/monitor" className="link">
         看監控頁的完整比較
       </Link>
     </p>
@@ -70,19 +70,26 @@ export default function TrackRecordCard({
       {shown.length === 0 ? (
         <p className="text-sm text-ink-3">這一檔還沒有線上預測紀錄。每日排程收盤後會寫入當天的預測。</p>
       ) : (
-        <div className="relative -mx-4 overflow-x-auto px-4">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[19rem] text-table">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-ink-3">
+              <tr className="hairline-b text-left text-xs text-ink-3">
                 <th scope="col" className="py-2 pr-3 font-medium">基準日</th>
                 <th scope="col" className="py-2 pr-3 font-medium">預測</th>
                 <th scope="col" className="hidden py-2 pr-3 text-right font-medium sm:table-cell">模型機率</th>
                 <th scope="col" className="py-2 pr-3 font-medium sm:pl-6">實際</th>
                 <th scope="col" className="py-2 pr-3 text-right font-medium">5 日報酬</th>
-                <th scope="col" className="py-2 text-center font-medium">命中</th>
+                <th scope="col" className="py-2 text-center font-normal">
+                  <span className="inline-flex items-center gap-1">
+                    命中
+                    <Hint to="direction" anchor="baselines" label="線上預測實證">
+                      <p>到期後用實際的 5 日走勢對照；2026-10-07 起串入存證鏈。命中率要和全猜觀望、全猜漲的基線比。</p>
+                    </Hint>
+                  </span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-hairline">
               {shown.map((r) => (
                 <tr key={`${r.base_date}-${r.model_version}`}>
                   <td className="whitespace-nowrap py-2 pr-3 text-ink-2">{r.base_date}</td>
@@ -104,10 +111,6 @@ export default function TrackRecordCard({
         </div>
       )}
 
-      <p className="mt-3 text-sm leading-relaxed text-ink-2">
-        到期後用實際的 5 日走勢對照；2026-10-07 起串入存證鏈。
-        <HelpLink to="direction" className="ml-1" />
-      </p>
     </div>
   );
 }

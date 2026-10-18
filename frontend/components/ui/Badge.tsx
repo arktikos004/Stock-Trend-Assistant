@@ -3,16 +3,15 @@ import type { ReactNode } from "react";
 import type { BadgeTone } from "@/lib/status";
 
 const TONE: Record<BadgeTone, string> = {
-  neutral: "bg-surface-2 text-ink-2 border-border",
-  accent: "bg-accent-soft text-accent border-transparent",
-  up: "bg-up-soft text-up border-transparent",
-  down: "bg-down-soft text-down border-transparent",
-  hold: "bg-hold-soft text-hold border-transparent",
-  warn: "bg-warn-soft text-warn border-transparent",
-  solid: "bg-ink text-surface border-transparent",
+  neutral: "border-transparent text-ink-2",
+  up: "border-transparent bg-up-soft text-up",
+  down: "border-transparent bg-down-soft text-down",
+  hold: "border-transparent bg-hold-soft text-hold",
+  warn: "border-transparent bg-warn-soft text-warn",
+  solid: "border-transparent bg-ink text-background",
 };
 
-/** 狀態徽章：顏色只是輔助，文字一定在。 */
+/** 狀態徽章：顏色只是輔助，文字一定在。中性的只是文字（附圖示），不加框；需要注意的用淡底色，警示用實心墨色。 */
 export default function Badge({
   tone = "neutral",
   icon: Icon,
@@ -29,9 +28,9 @@ export default function Badge({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-semibold leading-none ${TONE[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[3px] border px-1.5 py-[3px] text-xs font-semibold leading-none ${TONE[tone]} ${className}`}
     >
-      {Icon && <Icon size={13} strokeWidth={2.2} aria-hidden="true" />}
+      {Icon && <Icon size={13} strokeWidth={2} aria-hidden="true" />}
       {children}
     </span>
   );

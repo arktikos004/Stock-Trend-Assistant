@@ -3,15 +3,15 @@ import type { ReactNode } from "react";
 
 /** 載入中的骨架：與資料到了之後同樣大小，版面不會跳動。 */
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`rounded bg-surface-3 motion-safe:animate-pulse ${className}`} />;
+  return <div aria-hidden="true" className={`rounded-[3px] bg-surface-3 motion-safe:animate-pulse ${className}`} />;
 }
 
 /** 表格骨架：幾列等高的灰條 */
 export function TableSkeleton({ rows = 6, label }: { rows?: number; label: string }) {
   return (
-    <div role="status" aria-label={label} className="space-y-2.5 py-1">
+    <div role="status" aria-label={label} className="space-y-3 py-1">
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-7 w-full" />
+        <Skeleton key={i} className="h-6 w-full" />
       ))}
     </div>
   );
@@ -30,16 +30,16 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-      {Icon && <Icon size={22} className="text-ink-3" aria-hidden="true" />}
-      <p className="text-sm font-medium text-ink">{title}</p>
+    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+      {Icon && <Icon size={22} strokeWidth={1.6} className="text-ink-3" aria-hidden="true" />}
+      <p className="font-serif text-base font-semibold text-ink">{title}</p>
       {children && <div className="max-w-[48ch] text-xs leading-relaxed text-ink-3">{children}</div>}
       {action}
     </div>
   );
 }
 
-/** 錯誤與提醒：寫出發生什麼、怎麼處理。錯誤不用紅色（台股紅＝漲），改用加深的邊框與墨色，並以 role="alert" 通報。 */
+/** 錯誤與提醒：寫出發生什麼、怎麼處理。錯誤不用紅色（台股紅＝漲），改用加深的細框與墨色，並以 role="alert" 通報；留意用琥珀。 */
 export function Notice({
   tone = "neutral",
   icon: Icon = CircleAlert,
@@ -52,15 +52,11 @@ export function Notice({
   action?: ReactNode;
 }) {
   const style =
-    tone === "error"
-      ? "border-border-strong bg-surface-2 text-ink"
-      : tone === "warn"
-        ? "border-warn/30 bg-warn-soft text-ink"
-        : "border-border bg-surface-2 text-ink-2";
+    tone === "error" ? "border-border-strong text-ink" : tone === "warn" ? "border-transparent bg-warn-soft text-ink" : "border-border text-ink-2";
   const iconColor = tone === "error" ? "text-ink" : tone === "warn" ? "text-warn" : "text-ink-3";
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={`flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm ${style}`}>
-      <Icon size={17} className={`mt-0.5 shrink-0 ${iconColor}`} aria-hidden="true" />
+    <div role={tone === "error" ? "alert" : "status"} className={`flex items-start gap-2.5 rounded-[4px] border px-4 py-3 text-sm ${style}`}>
+      <Icon size={17} strokeWidth={1.8} className={`mt-0.5 shrink-0 ${iconColor}`} aria-hidden="true" />
       <div className="min-w-0 flex-1 leading-relaxed">{children}</div>
       {action}
     </div>

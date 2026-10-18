@@ -12,7 +12,7 @@ import DateQuery from "@/components/DateQuery";
 import RankView from "@/components/RankView";
 import { HitMark } from "@/components/TrackRecordCard";
 import Badge from "@/components/ui/Badge";
-import HelpLink from "@/components/ui/HelpLink";
+import Hint from "@/components/ui/Hint";
 import { Notice, Skeleton, TableSkeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
@@ -89,9 +89,14 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
             : `最新收盤${staleBase ? `（${d.base_date} 沒有新的收盤資料，使用截至 ${asOf} 的資料）` : ""}，模型 ${d.model_version}`
           : undefined
       }
+      actions={
+        <Hint to="direction" anchor="classes" label="方向訊號">
+          <p>漲跌＝未來 5 個交易日累積報酬超過 ±2%，其餘是觀望。百分比是模型輸出的類別機率，沒有做過校準，不等於實際發生的機率。</p>
+        </Hint>
+      }
       bodyClassName="p-0"
     >
-      <div className="space-y-4 border-b border-border px-4 py-3">
+      <div className="hairline-b space-y-4 py-4">
         <DateQuery value={date} sessions={sessions.data ?? null} onChange={onDate} />
         {d && d.results.length > 0 && <Distribution data={d} />}
         {d?.is_historical && d.matured > 0 && (
@@ -129,20 +134,20 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
       </div>
 
       {data.error ? (
-        <div className="p-4">
+        <div className="pt-5">
           <Notice tone="error">{errorText(data.error, "這一天的方向訊號沒有產生。")}</Notice>
         </div>
       ) : data.loading ? (
-        <div className="p-4">
+        <div className="pt-5">
           <TableSkeleton rows={12} label="方向訊號讀取中" />
         </div>
       ) : d?.is_mock ? (
-        <p className="p-6 text-center text-sm text-ink-3">模型還沒有載入，無法產生方向訊號。</p>
+        <p className="py-10 text-center text-sm text-ink-3">模型還沒有載入，無法產生方向訊號。</p>
       ) : d ? (
         // 窄螢幕欄位放不下，需要水平捲動（表頭不固定）；md 以上不當捲動容器，表頭才能固定在頂列下方
         <div className="relative overflow-x-auto md:overflow-x-visible">
           <table className="w-full min-w-[22rem] text-table">
-            <thead className="sticky top-14 z-10 bg-surface-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
+            <thead className="sticky top-14 z-10 bg-background [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
               <tr className="text-left text-xs text-ink-3">
                 <th scope="col" className="px-3 py-2 font-medium">股票</th>
                 <th scope="col" className="px-3 py-2 font-medium">訊號</th>
@@ -152,11 +157,11 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
                 {d.is_historical && <th scope="col" className="px-3 py-2 text-center font-medium">命中</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-hairline">
               {rows.map((r) => (
                 <tr key={r.ticker} className="transition-colors duration-150 hover:bg-surface-2">
                   <td className="px-3 py-2">
-                    <Link href={`/stock?t=${encodeURIComponent(r.ticker)}`} className="font-medium text-ink hover:underline">
+                    <Link href={`/stock?t=${encodeURIComponent(r.ticker)}`} className="font-serif text-[15px] font-semibold text-ink hover:underline">
                       {r.name}
                     </Link>
                     <span className="ml-2 text-xs text-ink-3">{code(r.ticker)}</span>
@@ -194,11 +199,6 @@ function SignalView({ date, onDate }: { date: string | null; onDate: (d: string 
           </table>
         </div>
       ) : null}
-
-      <p className="border-t border-border px-4 py-3 text-sm leading-relaxed text-ink-2">
-        漲跌＝5 日累積報酬超過 ±2%；百分比是未校準的模型機率。
-        <HelpLink to="direction" className="ml-1" />
-      </p>
     </Panel>
   );
 }

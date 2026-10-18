@@ -49,7 +49,7 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
   );
 
   const input =
-    "h-9 rounded-md border border-border bg-surface px-2 text-sm text-ink focus:border-accent";
+    "hairline-b h-9 bg-transparent px-0 text-sm text-ink focus:border-b-accent-mark";
 
   return (
     <div>
@@ -68,7 +68,7 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
           迄
           <input type="date" value={end} min={start} max={maxDate} onChange={(e) => setEnd(e.target.value)} className={input} />
         </label>
-        <button type="submit" className="h-9 rounded-md bg-accent px-4 text-sm font-semibold text-accent-fg transition-colors duration-150 hover:bg-accent-hover">
+        <button type="submit" className="h-9 rounded-[3px] border border-border-strong px-4 text-sm text-ink transition-colors duration-150 hover:bg-surface-2">
           重算這段區間
         </button>
         {data && data.count > 0 && data.hit_rate != null && (
@@ -86,9 +86,9 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
         <>
           <HitStrip records={data.records} />
           <p className="mt-1.5 text-sm text-ink-2">每格一次預測：實心＝命中、空心＝未命中，顏色是預測的方向；左舊右新。</p>
-          <div className="relative mt-3 max-h-72 overflow-auto border-t border-border">
+          <div className="relative mt-3 max-h-72 overflow-auto hairline-t">
             <table className="w-full min-w-[19rem] text-table">
-              <thead className="sticky top-0 bg-surface-2">
+              <thead className="sticky top-0 bg-background">
                 <tr className="text-left text-xs text-ink-3">
                   <th scope="col" className="px-3 py-2 font-medium">日期</th>
                   <th scope="col" className="px-3 py-2 font-medium">預測</th>
@@ -98,7 +98,7 @@ export default function HistoryReplayCard({ ticker, minDate, maxDate }: { ticker
                   <th scope="col" className="px-3 py-2 text-center font-medium">命中</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-hairline">
                 {data.records.map((r) => (
                   <tr key={r.date}>
                     <td className="whitespace-nowrap px-3 py-1.5 text-ink-2">{r.date}</td>

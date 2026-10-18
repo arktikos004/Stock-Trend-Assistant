@@ -17,10 +17,9 @@ import ChipsPanel from "@/components/ChipsPanel";
 import HistoryReplayCard from "@/components/HistoryReplayCard";
 import IndicatorPanel from "@/components/IndicatorPanel";
 import PredictionCard from "@/components/PredictionCard";
-import RankBar, { QUANTILE, rankMaxDev } from "@/components/rank/RankBar";
+import Magnitude from "@/components/rank/Magnitude";
 import SkillBanner from "@/components/rank/SkillBanner";
-import HelpLink from "@/components/ui/HelpLink";
-import ScoreBar from "@/components/screener/ScoreBar";
+import Hint from "@/components/ui/Hint";
 import SentimentCard from "@/components/SentimentCard";
 import { sentimentTickerFor } from "@/lib/newsApi";
 import TrackRecordCard from "@/components/TrackRecordCard";
@@ -31,7 +30,8 @@ import Panel from "@/components/ui/Panel";
 import Segmented from "@/components/ui/Segmented";
 import { api, siteMeta, STATIC_DATA, type Candle } from "@/lib/api";
 import { code, fixed, pct, share, toneVar } from "@/lib/format";
-import { COMPONENTS, TIER_TITLE } from "@/lib/screener";
+import { COMPONENTS, compositePercentiles, TIER_TITLE } from "@/lib/screener";
+import { QUANTILE } from "@/lib/status";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { toggleWatch, useWatchlist } from "@/lib/watchlist";
 
@@ -58,7 +58,7 @@ function Quote({ candles }: { candles: Candle[] | undefined }) {
   const change = prev ? last.close / prev.close - 1 : null;
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-2xl font-semibold text-ink">{last.close.toLocaleString()}</span>
+      <span className="text-[30px] font-light leading-none text-ink">{last.close.toLocaleString()}</span>
       <span className="text-sm font-semibold" style={{ color: toneVar(change) }}>
         {pct(change, 2)}
       </span>
@@ -98,6 +98,7 @@ function StockView() {
   const info = stocks.data?.stocks.find((s) => s.ticker === ticker);
   const adr = sentimentTickerFor(ticker);
   const s = screener.data?.stocks.find((x) => x.ticker === ticker);
+  const sPercentile = screener.data && s ? compositePercentiles(screener.data.stocks).get(ticker) : undefined;
   const r = rank.data?.results.find((x) => x.ticker === ticker);
 
   if (stocks.data && !info) {
@@ -106,7 +107,7 @@ function StockView() {
         icon={SearchX}
         title={`找不到代號「${ticker}」`}
         action={
-          <Link href="/" className="mt-2 text-sm font-medium text-accent hover:underline">
+          <Link href="/" className="mt-2 text-sm font-medium link">
             回到總覽
           </Link>
         }
@@ -117,7 +118,7 @@ function StockView() {
   }
 
   const draftRange = draft ?? { start: span?.start ?? "", end: span?.end ?? "" };
-  const inputClass = "h-9 rounded-md border border-border bg-surface px-2 text-sm text-ink focus:border-accent";
+  const inputClass = "hairline-b h-9 bg-transparent px-0 text-sm text-ink focus:border-b-accent-mark";
 
   return (
     <>
@@ -128,24 +129,31 @@ function StockView() {
             <span className="text-lg font-normal text-ink-3">{code(ticker)}</span>
           </span>
         }
-        description={s?.industry}
+        description={
+          <span className="flex flex-wrap items-center gap-x-1.5">
+            {s?.industry}
+            <Hint to="reading" label="這一頁的數字">
+              <p>相對強弱名次、方向訊號、篩選器回答三個不同的問題，結果可能不一致；都是研究用的統計輸出，不構成投資建議。</p>
+            </Hint>
+          </span>
+        }
         actions={
           <button
             type="button"
             aria-pressed={watched}
             onClick={() => toggleWatch(ticker)}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors duration-150 ${
-              watched ? "border-warn/40 bg-warn-soft text-ink" : "border-border text-ink-2 hover:bg-surface-2 hover:text-ink"
+            className={`inline-flex h-9 items-center gap-1.5 rounded-[3px] border px-3 text-sm font-medium transition-colors duration-150 ${
+              watched ? "border-border-strong text-ink" : "border-border text-ink-2 hover:bg-surface-2 hover:text-ink"
             }`}
           >
-            <Star size={15} className={watched ? "fill-current text-warn" : ""} aria-hidden="true" />
+            <Star size={15} className={watched ? "fill-current" : ""} aria-hidden="true" />
             {watched ? "已加入自選" : "加入自選"}
           </button>
         }
       />
 
-      <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-border bg-surface px-4 py-3 sm:grid-cols-4">
-        <div className="col-span-2 sm:col-span-1">
+      <dl className="hairline-t hairline-b mb-14 grid grid-cols-2 gap-x-8 gap-y-5 py-6 lg:grid-cols-4">
+        <div className="col-span-2 lg:col-span-1">
           <dt className="text-xs text-ink-3">證交所收盤</dt>
           <dd>{candles.loading ? <Skeleton className="mt-1 h-7 w-32" /> : <Quote candles={candles.data?.candles} />}</dd>
         </div>
@@ -155,7 +163,7 @@ function StockView() {
             {r ? (
               <>
                 <span className="text-lg font-semibold">{r.rank}</span>／{rank.data?.results.length}
-                <Badge tone={QUANTILE[r.quantile].tone}>{QUANTILE[r.quantile].text}</Badge>
+                <span className="text-xs text-ink-2">{QUANTILE[r.quantile]}</span>
               </>
             ) : (
               "—"
@@ -183,17 +191,13 @@ function StockView() {
         </div>
       </dl>
 
-      <p className="-mt-2 mb-5 text-sm leading-relaxed text-ink-2">
-        名次、方向訊號、篩選器回答不同的問題，結果可能不一致。
-        <HelpLink to="reading" className="ml-1" />
-      </p>
-
       {/* 大螢幕兩欄兩列：第一列是 K 線與主模型（相對強弱、方向訊號），第二列左邊是模型輸入的技術指標與篩選器，右邊是融資融券與新聞情緒。
           元素順序就是手機單欄的順序，也是鍵盤與螢幕閱讀器的順序 */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+      <div className="grid grid-cols-1 gap-x-14 gap-y-14 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <Panel
           title="日 K 線"
           actions={
+            <span className="flex items-center gap-1">
             <Segmented
               label="K 線區間"
               size="sm"
@@ -204,6 +208,10 @@ function StockView() {
               }}
               options={ranges.map((x) => ({ value: x, label: RANGE_LABEL[x] }))}
             />
+            <Hint to="chart" anchor="warmup" label="K 線">
+              <p>證交所開放資料，未還原權值，自 {span?.start ?? "2026-10-02"} 起逐日累積；資料累積到足夠的交易日才畫指標。均線、指標與放量標記是價量計算，不是模型訊號。</p>
+            </Hint>
+            </span>
           }
         >
           <form
@@ -235,11 +243,11 @@ function StockView() {
                 onChange={(e) => setDraft({ ...draftRange, end: e.target.value })}
               />
             </label>
-            <button type="submit" className="h-9 rounded-md border border-border px-3 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink">
+            <button type="submit" className="h-9 rounded-[3px] border border-border-strong px-3 text-sm text-ink transition-colors duration-150 hover:bg-surface-2">
               套用區間
             </button>
             {custom && (
-              <button type="button" onClick={() => setCustom(null)} className="h-9 px-2 text-sm text-accent hover:underline">
+              <button type="button" onClick={() => setCustom(null)} className="h-9 px-2 text-sm link">
                 清除自訂區間
               </button>
             )}
@@ -254,16 +262,17 @@ function StockView() {
           ) : (
             <EmptyState title="這段區間沒有 K 線資料">K 線使用臺灣證券交易所開放資料，自 {span?.start ?? "2026-10-02"} 起逐日累積。</EmptyState>
           )}
-          <p className="mt-2 text-sm text-ink-2">
-            證交所開放資料，未還原權值，自 {span?.start ?? "2026-10-02"} 起逐日累積；均線、指標與放量標記是價量計算，不是模型訊號。
-            <HelpLink to="chart" className="ml-1" />
-          </p>
         </Panel>
 
-        <div className="space-y-5">
+        <div className="space-y-14">
           <Panel
             title="相對強弱排序"
             description={rank.data ? `基準日 ${rank.data.base_date}，預測未來 5 個交易日` : undefined}
+            actions={
+              <Hint to="rank" anchor="groups" label="相對強弱排序">
+                <p>相對排名靠前，仍可能下跌；分數是贏過中位數的模型機率，沒有校準。候選資格另依篩選條件判定。</p>
+              </Hint>
+            }
           >
             {r && rank.data ? (
               <>
@@ -272,15 +281,15 @@ function StockView() {
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm text-ink-2">
-                    第 <span className="text-2xl font-semibold text-ink">{r.rank}</span> 名，共 {rank.data.results.length} 檔
+                    第 <span className="text-[32px] font-light text-ink">{r.rank}</span> 名，共 {rank.data.results.length} 檔
                   </p>
-                  <Badge tone={QUANTILE[r.quantile].tone}>{QUANTILE[r.quantile].text}</Badge>
+                  <span className="text-xs text-ink-2">{QUANTILE[r.quantile]}</span>
                 </div>
                 <div className="mt-3 flex items-center gap-3">
-                  <RankBar score={r.score} maxDev={rankMaxDev(rank.data.results)} className="flex-1" />
-                  <span className="text-sm text-ink-2">模型分數 {r.score.toFixed(3)}</span>
+                  <Magnitude percentile={r.percentile} />
+                  <span className="text-sm text-ink-2">模型分數 {r.score.toFixed(3)}，星等依百分位</span>
                 </div>
-                <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 text-sm">
+                <dl className="mt-3 grid grid-cols-2 gap-2 hairline-t pt-3 text-sm">
                   <div>
                     <dt className="text-xs text-ink-3">百分位</dt>
                     <dd className="text-ink">{share(r.percentile)}</dd>
@@ -290,11 +299,7 @@ function StockView() {
                     <dd className="text-ink">{s ? (s.tier ? `${s.tier}：${TIER_TITLE[s.tier]}` : "未列入候選") : "—"}</dd>
                   </div>
                 </dl>
-                <p className="mt-3 text-sm leading-relaxed text-ink-2">
-                  相對排名靠前，仍可能下跌；候選資格另依篩選條件判定。
-                  <HelpLink to="rank" className="ml-1" />
-                </p>
-                <Link href="/scan" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
+                <Link href="/scan" className="mt-2 inline-block text-xs font-medium link">
                   看全部 {rank.data.results.length} 檔的排序
                 </Link>
               </>
@@ -318,7 +323,7 @@ function StockView() {
           </Panel>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-14">
           <Panel title="模型輸入的技術指標">
             {indicators.data ? (
               <IndicatorPanel indicators={indicators.data} />
@@ -335,23 +340,22 @@ function StockView() {
           >
             {s && screener.data ? (
               <>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-semibold text-ink">{fixed(s.composite, 0)}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-3">
+                    {sPercentile != null && <Magnitude percentile={sPercentile} />}
+                    <span className="text-[32px] font-light leading-none text-ink">{fixed(s.composite, 0)}</span>
+                  </span>
                   <span className="text-xs text-ink-2">{s.tier ? `${s.tier}：${TIER_TITLE[s.tier]}` : `未列入候選（不符合 ${s.misses} 項）`}</span>
                 </div>
-                <ScoreBar stock={s} weights={screener.data.weights} className="mt-2 h-2.5" />
-                <dl className="mt-3 grid grid-cols-5 gap-1 text-center">
+                <dl className="mt-4 grid grid-cols-5 gap-1 text-center">
                   {COMPONENTS.map((c) => (
                     <div key={c.key}>
-                      <dt className="flex items-center justify-center gap-1 text-xs text-ink-3">
-                        <span className="inline-block size-2 rounded-[2px]" style={{ background: c.color }} aria-hidden="true" />
-                        {c.label}
-                      </dt>
+                      <dt className="text-xs text-ink-3">{c.label}</dt>
                       <dd className="text-sm text-ink-2">{fixed(s.components[c.key], 0)}</dd>
                     </div>
                   ))}
                 </dl>
-                <Link href={`/screener?t=${encodeURIComponent(ticker)}`} className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
+                <Link href={`/screener?t=${encodeURIComponent(ticker)}`} className="mt-3 inline-block text-xs font-medium link">
                   看條件與入選理由
                 </Link>
               </>
@@ -363,7 +367,7 @@ function StockView() {
           </Panel>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-14">
           <ChipsPanel ticker={ticker} />
 
           {adr.isProxy ? null : (
@@ -374,7 +378,7 @@ function StockView() {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
+      <div className="mt-14 grid grid-cols-1 gap-x-14 gap-y-14 lg:grid-cols-2 lg:items-start">
         <Panel title={`線上預測實證（${ticker}）`}>
           <TrackRecordCard ticker={ticker} records={history.data?.records ?? []} trackRecord={trackRecord.data ?? null} />
         </Panel>
@@ -384,9 +388,9 @@ function StockView() {
       </div>
 
       {adr.isProxy && (
-        <details className="mt-5 rounded-lg border border-border bg-surface">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-ink">跨市場背景：美股科技大盤（QQQ）的新聞情緒</summary>
-          <div className="border-t border-border px-4 py-3">
+        <details className="hairline-t hairline-b mt-14">
+          <summary className="cursor-pointer py-4 font-serif text-[15px] font-semibold text-ink">跨市場背景：美股科技大盤（QQQ）的新聞情緒</summary>
+          <div className="hairline-t py-4">
             <p className="mb-2 text-sm text-ink-2">{info?.name ?? code(ticker)} 沒有美股 ADR，新聞站也沒有它的英文新聞；這裡只是美股科技大盤的背景，不是這家公司的新聞。</p>
             <SentimentCard twTicker={ticker} compact />
           </div>

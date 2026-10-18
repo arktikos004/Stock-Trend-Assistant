@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
-import HelpLink from "@/components/ui/HelpLink";
+import Hint from "@/components/ui/Hint";
 import Panel from "@/components/ui/Panel";
 import { api, type ChipsMarginDay, type ChipsResponse } from "@/lib/api";
 import { count, latest, linePath, nearestIndex, niceTicks, percent, pp, price, sourceLine } from "@/lib/chips";
@@ -20,7 +20,7 @@ function Stat({ label, value, unit, note }: { label: string; value: string; unit
     <div>
       <dt className="text-xs text-ink-3">{label}</dt>
       <dd className="mt-0.5">
-        <span className="text-lg font-semibold text-ink">{value}</span>
+        <span className="text-xl font-light text-ink">{value}</span>
         {unit && <span className="ml-1 text-sm text-ink-2">{unit}</span>}
         {note && <span className="block text-xs text-ink-3">{note}</span>}
       </dd>
@@ -149,9 +149,9 @@ function BalanceTrend({ days }: { days: ChipsMarginDay[] }) {
                     );
                   })}
                   {segments.map((d) => (
-                    <path key={d} d={d} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                    <path key={d} d={d} fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
                   ))}
-                  {mark && <circle cx={mark.x} cy={mark.y} r={4} fill="var(--series-1)" stroke="var(--surface)" strokeWidth={2} />}
+                  {mark && <circle cx={mark.x} cy={mark.y} r={4} fill="var(--ink)" stroke="var(--background)" strokeWidth={2} />}
                 </g>
               </g>
             );
@@ -176,7 +176,7 @@ function BalanceTrend({ days }: { days: ChipsMarginDay[] }) {
       )}
       {shown && active != null && (
         <div
-          className="pointer-events-none absolute z-10 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-xs leading-relaxed whitespace-nowrap shadow-[var(--shadow-pop)]"
+          className="pointer-events-none absolute z-10 rounded-[4px] border border-border bg-surface px-3 py-2 text-xs leading-relaxed whitespace-nowrap shadow-(--shadow-pop)"
           style={{
             top: TITLE_H,
             left: xAt(active),
@@ -221,16 +221,16 @@ const TABLE_COLUMNS: { label: string; value: (d: ChipsMarginDay) => string }[] =
 /** 逐日明細（新到舊）：圖的表格版，也是資料來源顯名的位置 */
 function DailyTable({ data }: { data: ChipsResponse }) {
   return (
-    <details className="mt-3 rounded-md border border-border">
-      <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-ink-2 hover:text-ink">逐日明細與資料來源</summary>
-      <div className="border-t border-border px-3 pb-3">
+    <details className="hairline-t mt-5">
+      <summary className="cursor-pointer py-3 text-sm text-ink-2 hover:text-ink">逐日明細與資料來源</summary>
+      <div className="pb-3">
         {data.margin.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full whitespace-nowrap text-table">
               <caption className="sr-only">逐日融資融券（單位：張），新到舊；融資成本與維持率為本站估算</caption>
               <thead>
                 <tr className="text-xs text-ink-3">
-                  <th scope="col" className="sticky left-0 bg-surface py-2 pr-3 text-left font-normal">
+                  <th scope="col" className="sticky left-0 bg-background py-2 pr-3 text-left font-normal">
                     日期
                   </th>
                   {TABLE_COLUMNS.map((c) => (
@@ -242,8 +242,8 @@ function DailyTable({ data }: { data: ChipsResponse }) {
               </thead>
               <tbody>
                 {[...data.margin].reverse().map((d) => (
-                  <tr key={d.date} className="border-t border-border">
-                    <th scope="row" className="sticky left-0 bg-surface py-1.5 pr-3 text-left font-normal text-ink-2">
+                  <tr key={d.date} className="hairline-t">
+                    <th scope="row" className="sticky left-0 bg-background py-1.5 pr-3 text-left font-normal text-ink-2">
                       {d.date}
                     </th>
                     {TABLE_COLUMNS.map((c) => (
@@ -270,7 +270,6 @@ function DailyTable({ data }: { data: ChipsResponse }) {
 
 function ChipsBody({ data }: { data: ChipsResponse }) {
   const { day, week, prevWeek } = latest(data);
-  const start = data.meta.margin_start ?? data.meta.holders_start;
   const holderNote = (change: number | null, holders: number | null) =>
     [change != null && `${pp(change)} 百分點`, holders != null && `${count(holders)} 人`].filter(Boolean).join("，") || undefined;
   return (
@@ -282,7 +281,7 @@ function ChipsBody({ data }: { data: ChipsResponse }) {
             <Stat label="融券餘額" value={count(day.short_balance)} unit="張" note={`較前日 ${count(day.short_change, true)}`} />
           </dl>
           <BalanceTrend days={data.margin} />
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-border pt-3">
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 hairline-t pt-3">
             <Item label="融資使用率" value={percent(day.margin_usage_pct)} />
             <Item label="券資比" value={percent(day.short_margin_pct)} />
             <Item label="融資成本（估）" value={price(day.margin_cost)} note={data.meta.cost_start ? `自 ${data.meta.cost_start} 起算` : undefined} />
@@ -293,7 +292,7 @@ function ChipsBody({ data }: { data: ChipsResponse }) {
         </>
       )}
       {week && (
-        <div className={day ? "mt-3 border-t border-border pt-3" : ""}>
+        <div className={day ? "mt-3 hairline-t pt-3" : ""}>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
             <Item label="千張大戶持股" value={percent(week.big_pct)} note={holderNote(week.big_pct_change, week.big_holders)} />
             <Item label="400 張以上持股" value={percent(week.over400_pct)} note={holderNote(week.over400_pct_change, week.over400_holders)} />
@@ -304,10 +303,6 @@ function ChipsBody({ data }: { data: ChipsResponse }) {
           </p>
         </div>
       )}
-      <p className="mt-3 text-sm leading-relaxed text-ink-2">
-        證交所、集保開放資料，自 {start} 起逐日累積；成本與維持率為{data.meta.estimate_label}。
-        <HelpLink to="chips" className="ml-1" />
-      </p>
       <DailyTable data={data} />
     </>
   );
@@ -321,6 +316,15 @@ export default function ChipsPanel({ ticker }: { ticker: string }) {
     <Panel
       title="融資融券與大戶持股"
       description={day ? `資料日 ${day.date}` : week ? `集保資料日 ${week.date}` : undefined}
+      actions={
+        data && (
+          <Hint to="chips" anchor="sources" label="融資融券與大戶持股">
+            <p>
+              證交所、集保開放資料，自 {data.meta.margin_start ?? data.meta.holders_start} 起逐日累積；融資成本與維持率為{data.meta.estimate_label}，不是任何一位投資人的實際成本。
+            </p>
+          </Hint>
+        )
+      }
     >
       {chips.loading ? (
         <Skeleton className="h-72 w-full" />

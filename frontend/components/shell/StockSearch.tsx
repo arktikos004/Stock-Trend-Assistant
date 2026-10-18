@@ -65,7 +65,7 @@ export default function StockSearch({
 
   return (
     <div className={`relative ${className}`}>
-      <Search size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+      <Search size={15} className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
       <input
         type="search"
         role="combobox"
@@ -85,14 +85,14 @@ export default function StockSearch({
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
-        className="h-9 w-full rounded-md border border-border bg-surface-2 pl-8 pr-3 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-ink-3 focus:border-accent focus:bg-surface"
+        className="hairline-b h-9 w-full text-ellipsis bg-transparent pl-6 pr-1 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-ellipsis placeholder:text-ink-3 focus:border-b-accent-mark"
       />
       {showList && (
         <ul
           id={listId}
           role="listbox"
           aria-label="搜尋結果"
-          className="absolute right-0 z-40 mt-1 max-h-80 w-full min-w-56 overflow-auto rounded-md border border-border bg-surface py-1 shadow-(--shadow-pop)"
+          className="absolute right-0 z-40 mt-1 max-h-80 w-full min-w-56 overflow-auto rounded-[4px] border border-border bg-surface py-1 shadow-(--shadow-pop)"
         >
           {results.map((s, i) => (
             <li
@@ -110,14 +110,14 @@ export default function StockSearch({
                 i === active ? "bg-surface-2 text-ink" : "text-ink-2"
               }`}
             >
-              <span className="truncate">{s.name}</span>
+              <span className="truncate font-serif">{s.name}</span>
               <span className="text-xs text-ink-3">{code(s.ticker)}</span>
             </li>
           ))}
         </ul>
       )}
       {showEmpty && (
-        <p className="absolute right-0 z-40 mt-1 w-full min-w-56 rounded-md border border-border bg-surface px-3 py-2 text-xs text-ink-3 shadow-(--shadow-pop)">
+        <p className="absolute right-0 z-40 mt-1 w-full min-w-56 rounded-[4px] border border-border bg-surface px-3 py-2 text-xs text-ink-3 shadow-(--shadow-pop)">
           找不到「{query.trim()}」。本站只有台灣 50 成分股的資料。
         </p>
       )}

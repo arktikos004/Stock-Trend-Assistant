@@ -23,7 +23,7 @@ export default function IndicatorPanel({ indicators }: { indicators: IndicatorsR
   return (
     <div>
       <p className="mb-1 text-sm text-ink-2">Yahoo 還原權值計算，供預測模型使用；看盤用的指標在上方 K 線副圖。</p>
-      <dl className="divide-y divide-border">
+      <dl className="divide-hairline">
         <Row
           name="RSI（14）"
           value={(rsi * 100).toFixed(0)}

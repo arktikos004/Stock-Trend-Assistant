@@ -13,7 +13,8 @@ import CopyButton from "@/components/ui/CopyButton";
 import { Skeleton } from "@/components/ui/Feedback";
 import Panel from "@/components/ui/Panel";
 import type { LedgerSnapshot, MonitorResponse } from "@/lib/api";
-import HelpLink from "@/components/ui/HelpLink";
+import LedgerStars from "@/components/overview/LedgerStars";
+import Hint from "@/components/ui/Hint";
 import { taipeiTime } from "@/lib/format";
 import { LINKS, REPO_URL } from "@/lib/links";
 
@@ -56,15 +57,17 @@ export function pendingDays(days: string[]): string {
 export default function LedgerPanel({
   snapshot,
   fallback,
+  className,
 }: {
   snapshot: LedgerSnapshot | null | undefined; // undefined＝讀取中；null＝這一版網站資料沒有快照
   fallback: MonitorResponse["ledger"] | undefined;
+  className?: string;
 }) {
   const ok = snapshot ? snapshot.ok : fallback?.ok;
   const available = snapshot ? snapshot.available : fallback?.available;
   const badge = available ? (
     ok ? (
-      <Badge tone="accent" icon={ShieldCheck}>
+      <Badge tone="neutral" icon={ShieldCheck}>
         驗證通過
       </Badge>
     ) : (
@@ -76,7 +79,7 @@ export default function LedgerPanel({
 
   if (snapshot === undefined || (snapshot === null && !fallback)) {
     return (
-      <Panel title="存證">
+      <Panel className={className} title="存證">
         <div className="space-y-2">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-4 w-1/2" />
@@ -88,12 +91,13 @@ export default function LedgerPanel({
   if (snapshot === null) {
     // 舊版網站資料：只有匯出當下的摘要
     return (
-      <Panel title="存證" actions={badge}>
+      <Panel className={className} title="存證" actions={badge}>
         {!fallback?.available ? (
           <p className="text-sm text-ink-2">這次匯出沒有取得存證鏈檔，下一次每日排程會重試。</p>
         ) : (
           <>
-            <dl className="space-y-2 text-sm">
+            <LedgerStars entries={fallback.entries} verified={fallback.ok} />
+            <dl className="mt-4 space-y-2 text-sm">
               <Row label="鏈節">{fallback.entries} 節</Row>
               <Row label="已上鏈">
                 排序 {(fallback.chained.rank_predictions ?? 0).toLocaleString()} 列，方向 {(fallback.chained.predictions ?? 0).toLocaleString()} 列
@@ -110,12 +114,13 @@ export default function LedgerPanel({
   const head = snapshot.head;
   const pending = total(snapshot.pending);
   return (
-    <Panel title="存證" description={`快照 ${taipeiTime(snapshot.snapshot_at)}（上鏈之後匯出）`} actions={badge}>
+    <Panel className={className} title="存證" description={`快照 ${taipeiTime(snapshot.snapshot_at)}（上鏈之後匯出）`} actions={badge}>
       {!snapshot.available ? (
         <p className="text-sm text-ink-2">這次匯出沒有取得存證鏈檔，下一次每日排程會重試。</p>
       ) : (
         <>
-          <dl className="space-y-2 text-sm">
+          <LedgerStars entries={snapshot.entries} verified={snapshot.ok} />
+          <dl className="mt-4 space-y-2 text-sm">
             <Row label="驗證截至">{snapshot.verified_through ? `${snapshot.verified_through} 的基準日` : "—"}</Row>
             <Row label="尚未上鏈">{pending > 0 ? `${pending.toLocaleString()} 列（基準日 ${pendingDays(snapshot.pending_base_dates)}）` : "沒有"}</Row>
             {head && (
@@ -127,11 +132,11 @@ export default function LedgerPanel({
           {snapshot.problems.length > 0 && <p className="mt-3 text-sm text-ink">{snapshot.problems[0]}</p>}
           <p className="mt-3 text-sm text-ink-2">
             只能證明上鏈之後沒有被修改。
-            <HelpLink to="ledger" className="ml-1" />
+            <Hint to="ledger" className="ml-1" />
           </p>
 
-          <details className="mt-3 border-t border-border pt-3 text-xs">
-            <summary className="cursor-pointer text-accent">技術細節：雜湊與自己驗證</summary>
+          <details className="hairline-t mt-4 pt-3 text-xs">
+            <summary className="cursor-pointer text-ink-2 hover:text-ink">技術細節：雜湊與自己驗證</summary>
             {head && (
               <dl className="mt-2 space-y-1">
                 <div className="flex justify-between gap-2">
@@ -154,7 +159,7 @@ export default function LedgerPanel({
               </dl>
             )}
             <p className="mt-3 text-ink-2">自己驗證：下載 ledger.py、predictions.db 與 chain.jsonl 後執行</p>
-            <div className="mt-1.5 flex items-center gap-1 rounded-md bg-surface-2 py-1 pl-2.5 pr-1">
+            <div className="mt-1.5 flex items-center gap-1 rounded-[3px] bg-surface-2 py-1 pl-2.5 pr-1">
               <code className="min-w-0 flex-1 font-mono text-xs leading-relaxed text-ink">
                 {VERIFY_PARTS.map((part, i) => (
                   <Fragment key={part}>
@@ -166,13 +171,13 @@ export default function LedgerPanel({
               <CopyButton text={VERIFY_CMD} label="驗證指令" />
             </div>
             <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-              <a className="inline-flex items-center gap-1 text-accent hover:underline" href={LINKS.ledger} target="_blank" rel="noopener noreferrer">
+              <a className="inline-flex items-center gap-1 link" href={LINKS.ledger} target="_blank" rel="noopener noreferrer">
                 下載方式與驗證說明
                 <ExternalLink size={12} aria-hidden="true" />
               </a>
               {head?.run_id && (
                 <a
-                  className="inline-flex items-center gap-1 text-accent hover:underline"
+                  className="inline-flex items-center gap-1 link"
                   href={`${REPO_URL}/actions/runs/${head.run_id}`}
                   target="_blank"
                   rel="noopener noreferrer"

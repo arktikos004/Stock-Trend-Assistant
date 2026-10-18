@@ -357,8 +357,8 @@ export default function CandleChart({ candles, history, height }: { candles: Can
                 type="button"
                 aria-pressed={on}
                 onClick={() => setShow((s) => ({ ...s, [l.key]: !s[l.key] }))}
-                className={`inline-flex min-h-8 items-center gap-1 rounded-md border px-2.5 text-xs transition-colors duration-150 ${
-                  on ? "border-accent bg-accent-soft font-semibold text-accent" : "border-border text-ink-2 hover:bg-surface-2 hover:text-ink"
+                className={`inline-flex min-h-8 items-center gap-1 rounded-[3px] border px-2.5 text-xs transition-colors duration-150 ${
+                  on ? "border-ink-3 font-medium text-ink" : "border-border text-ink-3 hover:border-border-strong hover:text-ink"
                 }`}
               >
                 {on && <Check size={12} aria-hidden="true" />}
@@ -387,7 +387,6 @@ export default function CandleChart({ candles, history, height }: { candles: Can
           ))}
           {change != null && (
             <span className="font-semibold" style={{ color: toneVar(change) }}>
-              {change > 0 ? "▲ " : change < 0 ? "▼ " : ""}
               {pct(change, 2)}
             </span>
           )}
@@ -413,7 +412,7 @@ export default function CandleChart({ candles, history, height }: { candles: Can
           )}
           {show.signals && sig && (
             <span className="font-semibold" style={{ color: sig === "breakout" ? "var(--up)" : "var(--down)" }}>
-              {sig === "breakout" ? "▲ 放量突破" : "▼ 放量跌破"}
+              {sig === "breakout" ? "放量突破" : "放量跌破"}
             </span>
           )}
         </div>
@@ -429,10 +428,10 @@ export default function CandleChart({ candles, history, height }: { candles: Can
         />
         {boxes && (
           <div aria-hidden="true" className="pointer-events-none text-xs text-ink-3">
-            <span className="absolute left-1.5 rounded bg-surface/80 px-1" style={{ top: boxes.volume.top + 2 }}>
+            <span className="absolute left-1.5 rounded-[3px] bg-background/80 px-1" style={{ top: boxes.volume.top + 2 }}>
               成交量（張）
             </span>
-            <span className="absolute left-1.5 rounded bg-surface/80 px-1" style={{ top: boxes.indicator.top + 2 }}>
+            <span className="absolute left-1.5 rounded-[3px] bg-background/80 px-1" style={{ top: boxes.indicator.top + 2 }}>
               {PANE_TITLE[indicator]}
             </span>
             {empty && (

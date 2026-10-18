@@ -42,7 +42,7 @@ export default function SentimentCard({ twTicker, compact = false }: { twTicker:
       {!compact && isProxy && <p className="text-sm text-ink-2">這檔沒有美股 ADR，改看美股科技大盤（QQQ）的新聞情緒</p>}
 
       {error != null && (
-        <p className="mt-3 rounded-md bg-surface-2 px-3 py-2 text-xs text-ink-2">
+        <p className="mt-3 rounded-[3px] bg-surface-2 px-3 py-2 text-xs text-ink-2">
           {process.env.NEXT_PUBLIC_STATIC_DATA === "1"
             ? "新聞站的情緒資料暫時讀不到。稍後重新整理再試。"
             : "新聞站的後端（:8001）沒有啟動。"}
@@ -54,9 +54,9 @@ export default function SentimentCard({ twTicker, compact = false }: { twTicker:
         <>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
             {data.insufficient ? (
-              <span className="text-2xl font-semibold text-ink-2">資料不足</span>
+              <span className="font-serif text-[28px] font-semibold text-ink-2">資料不足</span>
             ) : (
-              <span className="text-2xl font-semibold" style={{ color: `var(${LABEL[data.label].varName})` }}>
+              <span className="font-serif text-[28px] font-semibold" style={{ color: `var(${LABEL[data.label].varName})` }}>
                 {LABEL[data.label].text}
               </span>
             )}
@@ -76,7 +76,7 @@ export default function SentimentCard({ twTicker, compact = false }: { twTicker:
           {!compact && data.keywords.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="熱門關鍵字">
               {data.keywords.slice(0, 5).map((k) => (
-                <li key={k.word} className="rounded-md bg-surface-2 px-2 py-0.5 text-xs text-ink-2">
+                <li key={k.word} className="rounded-[3px] bg-surface-2 px-2 py-0.5 text-xs text-ink-2">
                   {k.word}
                 </li>
               ))}
@@ -91,7 +91,7 @@ export default function SentimentCard({ twTicker, compact = false }: { twTicker:
         </>
       )}
 
-      <p className="mt-3 border-t border-border pt-2 text-sm leading-relaxed text-ink-2">
+      <p className="mt-3 hairline-t pt-2 text-sm leading-relaxed text-ink-2">
         英文新聞的情緒，不是預測模型的輸入；正面用「漲」的顏色（預設紅色，可在選單切換）。
       </p>
     </div>

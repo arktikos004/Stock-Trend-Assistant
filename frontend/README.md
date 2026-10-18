@@ -32,8 +32,9 @@ npx tsc --noEmit
 
 | 位置 | 內容 |
 | --- | --- |
-| `app/` | 五個頁面：`/` 總覽、`/stock` 個股、`/scan` 排序、`/screener` 篩選器、`/monitor` 監控 |
-| `components/shell/` | 全站外框：頂列與手機底部分頁列、狀態列、選單抽屜、代號搜尋 |
-| `components/ui/` | 共用元件：面板、頁首、徽章、分段切換、骨架與空狀態 |
+| `app/` | 頁面：`/` 總覽、`/stock` 個股、`/scan` 排序、`/screener` 篩選器、`/monitor` 監控、`/docs` 文件中心（舊的 `/method#段落` 轉到對應主題） |
+| `components/shell/` | 全站外框：頂列（含資料戳記）、手機底部分頁列、選單抽屜、代號搜尋 |
+| `components/ui/` | 共用元件：面板、頁首、徽章、分段切換、點開才看到的提示（連到文件中心）、骨架與空狀態 |
+| `components/docs/`、`lib/docs.ts` | 文件中心：各主題的內容，以及目錄、搜尋與舊錨點轉址共用的索引 |
 | `lib/api.ts` | API client；靜態站模式下由瀏覽器端切片 JSON，規則逐一對照後端路由 |
-| `app/globals.css` | 設計 token（淺色、深色、跟隨系統） |
+| `app/globals.css` | 設計 token（深色為預設、淺色、跟隨系統） |

@@ -1,16 +1,16 @@
 /**
  * 篩選器的組成、條件與分數拆解（規則見 docs/screener_prereg.md）。篩選頁與個股頁共用。
- * 組成的顏色是驗證過的類別色（globals.css 的 --series-1..5，避開台股漲跌的紅綠），順序＝堆疊順序。
+ * 綜合評分和排序表一樣畫成星等點（依它在股票池裡的百分位）；各組成只寫數字，不另用顏色。
  */
 
 import type { ConditionKey, ScreenerComponentKey, ScreenerResponse, ScreenerStock } from "@/lib/api";
 
-export const COMPONENTS: { key: ScreenerComponentKey; label: string; color: string; hint: string }[] = [
-  { key: "rank", label: "排序", color: "var(--series-1)", hint: "相對強弱排序模型的百分位" },
-  { key: "momentum", label: "動能", color: "var(--series-2)", hint: "20 日、60 日報酬的百分位" },
-  { key: "valuation", label: "評價", color: "var(--series-3)", hint: "盈餘殖利率、現金殖利率、淨值市價比" },
-  { key: "revenue", label: "營收", color: "var(--series-4)", hint: "月營收與累計營收年增率；金融保險業不計" },
-  { key: "chips", label: "籌碼", color: "var(--series-5)", hint: "融資餘額變化、千張大戶持股週變化" },
+export const COMPONENTS: { key: ScreenerComponentKey; label: string; hint: string }[] = [
+  { key: "rank", label: "排序", hint: "相對強弱排序模型的百分位" },
+  { key: "momentum", label: "動能", hint: "20 日、60 日報酬的百分位" },
+  { key: "valuation", label: "評價", hint: "盈餘殖利率、現金殖利率、淨值市價比" },
+  { key: "revenue", label: "營收", hint: "月營收與累計營收年增率；金融保險業不計" },
+  { key: "chips", label: "籌碼", hint: "融資餘額變化、千張大戶持股週變化" },
 ];
 
 export const CONDITIONS: Record<ConditionKey, string> = {
@@ -35,4 +35,16 @@ export function contributions(stock: ScreenerStock, weights: ScreenerResponse["w
     const weight = weights[c.key] / total;
     return { ...c, score, weight, value: weight * score };
   });
+}
+
+/** 綜合評分在股票池裡的百分位（0＝最低、1＝最高，同分取平均；沒有綜合評分的不列入）：星等點用它，和排序表同一把尺 */
+export function compositePercentiles(stocks: ScreenerStock[]): Map<string, number> {
+  const scored = stocks.filter((s): s is ScreenerStock & { composite: number } => s.composite != null);
+  const out = new Map<string, number>();
+  for (const s of scored) {
+    const below = scored.filter((o) => o.composite < s.composite).length;
+    const ties = scored.filter((o) => o.composite === s.composite).length - 1;
+    out.set(s.ticker, scored.length > 1 ? (below + ties / 2) / (scored.length - 1) : 1);
+  }
+  return out;
 }

@@ -1,67 +1,61 @@
 @import "tailwindcss";
 
-/* ── 設計 token：深色交易終端──────────
-   預設深色（使用者 2026-10-10 指定）：深藍黑底、單一電光藍強調色、交易所式鮮明紅綠；選單可切淺色或跟隨系統，
-   html[data-theme] 決定。漲跌色只表示方向（預設漲紅跌綠，選單可改綠漲紅跌，html[data-updown] 決定），等級與狀態一律另附文字；
-   每個文字色在所有底色上都 ≥ 4.5:1（WCAG AA）。
-   光暈只用在選中分頁與鍵盤焦點框，面板不加光暈也不加陰影。 */
+/* ── 設計 token：星圖 ──────────
+   預設深色「野外版」：夜空藍底、粉筆白字、霧灰細線；選單可切淺色「桌上版」（白紙、夜空藍墨字）或跟隨系統，html[data-theme] 決定。
+   唯一強調色是琥珀，只標「看這裡」：目前分頁、焦點框、今天那一節存證、留意；原型的紅橙色和「紅＝漲」衝突，所以改成琥珀。
+   漲跌色只表示方向（預設漲紅跌綠，選單可改綠漲紅跌，html[data-updown] 決定），等級與狀態一律另附文字；
+   每個文字色在所有底色上都 ≥ 4.5:1（WCAG AA）。不加框、不加陰影、不發光：層次靠細線與留白。 */
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #0a0f1a;
-  --surface: #0f1623;
-  --surface-2: #151e2e;
-  --surface-3: #1c2739;
-  --border: #1e2a3c;
-  --border-strong: #2d3c54;
-  --ink: #e7eef8;
-  --ink-2: #a3b3c9;
-  --ink-3: #8494ab;
+  --background: #0a1021; /* 夜空 */
+  --surface: #0e152a; /* 浮在內容上的層：抽屜、搜尋清單、提示 */
+  --surface-2: #131c33; /* hover、分段切換的軌道 */
+  --surface-3: #1a2541; /* 骨架、軌道 */
+  --border: #232b40; /* 霧灰細線 */
+  --border-strong: #36405a;
+  --ink: #f2f2e9; /* 粉筆白 */
+  --ink-2: #b7bdcb;
+  --ink-3: #8c95a9;
 
-  --accent: #3d8bff; /* 電光藍：選中分頁、連結、分數條、焦點框 */
-  --accent-hover: #6aa6ff;
-  --accent-fg: #050b16; /* 電光藍底上的字用深色（白字只有 3.3:1） */
-  --accent-soft: #0e2142;
-  --accent-glow: rgba(61, 139, 255, 0.45); /* 只給選中分頁與焦點框 */
+  --accent: #f2b84b; /* 琥珀：目前位置、焦點、今天、留意 */
+  --accent-fg: #0a1021;
+  --accent-mark: #f2b84b; /* 圖形上的琥珀（星的圈、目前分頁的點） */
+  --star: #f2f2e9; /* 星點 */
 
-  --up: #f85a6e; /* 漲：交易所紅（比 #f6465d 稍亮，最淺的面板上仍 ≥ 4.5:1） */
+  --up: #f85a6e;
   --up-soft: #2e121b;
-  --down: #0ecb81; /* 跌：交易所綠 */
+  --down: #0ecb81;
   --down-soft: #0b2a20;
-  --hold: #8f9db3; /* 觀望、中性 */
-  --hold-soft: #1c2739;
-  --warn: #f0b90b;
-  --warn-soft: #2b2208;
+  --hold: #9aa4b8;
+  --hold-soft: #1a2541;
+  --warn: #f2b84b;
+  --warn-soft: #2a2618;
 
   /* 類別色（篩選器綜合評分的五個組成：排序、動能、評價、營收、籌碼）。避開紅綠；
-     順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過（深色在 #0f1623 上重驗） */
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #9085e9;
-  --series-4: #c98500;
-  --series-5: #d55181;
+     順序即色盲安全機制，以 dataviz 的 validate_palette 在 #0a1021 上驗過 */
 
   --chart-up: #f6465d;
   --chart-down: #0ecb81;
   --chart-up-vol: rgba(246, 70, 93, 0.35);
   --chart-down-vol: rgba(14, 203, 129, 0.35);
-  --chart-grid: rgba(122, 156, 214, 0.08);
+  --chart-grid: rgba(140, 149, 169, 0.12);
   /* K 線圖的線色：依序是 MA5、10、20、60、120；乖離率沿用同週期均線的顏色，KD、RSI、MACD 的兩條線用 1、2。
-     避開漲紅跌綠；相鄰兩色以 dataviz 的 validate_palette 在 #0f1623 上驗過，對面板底色都 ≥ 3:1 */
+     避開漲紅跌綠；以 dataviz 的 validate_palette 在 #0a1021 上驗過，對底色都 ≥ 3:1 */
   --chart-line-1: #c98500;
   --chart-line-2: #6887ff;
   --chart-line-3: #bf1db2;
   --chart-line-4: #6440fd;
   --chart-line-5: #0ca3be;
-  --chart-ref: #66758b; /* 參考線：前高／前低、KD 與 RSI 的 80／50／20、MACD 與乖離率的 0 */
+  --chart-ref: #66708a;
 
-  --selection: rgba(61, 139, 255, 0.3);
-  --scrim: rgba(2, 6, 14, 0.62);
-  --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.55);
+  --selection: rgba(242, 184, 75, 0.28);
+  --scrim: rgba(4, 7, 16, 0.7);
+  --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* 綠漲紅跌（html[data-updown="green-up"]）：只對調漲跌的 token，狀態、警示與強調色不動。每個主題的色值不同，各寫一份：
-   深色這份與上面同權重，靠寫在後面生效；淺色與跟隨系統那兩份多一個屬性選擇器，權重較高，蓋過這份 */
+/* 綠漲紅跌（html[data-updown="green-up"]）：只對調漲跌的 token。深色這份與上面同權重，靠寫在後面生效；
+   淺色與跟隨系統那兩份多一個屬性選擇器，權重較高，蓋過這份 */
 :root[data-updown="green-up"] {
   --up: #0ecb81;
   --up-soft: #0b2a20;
@@ -75,55 +69,48 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --background: #f5f6f8;
+  --background: #ffffff; /* 白紙 */
   --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --surface-3: #e7eaef;
-  --border: #dde1e7;
-  --border-strong: #c5ccd6;
-  --ink: #111827;
-  --ink-2: #4b5563;
-  --ink-3: #5f6877;
+  --surface-2: #f3f4f7;
+  --surface-3: #e8eaf0;
+  --border: #e1e4ea;
+  --border-strong: #c7ccd6;
+  --ink: #0a1021; /* 夜空藍墨 */
+  --ink-2: #3f4759;
+  --ink-3: #596173;
 
-  --accent: #1d4ed8;
-  --accent-hover: #1e40af;
+  --accent: #8a5a00; /* 白紙上的琥珀要夠深才讀得到 */
   --accent-fg: #ffffff;
-  --accent-soft: #e8eefc;
-  --accent-glow: transparent; /* 淺色主題不加光暈 */
+  --accent-mark: #d99a1e;
+  --star: #0a1021;
 
-  --up: #c0262d; /* 漲：台股紅 */
+  --up: #c0262d;
   --up-soft: #fdecec;
-  --down: #13703a; /* 跌：台股綠 */
+  --down: #13703a;
   --down-soft: #e6f4ea;
-  --hold: #5b6472; /* 觀望、中性 */
+  --hold: #596173;
   --hold-soft: #eef0f3;
-  --warn: #8a4b06;
-  --warn-soft: #fdf3e2;
+  --warn: #8a5a00;
+  --warn-soft: #fbf1dd;
 
-  /* 類別色（篩選器綜合評分的五個組成：排序、動能、評價、營收、籌碼）。避開紅綠；
-     順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過。黃、粉在淺色底低於 3:1，所以組成分數另以文字列出 */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #4a3aa7;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
+  /* 類別色：以 dataviz 的 validate_palette 在白底上驗過；黃、粉低於 3:1，所以組成分數另以文字列出 */
 
   --chart-up: #d93a3a;
   --chart-down: #14915a;
   --chart-up-vol: rgba(217, 58, 58, 0.3);
   --chart-down-vol: rgba(20, 145, 90, 0.3);
-  --chart-grid: rgba(17, 24, 39, 0.06);
-  /* K 線圖的線色（順序與用法同深色）；相鄰兩色以 dataviz 的 validate_palette 在白底上驗過，都 ≥ 3:1 */
+  --chart-grid: rgba(10, 16, 33, 0.07);
+  /* K 線圖的線色（順序與用法同深色）；以 dataviz 的 validate_palette 在白底上驗過，都 ≥ 3:1 */
   --chart-line-1: #b3880f;
   --chart-line-2: #03528e;
   --chart-line-3: #df4efe;
   --chart-line-4: #4b03d3;
   --chart-line-5: #148ec3;
-  --chart-ref: #8a94a3;
+  --chart-ref: #8a92a3;
 
-  --selection: rgba(29, 78, 216, 0.18);
-  --scrim: rgba(17, 24, 39, 0.42);
-  --shadow-pop: 0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06);
+  --selection: rgba(217, 154, 30, 0.22);
+  --scrim: rgba(10, 16, 33, 0.4);
+  --shadow-pop: 0 12px 32px rgba(10, 16, 33, 0.14), 0 2px 6px rgba(10, 16, 33, 0.06);
 }
 
 :root[data-theme="light"][data-updown="green-up"] {
@@ -137,59 +124,50 @@
   --chart-down-vol: rgba(217, 58, 58, 0.3);
 }
 
-/* 「跟隨系統」：作業系統是淺色時用上面的淺色值，否則沿用預設的深色 */
+/* 「跟隨系統」：作業系統是淺色時用桌上版，否則沿用預設的野外版 */
 @media (prefers-color-scheme: light) {
   :root[data-theme="system"] {
     color-scheme: light;
-    --background: #f5f6f8;
+    --background: #ffffff;
     --surface: #ffffff;
-    --surface-2: #f0f2f5;
-    --surface-3: #e7eaef;
-    --border: #dde1e7;
-    --border-strong: #c5ccd6;
-    --ink: #111827;
-    --ink-2: #4b5563;
-    --ink-3: #5f6877;
+    --surface-2: #f3f4f7;
+    --surface-3: #e8eaf0;
+    --border: #e1e4ea;
+    --border-strong: #c7ccd6;
+    --ink: #0a1021;
+    --ink-2: #3f4759;
+    --ink-3: #596173;
 
-    --accent: #1d4ed8;
-    --accent-hover: #1e40af;
+    --accent: #8a5a00;
     --accent-fg: #ffffff;
-    --accent-soft: #e8eefc;
-    --accent-glow: transparent; /* 淺色主題不加光暈 */
+    --accent-mark: #d99a1e;
+    --star: #0a1021;
 
-    --up: #c0262d; /* 漲：台股紅 */
+    --up: #c0262d;
     --up-soft: #fdecec;
-    --down: #13703a; /* 跌：台股綠 */
+    --down: #13703a;
     --down-soft: #e6f4ea;
-    --hold: #5b6472; /* 觀望、中性 */
+    --hold: #596173;
     --hold-soft: #eef0f3;
-    --warn: #8a4b06;
-    --warn-soft: #fdf3e2;
+    --warn: #8a5a00;
+    --warn-soft: #fbf1dd;
 
-    /* 類別色（篩選器綜合評分的五個組成：排序、動能、評價、營收、籌碼）。避開紅綠；
-       順序即色盲安全機制，兩種主題都以 dataviz 的 validate_palette 驗過。黃、粉在淺色底低於 3:1，所以組成分數另以文字列出 */
-    --series-1: #2a78d6;
-    --series-2: #eb6834;
-    --series-3: #4a3aa7;
-    --series-4: #eda100;
-    --series-5: #e87ba4;
 
     --chart-up: #d93a3a;
     --chart-down: #14915a;
     --chart-up-vol: rgba(217, 58, 58, 0.3);
     --chart-down-vol: rgba(20, 145, 90, 0.3);
-    --chart-grid: rgba(17, 24, 39, 0.06);
-    /* K 線圖的線色（順序與用法同深色）；相鄰兩色以 dataviz 的 validate_palette 在白底上驗過，都 ≥ 3:1 */
+    --chart-grid: rgba(10, 16, 33, 0.07);
     --chart-line-1: #b3880f;
     --chart-line-2: #03528e;
     --chart-line-3: #df4efe;
     --chart-line-4: #4b03d3;
     --chart-line-5: #148ec3;
-    --chart-ref: #8a94a3;
+    --chart-ref: #8a92a3;
 
-    --selection: rgba(29, 78, 216, 0.18);
-    --scrim: rgba(17, 24, 39, 0.42);
-    --shadow-pop: 0 10px 28px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.06);
+    --selection: rgba(217, 154, 30, 0.22);
+    --scrim: rgba(10, 16, 33, 0.4);
+    --shadow-pop: 0 12px 32px rgba(10, 16, 33, 0.14), 0 2px 6px rgba(10, 16, 33, 0.06);
   }
 
   :root[data-theme="system"][data-updown="green-up"] {
@@ -215,9 +193,9 @@
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
   --color-accent-fg: var(--accent-fg);
-  --color-accent-soft: var(--accent-soft);
+  --color-accent-mark: var(--accent-mark);
+  --color-star: var(--star);
   --color-up: var(--up);
   --color-up-soft: var(--up-soft);
   --color-down: var(--down);
@@ -227,13 +205,24 @@
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
 
-  /* 系統字體：拉丁字與數字用平台的介面字，中文落到蘋方／微軟正黑體／思源黑體 */
+  /* 介面與數字用系統字；標題與股名用明體（layout 以 next/font 自帶 Noto Serif TC，變數 --font-ming） */
   --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  --font-serif: var(--font-ming), "Noto Serif TC", "Songti TC", "PMingLiU", serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 
-  /* 固定字級（產品介面不用流動字級）：12 說明與標籤、13 表格、14 內文、15 面板標題、18 統計數值、24 頁面標題與主要數值 */
+  /* 固定字級（產品介面不用流動字級）：12 標籤、13 表格、14 內文、16 文件內文與段落標題、20 數值、30 頁面標題 */
   --text-table: 0.8125rem;
-  --text-table--line-height: 1.4;
+  --text-table--line-height: 1.45;
+}
+
+/* 一個裝置像素的細線：高解析度螢幕上 0.5px */
+:root {
+  --hairline: 1px;
+}
+@media (min-resolution: 2dppx) {
+  :root {
+    --hairline: 0.5px;
+  }
 }
 
 @layer base {
@@ -248,7 +237,7 @@
     color: var(--ink);
     font-family: var(--font-sans);
     font-size: 0.875rem;
-    line-height: 1.6;
+    line-height: 1.65;
     /* 數字一律等寬，表格與跳動的數值才對得齊 */
     font-variant-numeric: tabular-nums;
   }
@@ -263,18 +252,50 @@
   }
 
   a {
-    text-underline-offset: 3px;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 1px;
   }
 
-  /* 放在 base layer：元件可以用 focus-visible:* 改寫 */
+  /* 放在 base layer：元件可以用 focus-visible:* 改寫；琥珀細框，不發光 */
   :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-    box-shadow: 0 0 12px var(--accent-glow);
+    outline: 2px solid var(--accent-mark);
+    outline-offset: 3px;
   }
 
   dialog::backdrop {
     background: var(--scrim);
+  }
+}
+
+@utility hairline-t {
+  border-top: var(--hairline) solid var(--border);
+}
+@utility hairline-b {
+  border-bottom: var(--hairline) solid var(--border);
+}
+@utility hairline-l {
+  border-left: var(--hairline) solid var(--border);
+}
+@utility hairline-r {
+  border-right: var(--hairline) solid var(--border);
+}
+/* 清單與表格列之間的細線 */
+@utility divide-hairline {
+  & > * + * {
+    border-top: var(--hairline) solid var(--border);
+  }
+}
+
+/* 連結：墨色字＋細底線，靠底線辨認而不是顏色；琥珀只在滑過時出現（琥珀專指「看這裡」） */
+@utility link {
+  color: var(--ink);
+  text-decoration-line: underline;
+  text-decoration-color: var(--ink-3);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 150ms;
+  &:hover {
+    text-decoration-color: var(--accent-mark);
   }
 }
 
@@ -285,7 +306,7 @@
   top: -3rem;
   z-index: 60;
   padding: 0.5rem 0.75rem;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--accent);
   color: var(--accent-fg);
   font-weight: 600;
@@ -300,6 +321,6 @@
 }
 @media (min-width: 48rem) {
   .pb-tabbar {
-    padding-bottom: 2.5rem;
+    padding-bottom: 3rem;
   }
 }

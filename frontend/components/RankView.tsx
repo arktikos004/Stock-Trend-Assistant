@@ -9,13 +9,13 @@ import { Download } from "lucide-react";
 import { useMemo } from "react";
 import RankTable from "@/components/rank/RankTable";
 import SkillBanner from "@/components/rank/SkillBanner";
-import HelpLink from "@/components/ui/HelpLink";
 import StrategySummaryCard from "@/components/StrategySummaryCard";
 import { Notice, TableSkeleton } from "@/components/ui/Feedback";
+import Hint from "@/components/ui/Hint";
 import Panel from "@/components/ui/Panel";
 import { api, datedSessions, type RankResponse } from "@/lib/api";
-import { code } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
+import { code } from "@/lib/format";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { useWatchlist } from "@/lib/watchlist";
 import DateQuery from "./DateQuery";
@@ -42,56 +42,56 @@ export default function RankView({ date, onDate }: { date: string | null; onDate
   const rows = data.data?.results ?? [];
 
   return (
-    <div className="space-y-5">
-      <Panel title="回測摘要" description={summary.data?.model ? `模型 ${summary.data.model}` : undefined}>
-        {summary.error ? <p className="text-sm text-ink-3">回測摘要讀不到。</p> : <StrategySummaryCard s={summary.data ?? null} />}
-      </Panel>
-
+    <div className="space-y-14">
       <Panel
         title={data.data ? `${data.data.base_date} 的排序（${rows.length} 檔）` : "全池排序"}
         description={data.data ? basisText(data.data) : undefined}
         actions={
-          <button
-            type="button"
-            disabled={rows.length === 0}
-            onClick={() =>
-              downloadCsv(
-                `rank-${data.data?.base_date ?? "latest"}.csv`,
-                ["名次", "代號", "名稱", "模型分數", "百分位", "篩選層級"],
-                rows.map((r) => [r.rank, code(r.ticker), r.name, r.score.toFixed(4), r.percentile.toFixed(4), tiers.get(r.ticker) ?? ""]),
-              )
-            }
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink disabled:opacity-50"
-          >
-            <Download size={14} aria-hidden="true" />
-            下載 CSV
-          </button>
+          <span className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={rows.length === 0}
+              onClick={() =>
+                downloadCsv(
+                  `rank-${data.data?.base_date ?? "latest"}.csv`,
+                  ["名次", "代號", "名稱", "模型分數", "百分位", "篩選層級"],
+                  rows.map((r) => [r.rank, code(r.ticker), r.name, r.score.toFixed(4), r.percentile.toFixed(4), tiers.get(r.ticker) ?? ""]),
+                )
+              }
+              className="inline-flex h-8 items-center gap-1.5 rounded-[3px] px-2 text-xs text-ink-2 transition-colors duration-150 hover:text-ink disabled:opacity-50"
+            >
+              <Download size={14} aria-hidden="true" />
+              下載 CSV
+            </button>
+            <Hint to="rank" anchor="groups" label="排序表">
+              <p>分組是名次的前 20%、後 20%，排名靠前仍可能下跌；模型分數是贏過中位數的機率，不是百分位。</p>
+            </Hint>
+          </span>
         }
         bodyClassName="p-0"
       >
         <SkillBanner />
-        <div className="border-b border-border px-4 py-3">
+        <div className="hairline-b py-3">
           <DateQuery value={date} sessions={sessions.data ?? null} onChange={onDate} />
         </div>
         {data.error ? (
-          <div className="p-4">
+          <div className="pt-5">
             <Notice tone="error">{errorText(data.error, "這一天的排序沒有產生。")}</Notice>
           </div>
         ) : data.loading ? (
-          <div className="p-4">
+          <div className="pt-5">
             <TableSkeleton rows={12} label="排序讀取中" />
           </div>
         ) : data.data?.is_mock ? (
-          <p className="p-6 text-center text-sm text-ink-3">相對強弱模型還沒有載入。</p>
+          <p className="py-10 text-center text-sm text-ink-3">相對強弱模型還沒有載入。</p>
         ) : (
           <RankTable rows={rows} tiers={tiers} watchlist={watchlist} sortable />
         )}
       </Panel>
 
-      <p className="text-sm leading-relaxed text-ink-2">
-        分組是名次的前 20%、後 20%，排名靠前仍可能下跌；模型分數不是百分位。
-        <HelpLink to="rank" className="ml-1" />
-      </p>
+      <Panel title="回測摘要" description={summary.data?.model ? `模型 ${summary.data.model}` : undefined}>
+        {summary.error ? <p className="text-sm text-ink-3">回測摘要讀不到。</p> : <StrategySummaryCard s={summary.data ?? null} />}
+      </Panel>
     </div>
   );
 }

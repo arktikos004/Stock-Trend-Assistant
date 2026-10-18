@@ -582,7 +582,7 @@ interface DatedIndex {
 const staticGet = <T>(path: string) => request<T>(path, DATA_BASE);
 const enc = encodeURIComponent;
 
-// 每天只更新一次的檔案，一次瀏覽內只抓一次：狀態列與各頁共用同一個請求；失敗不快取，下次重試
+// 每天只更新一次的檔案，一次瀏覽內只抓一次：頂列的資料戳記與各頁共用同一個請求；失敗不快取，下次重試
 const onceCache = new Map<string, Promise<unknown>>();
 function staticOnce<T>(path: string): Promise<T> {
   let pending = onceCache.get(path) as Promise<T> | undefined;

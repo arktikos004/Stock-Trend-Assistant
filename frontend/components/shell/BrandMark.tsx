@@ -1,15 +1,15 @@
 /**
- * 站標「排序條加鏈節」：深藍黑圓角方塊裡，三條由長到短的橫條代表排序，左端串在一條鏈上代表一筆接一筆的存證紀錄，
- * 最上面那一節是電光藍（今天這一節）。與 app/icon.svg 同一個圖形，顏色固定，不隨主題切換。
+ * 站標「三星連線」：夜空藍圓角方塊裡，三顆由亮到暗的星以一條細線相連。星的大小代表排序，細線代表一筆接一筆的存證鏈，
+ * 最亮那顆是琥珀色的今天。與 app/icon.svg 同一個圖形，顏色固定，不隨主題切換。
  */
 export default function BrandMark({ size = 24 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
-      <rect width="24" height="24" rx="6" fill="#0A0F1A" />
-      <path d="M6 6V18" fill="none" stroke="#E7EEF8" strokeWidth="2" />
-      <path d="M6 6H18 M6 12H15 M6 18H12" fill="none" stroke="#E7EEF8" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="6" cy="6" r="2" fill="#3D8BFF" />
-      <path d="M6 12h.01 M6 18h.01" stroke="#E7EEF8" strokeWidth="4" strokeLinecap="round" />
+      <rect width="24" height="24" rx="6" fill="#0A1021" />
+      <path d="M7 7L12.5 12.5L17.5 17" fill="none" stroke="#F2F2E9" strokeOpacity="0.55" strokeWidth="1" />
+      <circle cx="7" cy="7" r="3.2" fill="#F2B84B" />
+      <circle cx="12.5" cy="12.5" r="2.2" fill="#F2F2E9" />
+      <circle cx="17.5" cy="17" r="1.5" fill="#F2F2E9" />
     </svg>
   );
 }

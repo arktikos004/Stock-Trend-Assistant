@@ -19,7 +19,7 @@ export default function CopyButton({ text, label }: { text: string; label: strin
         );
       }}
       aria-label={copied ? `已複製${label}` : `複製${label}`}
-      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-[3px] text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
     >
       {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
       <span className="sr-only" aria-live="polite">

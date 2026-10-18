@@ -10,9 +10,9 @@ import { ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Download, Info, Min
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useMemo, useState } from "react";
-import ScoreBar from "@/components/screener/ScoreBar";
+import Magnitude from "@/components/rank/Magnitude";
 import Badge from "@/components/ui/Badge";
-import HelpLink from "@/components/ui/HelpLink";
+import Hint from "@/components/ui/Hint";
 import { EmptyState, Notice, Skeleton, TableSkeleton } from "@/components/ui/Feedback";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
@@ -21,7 +21,7 @@ import { api, type ConditionKey, type ConditionState, type ScreenerComponentKey,
 import { downloadCsv } from "@/lib/csv";
 import { code, fixed, pct } from "@/lib/format";
 import { LINKS } from "@/lib/links";
-import { COMPONENTS, CONDITION_KEYS, CONDITIONS, contributions, TIER_TITLE } from "@/lib/screener";
+import { COMPONENTS, compositePercentiles, CONDITION_KEYS, CONDITIONS, contributions, TIER_TITLE } from "@/lib/screener";
 import { errorText, useAsync } from "@/lib/useAsync";
 import { useWatchlist } from "@/lib/watchlist";
 
@@ -29,7 +29,7 @@ type Scope = "candidates" | "T1" | "T2" | "T3" | "all" | "watch";
 type SortKey = "tier" | "composite" | ScreenerComponentKey | "misses" | "name";
 
 const STATE: Record<ConditionState, { text: string; icon: typeof Check; className: string }> = {
-  pass: { text: "符合", icon: Check, className: "text-accent" },
+  pass: { text: "符合", icon: Check, className: "text-ink" },
   fail: { text: "不符合", icon: X, className: "text-ink-3" },
   missing: { text: "資料品質問題，依規則算不符合", icon: CircleHelp, className: "text-ink-2" },
   na: { text: "不適用", icon: Minus, className: "text-ink-3" },
@@ -82,10 +82,9 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
     ["60 日報酬", pct(m.ret60)],
   ];
   return (
-    <div className="grid gap-6 px-4 py-4 lg:grid-cols-3">
+    <div className="grid gap-8 px-2 py-6 lg:grid-cols-3">
       <section>
-        <h3 className="text-sm font-semibold text-ink">分數拆解</h3>
-        <ScoreBar stock={s} weights={data.weights} className="mt-2 h-2.5" />
+        <h3 className="font-serif text-[15px] font-semibold text-ink">分數拆解</h3>
         <table className="mt-2 w-full text-table">
           <thead>
             <tr className="text-left text-xs text-ink-3">
@@ -99,10 +98,7 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
             {contributions(s, data.weights).map((p) => (
               <tr key={p.key}>
                 <td className="py-1">
-                  <span className="inline-flex items-center gap-1.5 text-ink-2">
-                    <span className="inline-block size-2 rounded-[2px]" style={{ background: p.color }} aria-hidden="true" />
-                    {p.label}
-                  </span>
+                  <span className="text-ink-2">{p.label}</span>
                 </td>
                 <td className="py-1 text-right text-ink-2">{fixed(p.score, 0)}</td>
                 <td className="py-1 text-right text-ink-2">{Math.round(p.weight * 100)}%</td>
@@ -119,7 +115,7 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-ink">入選理由</h3>
+        <h3 className="font-serif text-[15px] font-semibold text-ink">入選理由</h3>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">{reason(s)}</p>
         <ul className="mt-3 space-y-1.5">
           {CONDITION_KEYS.map((k) => {
@@ -141,8 +137,8 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-ink">指標</h3>
-        <dl className="mt-2 divide-y divide-border">
+        <h3 className="font-serif text-[15px] font-semibold text-ink">指標</h3>
+        <dl className="mt-2 divide-hairline">
           {facts.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-3 py-1.5 text-sm">
               <dt className="text-ink-2">{k}</dt>
@@ -150,7 +146,7 @@ function Detail({ s, data }: { s: ScreenerStock; data: ScreenerResponse }) {
             </div>
           ))}
         </dl>
-        <Link href={`/stock?t=${encodeURIComponent(s.ticker)}`} className="mt-3 inline-block text-sm font-medium text-accent hover:underline">
+        <Link href={`/stock?t=${encodeURIComponent(s.ticker)}`} className="mt-3 inline-block text-sm font-medium link">
           看 {s.name} 的個股頁
         </Link>
       </section>
@@ -190,6 +186,7 @@ function ScreenerView() {
   const params = useSearchParams();
   const router = useRouter();
   const { data, error, loading } = useAsync("screener", () => api.screener());
+  const compositeP = useMemo(() => compositePercentiles(data?.stocks ?? []), [data]);
   const watchlist = useWatchlist();
   const scope = (params.get("tier") as Scope | null) ?? "candidates";
   const open = params.get("t");
@@ -276,11 +273,13 @@ function ScreenerView() {
         description={
           <>
             依
-            <a href={LINKS.screenerRules} target="_blank" rel="noopener noreferrer" className="mx-1 font-medium text-accent hover:underline">
+            <a href={LINKS.screenerRules} target="_blank" rel="noopener noreferrer" className="font-medium link">
               事先公開的固定規則
             </a>
-            整理的研究用候選清單，不是預測。T1、T2、T3＝適用的條件全部符合、少一項、少兩項。
-            <HelpLink to="screener" className="ml-1" />
+            整理的研究用候選清單，不是預測。
+            <Hint to="screener" anchor="tiers" label="篩選器">
+              <p>綜合評分由排序、動能、評價、營收、籌碼五個組成依公開的權重加權。T1、T2、T3＝適用的條件全部符合、少一項、少兩項，各層有上限、不足不補位。</p>
+            </Hint>
           </>
         }
       />
@@ -292,9 +291,9 @@ function ScreenerView() {
       {data && (
         <>
           <ul className="mb-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs" aria-label="綜合評分的組成與權重">
+            <li className="text-ink-3">綜合評分的權重</li>
             {COMPONENTS.map((c) => (
               <li key={c.key} className="flex items-center gap-1.5" title={c.hint}>
-                <span className="inline-block h-2.5 w-4 rounded-[2px]" style={{ background: c.color }} aria-hidden="true" />
                 <span className="text-ink-2">{c.label}</span>
                 <span className="text-ink-3">{Math.round(data.weights[c.key] * 100)}%</span>
               </li>
@@ -327,7 +326,7 @@ function ScreenerView() {
                     ]),
                   )
                 }
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+                className="inline-flex h-8 items-center gap-1.5 rounded-[3px] px-2 text-xs text-ink-2 transition-colors duration-150 hover:text-ink disabled:opacity-50"
               >
                 <Download size={14} aria-hidden="true" />
                 下載 CSV
@@ -335,7 +334,7 @@ function ScreenerView() {
             }
             bodyClassName="p-0"
           >
-            <div className="space-y-3 border-b border-border px-4 py-3">
+            <div className="hairline-b space-y-3 py-4">
               <Segmented label="列出哪些股票" size="sm" value={scope} onChange={(v) => setParams({ tier: v, t: null })} options={scopes} />
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="只看符合這些條件的股票">
                 <span className="mr-1 text-xs text-ink-3">只看符合：</span>
@@ -347,8 +346,8 @@ function ScreenerView() {
                       type="button"
                       aria-pressed={on}
                       onClick={() => setRequired((r) => (on ? r.filter((x) => x !== k) : [...r, k]))}
-                      className={`inline-flex min-h-8 items-center gap-1 rounded-md border px-2.5 text-xs transition-colors duration-150 ${
-                        on ? "border-accent bg-accent-soft font-semibold text-accent" : "border-border text-ink-2 hover:bg-surface-2 hover:text-ink"
+                      className={`inline-flex min-h-8 items-center gap-1 rounded-[3px] border px-2.5 text-xs transition-colors duration-150 ${
+                        on ? "border-ink-3 font-medium text-ink" : "border-border text-ink-3 hover:border-border-strong hover:text-ink"
                       }`}
                     >
                       {on && <Check size={12} aria-hidden="true" />}
@@ -357,7 +356,7 @@ function ScreenerView() {
                   );
                 })}
                 {required.length > 0 && (
-                  <button type="button" onClick={() => setRequired([])} className="ml-1 text-xs text-accent hover:underline">
+                  <button type="button" onClick={() => setRequired([])} className="ml-1 text-xs link">
                     清除條件
                   </button>
                 )}
@@ -374,7 +373,7 @@ function ScreenerView() {
               // 不包水平捲動容器（會讓表頭的 sticky 失效）；欄位在窄螢幕依序隱藏，390 寬也放得下
               <div className="relative">
                 <table className="w-full text-table">
-                  <thead className="sticky top-14 z-10 bg-surface-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
+                  <thead className="sticky top-14 z-10 bg-background [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
                     <tr className="text-left text-xs text-ink-3">
                       <th scope="col" className="w-10 px-2 py-2">
                         <span className="sr-only">展開</span>
@@ -401,7 +400,7 @@ function ScreenerView() {
                               if ((e.target as HTMLElement).closest("a")) return;
                               setParams({ t: expanded ? null : s.ticker });
                             }}
-                            className={`cursor-pointer border-t border-border transition-colors duration-150 hover:bg-surface-2 ${expanded ? "bg-surface-2" : ""}`}
+                            className={`cursor-pointer hairline-t transition-colors duration-150 hover:bg-surface-2 ${expanded ? "bg-surface-2" : ""}`}
                           >
                             <td className="px-2 py-2">
                               <button
@@ -409,15 +408,15 @@ function ScreenerView() {
                                 aria-expanded={expanded}
                                 aria-controls={detailId}
                                 aria-label={`${expanded ? "收起" : "展開"} ${s.name} 的分數拆解與入選理由`}
-                                className="flex size-8 items-center justify-center rounded-md text-ink-3 hover:bg-surface-3 hover:text-ink"
+                                className="flex size-8 items-center justify-center rounded-[3px] text-ink-3 hover:bg-surface-3 hover:text-ink"
                               >
                                 <ChevronDown size={16} className={`transition-transform duration-150 ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
                               </button>
                             </td>
                             <td className="px-3 py-2">
-                              <span className="font-medium text-ink">{s.name}</span>
+                              <span className="font-serif text-[15px] font-semibold text-ink">{s.name}</span>
                               <span className="ml-2 text-xs text-ink-3">{code(s.ticker)}</span>
-                              {watchlist.includes(s.ticker) && <Star size={12} className="ml-1.5 inline fill-current text-warn" aria-label="自選" />}
+                              {watchlist.includes(s.ticker) && <Star size={12} className="ml-1.5 inline fill-current text-ink" aria-label="自選" />}
                               <span className="block text-xs text-ink-3">{s.industry || "產業別不明"}</span>
                             </td>
                             <td className="px-3 py-2 text-center">
@@ -425,9 +424,7 @@ function ScreenerView() {
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center justify-end gap-2">
-                                <div className="hidden w-20 sm:block">
-                                  <ScoreBar stock={s} weights={data.weights} className="h-1.5" />
-                                </div>
+                                {compositeP.has(s.ticker) && <Magnitude percentile={compositeP.get(s.ticker)!} />}
                                 <span className="w-8 text-right font-semibold text-ink">{fixed(s.composite, 0)}</span>
                               </div>
                             </td>
@@ -447,7 +444,7 @@ function ScreenerView() {
                           </tr>
                           {expanded && (
                             <tr id={detailId} className="bg-surface">
-                              <td colSpan={10} className="border-t border-border p-0">
+                              <td colSpan={10} className="hairline-t p-0">
                                 <Detail s={s} data={data} />
                               </td>
                             </tr>
@@ -461,9 +458,9 @@ function ScreenerView() {
             )}
           </Panel>
 
-          <p className="mt-4 text-sm leading-relaxed text-ink-2">
+          <p className="mt-6 flex flex-wrap items-center gap-x-1 text-xs leading-relaxed text-ink-3">
             資料來源：臺灣證券交易所、臺灣集中保管結算所開放資料（政府資料開放授權條款第 1 版）。各組成是 {data.stocks.length} 檔內的百分位（0 最差、100 最好）。
-            <HelpLink to="data" className="ml-1" />
+            <Hint to="data" anchor="open-data" label="資料來源" />
           </p>
         </>
       )}

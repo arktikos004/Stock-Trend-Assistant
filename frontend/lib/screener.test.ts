@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ScreenerResponse, ScreenerStock } from "@/lib/api";
-import { contributions } from "@/lib/screener";
+import { compositePercentiles, contributions } from "@/lib/screener";
 
 // 與後端 stockta/screener.py 的 WEIGHTS 相同（docs/screener_prereg.md）
 const WEIGHTS: ScreenerResponse["weights"] = { rank: 0.3, momentum: 0.2, valuation: 0.15, revenue: 0.2, chips: 0.15 };
@@ -25,5 +25,22 @@ describe("contributions", () => {
   it("全部組成都有分數時，權重就是原本的權重", () => {
     const parts = contributions(stock({ rank: 50, momentum: 50, valuation: 50, revenue: 50, chips: 50 }), WEIGHTS);
     parts.forEach((p) => expect(p.weight).toBeCloseTo(WEIGHTS[p.key], 12));
+  });
+});
+
+describe("compositePercentiles", () => {
+  const pool = (scores: (number | null)[]) => scores.map((composite, i) => ({ ticker: `T${i}`, composite }) as ScreenerStock);
+
+  it("最高 1、最低 0，中間依名次等距", () => {
+    const p = compositePercentiles(pool([10, 70, 40]));
+    expect([p.get("T0"), p.get("T2"), p.get("T1")]).toEqual([0, 0.5, 1]);
+  });
+
+  it("同分取平均，沒有綜合評分的不列入也不占名次", () => {
+    const p = compositePercentiles(pool([50, 50, null, 90]));
+    expect(p.get("T0")).toBeCloseTo(0.25, 12);
+    expect(p.get("T1")).toBeCloseTo(0.25, 12);
+    expect(p.has("T2")).toBe(false);
+    expect(p.get("T3")).toBe(1);
   });
 });

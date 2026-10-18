@@ -1,5 +1,5 @@
 import Badge from "@/components/ui/Badge";
-import HelpLink from "@/components/ui/HelpLink";
+import Hint from "@/components/ui/Hint";
 import type { PredictionResponse, Signal } from "@/lib/api";
 import { share } from "@/lib/format";
 import RiskBadge from "./RiskBadge";
@@ -20,7 +20,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-baseline gap-3">
-          <span className="text-2xl font-semibold leading-none" style={{ color: `var(${SIGNAL_VAR[prediction.signal]})` }}>
+          <span className="font-serif text-[30px] font-semibold leading-none" style={{ color: `var(${SIGNAL_VAR[prediction.signal]})` }}>
             {prediction.signal}
           </span>
           {downgraded ? (
@@ -32,6 +32,9 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
               模型機率 <span className="font-semibold text-ink">{share(prediction.confidence)}</span>
             </span>
           )}
+          <Hint to="direction" anchor="classes" label="方向訊號">
+            <p>漲跌＝未來 5 個交易日累積報酬超過 ±2%，其餘是觀望。百分比是未校準的模型機率，不等於實際發生的機率。</p>
+          </Hint>
         </div>
         <RiskBadge risk={prediction.risk} />
       </div>
@@ -43,7 +46,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
               <dt className="font-semibold" style={{ color: `var(${SIGNAL_VAR[s]})` }}>
                 {s}
               </dt>
-              <div className="h-2 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+              <div className="h-1 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
                 <div className="h-full rounded-full" style={{ width: `${(p[s] ?? 0) * 100}%`, background: `var(${SIGNAL_VAR[s]})` }} />
               </div>
               <dd className="text-right text-ink-2">{share(p[s])}</dd>
@@ -53,7 +56,7 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
       )}
 
       {downgraded && (
-        <p className="mt-3 rounded-md bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-2">
+        <p className="mt-3 rounded-[3px] bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-2">
           漲或跌的機率最高，但沒有達到決策門檻，依規則改為觀望。
         </p>
       )}
@@ -72,13 +75,9 @@ export default function PredictionCard({ prediction, testAuc }: { prediction: Pr
       </dl>
 
       {prediction.is_mock && (
-        <p className="mt-3 rounded-md bg-warn-soft px-3 py-2 text-xs text-ink">模型還沒載入，這是示意資料，不能拿來判斷。</p>
+        <p className="mt-3 rounded-[3px] bg-warn-soft px-3 py-2 text-xs text-ink">模型還沒載入，這是示意資料，不能拿來判斷。</p>
       )}
 
-      <p className="mt-4 border-t border-border pt-3 text-sm leading-relaxed text-ink-2">
-        漲跌＝5 日累積報酬超過 ±2%；百分比是未校準的模型機率，不等於實際發生的機率。
-        <HelpLink to="direction" className="ml-1" />
-      </p>
     </div>
   );
 }

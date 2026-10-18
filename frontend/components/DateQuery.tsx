@@ -35,10 +35,13 @@ export default function DateQuery({
           min={min}
           max={max}
           onChange={(e) => setDraft(e.target.value)}
-          className="h-9 rounded-md border border-border bg-surface px-2 text-sm text-ink focus:border-accent"
+          className="hairline-b h-9 bg-transparent px-0 text-sm text-ink focus:border-b-accent-mark [color-scheme:inherit]"
         />
       </label>
-      <button type="submit" className="h-9 rounded-md bg-accent px-4 text-sm font-semibold text-accent-fg transition-colors duration-150 hover:bg-accent-hover">
+      <button
+        type="submit"
+        className="h-9 rounded-[3px] border border-border-strong px-4 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-surface-2"
+      >
         查詢
       </button>
       {value && (
@@ -48,13 +51,13 @@ export default function DateQuery({
             setDraft("");
             onChange(null);
           }}
-          className="inline-flex h-9 items-center gap-1 px-2 text-sm text-accent hover:underline"
+          className="inline-flex h-9 items-center gap-1 px-2 text-sm link"
         >
           <RotateCcw size={14} aria-hidden="true" />
           回到最新收盤
         </button>
       )}
-      {min && <span className="text-sm text-ink-2">可查 {min} 至 {max}</span>}
+      {min && <span className="text-xs text-ink-3">可查 {min} 至 {max}</span>}
     </form>
   );
 }
