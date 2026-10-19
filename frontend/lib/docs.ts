@@ -79,7 +79,7 @@ export const DOCS: DocEntry[] = [
       { id: "status", label: "狀態" },
       { id: "horizon", label: "還要多久" },
     ],
-    keywords: ["Rank IC", "Newey-West", "t 值", "技能檢定", "失效", "留意", "即時記錄", "事後重建"],
+    keywords: ["Rank IC", "Newey-West", "t 值", "技能檢定", "失效", "留意", "即時記錄", "事後重建", "滾動平均"],
   },
   {
     slug: "baselines",
@@ -125,7 +125,7 @@ export const DOCS: DocEntry[] = [
       { id: "baselines", label: "命中率與基線" },
       { id: "timing", label: "寫入時間" },
     ],
-    keywords: ["漲", "跌", "觀望", "命中率", "基線", "校準", "bootstrap"],
+    keywords: ["漲", "跌", "觀望", "命中率", "基線", "精度", "校準", "bootstrap"],
   },
   {
     slug: "screener",

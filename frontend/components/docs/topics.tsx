@@ -90,6 +90,7 @@ function Model() {
         <p><strong>即時記錄</strong>：每日排程在預測窗口開始、也就是下一個交易日開盤前寫入，是主要的前瞻成績。</p>
         <p><strong>事後重建或補寫</strong>：窗口開始後才寫入，資料延遲時依當時可得的資料重算，或排程晚跑補記；其中幾天在模型訓練完成之前。</p>
         <p><strong>到期前已公開存證</strong>：預測窗口開始前就串入存證鏈，2026-10-07 起才有。窗口開始的時間依實際交易日計算，連假不算。</p>
+        <p>監控頁的逐日 Rank IC 圖上，滾動平均落在事後重建或補寫日子的那一段畫成虛線。</p>
       </Sec>
       <Sec id="status" title="狀態">
         <p>
@@ -174,6 +175,7 @@ function Direction() {
       </Sec>
       <Sec id="baselines" title="命中率與基線">
         <p>命中率一定要和同一批樣本的<strong>基線</strong>比：全猜觀望、全猜漲的命中率。{all && all.hit_rate != null && all.baseline_hold != null && all.baseline_up != null ? `目前到期 ${all.matured.toLocaleString()} 筆，命中 ${share(all.hit_rate, 1)}；全猜觀望 ${share(all.baseline_hold, 1)}、全猜漲 ${share(all.baseline_up, 1)}。` : ""}</p>
+        <p><strong>精度</strong>是喊了某一類之後，真的是那一類的比例（例如喊漲之後真的漲），用全部到期的紀錄計算。</p>
         <p>95% 區間以基準日為單位、區塊長度 5 的 block bootstrap 計算（同一天的股票彼此相關，相鄰基準日的報酬重疊）；區間跨過 0 代表還不能說贏過基線。</p>
       </Sec>
       <Sec id="timing" title="寫入時間">

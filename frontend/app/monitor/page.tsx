@@ -183,7 +183,10 @@ function IcChart({ data }: { data: Model }) {
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" y1="3" x2="22" y2="3" stroke="var(--ink)" strokeWidth="2" />
           </svg>
-          {window} 日滾動平均（虛線段＝落在事後重建或補寫的日子）
+          {window} 日滾動平均
+          <Hint to="model" anchor="groups" label="滾動平均">
+            <p>滾動平均落在事後重建或補寫日子的那一段畫成虛線。</p>
+          </Hint>
         </li>
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-5 border-t border-dashed border-ink-2" aria-hidden="true" />
@@ -358,7 +361,11 @@ function TrackTable({ samples, bootstrap }: { samples: TrackSample[]; bootstrap?
       </div>
       {all && all.matured > 0 && (
         <p className="mt-3 text-sm text-ink-2">
-          各訊號的精度（喊了之後對的比例，全部到期）：
+          各訊號的精度
+          <Hint to="direction" anchor="baselines" label="精度">
+            <p>精度是喊了某一類之後，真的是那一類的比例，用全部到期的紀錄計算。</p>
+          </Hint>
+          ：
           {(["漲", "跌", "觀望"] as const).map((sig, i) => {
             const p = all.precision[sig];
             return (
@@ -554,11 +561,11 @@ export default function MonitorPage() {
         title="監控"
         description={
           <>
-            模型的線上表現、例外報表與預測存證鏈。門檻依
+            模型的線上表現、例外報表與預測存證鏈，門檻依
             <a href={LINKS.monitorRules} target="_blank" rel="noopener noreferrer" className="font-medium link">
               預先聲明的規則
             </a>
-            ，警示只顯示、不會自動停用模型。
+            。
           </>
         }
       />
