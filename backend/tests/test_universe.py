@@ -4,16 +4,20 @@
 都會安靜地給出一份「看起來很合理」的錯名單。這裡把自洽性檢查釘死。
 """
 
-from datetime import date
+from datetime import date, timedelta
 
+import pandas as pd
 import pytest
 
+from stockta.config import DATA_CACHE_DIR, MARKET_INDEX_TICKER, STOCK_POOL, STOCK_POOL_ASOF
 from stockta.data.universe import (
+    EVENTS_PATH,
     INDEX_SIZE,
     UniverseError,
     all_tickers_ever,
     coverage_start,
     last_review_effective,
+    load_anchor,
     members_asof,
     membership_frame,
     pool_staleness,
@@ -56,17 +60,21 @@ def test_members_asof_replays_events_in_order(tmp_path):
     )
 
     before = members_asof(date(2010, 6, 17), path)
-    after = members_asof(date(2010, 6, 18), path)
+    on_the_day = members_asof(date(2010, 6, 18), path)  # 收盤後才生效：當天仍是舊名單
+    after = members_asof(date(2010, 6, 21), path)
 
     assert "1000.TW" in before and "9999.TW" not in before
+    assert on_the_day == before
     assert "9999.TW" in after and "1000.TW" not in after
     assert len(before) == len(after) == INDEX_SIZE
 
 
-def test_membership_is_empty_before_the_table_starts(tmp_path):
+def test_members_before_coverage_raise(tmp_path):
+    """涵蓋起日之前的名單不完整，拿去回測會安靜地出錯——直接拋錯。"""
     path = _write_events(tmp_path, _initial_fifty("2005-01-01"))
 
-    assert members_asof(date(2004, 12, 31), path) == set()
+    with pytest.raises(UniverseError, match="早於"):
+        members_asof(date(2004, 12, 31), path)
 
 
 def test_same_day_add_and_drop_apply_together(tmp_path):
@@ -76,14 +84,14 @@ def test_same_day_add_and_drop_apply_together(tmp_path):
         [*_initial_fifty(), ("2010-06-18", "1000.TW", "drop"), ("2010-06-18", "9999.TW", "add")],
     )
 
-    assert validate(path) == []
+    assert validate(path, sessions=()) == []
 
 
 def test_validate_catches_a_missing_add(tmp_path):
     """剔除一檔卻沒有對應的納入 → 規模掉到 49，必須被抓到。"""
     path = _write_events(tmp_path, [*_initial_fifty(), ("2010-06-18", "1000.TW", "drop")])
 
-    problems = validate(path)
+    problems = validate(path, sessions=())
 
     assert len(problems) == 1
     assert "49 檔" in problems[0]
@@ -92,7 +100,7 @@ def test_validate_catches_a_missing_add(tmp_path):
 def test_validate_catches_an_extra_add(tmp_path):
     path = _write_events(tmp_path, [*_initial_fifty(), ("2010-06-18", "9999.TW", "add")])
 
-    problems = validate(path)
+    problems = validate(path, sessions=())
 
     assert len(problems) == 1
     assert "51 檔" in problems[0]
@@ -142,7 +150,7 @@ def test_all_tickers_ever_includes_delisted_names(tmp_path):
 def test_coverage_start_is_when_the_index_first_fills(tmp_path):
     path = _write_events(tmp_path, _initial_fifty("2005-01-01"))
 
-    assert coverage_start(path) == date(2005, 1, 1)
+    assert coverage_start(path) == date(2005, 1, 2)  # 收盤後生效：次日起才是完整名單
 
 
 def test_membership_frame_shape_and_values(tmp_path):
@@ -150,14 +158,14 @@ def test_membership_frame_shape_and_values(tmp_path):
         tmp_path,
         [*_initial_fifty(), ("2010-06-18", "1000.TW", "drop"), ("2010-06-18", "9999.TW", "add")],
     )
-    dates = ["2010-06-17", "2010-06-18"]
+    dates = ["2010-06-18", "2010-06-21"]
 
     frame = membership_frame(dates, path)
 
     assert frame.shape == (2, INDEX_SIZE + 1)
-    assert frame.loc["2010-06-17", "1000.TW"]
-    assert not frame.loc["2010-06-18", "1000.TW"]
-    assert frame.loc["2010-06-18", "9999.TW"]
+    assert frame.loc["2010-06-18", "1000.TW"]
+    assert not frame.loc["2010-06-21", "1000.TW"]
+    assert frame.loc["2010-06-21", "9999.TW"]
     # 每一天都必須恰好 50 檔
     assert (frame.sum(axis=1) == INDEX_SIZE).all()
 
@@ -209,16 +217,133 @@ def test_pool_staleness_is_zero_right_after_a_review():
 
 
 def test_validate_flags_a_periodic_review_on_the_wrong_date(tmp_path):
-    """定期審核的生效日必是當月第三個星期五——抄錯一天要被抓出來。
-
-    這條不是假想：財經報導把 2026-06 的生效日寫成 6/18，但第三個星期五是 6/19。
-    """
+    """定期審核的生效日必是當月第三個星期五——抄錯一週要被抓出來（沒有交易日曆時只能用這條規則）。"""
     path = _write_events(
         tmp_path,
-        [*_initial_fifty(), ("2026-06-18", "1000.TW", "drop")],
+        [*_initial_fifty(), ("2026-06-12", "1000.TW", "drop")],
         review="定期審核",
     )
 
-    problems = validate(path)
+    problems = validate(path, sessions=())
 
     assert any("第三個星期五" in p and "2026-06-19" in p for p in problems)
+
+
+# === 錨點、審核清單與休市日 ===================================================
+
+FIFTY = [f"{1000 + i}.TW" for i in range(INDEX_SIZE)]
+# 2026 年的交易日：平日扣掉端午節（6/19）
+SESSIONS = frozenset(d.date() for d in pd.bdate_range("2026-01-02", "2026-10-30")) - {date(2026, 6, 19)}
+
+
+def _write_anchor(tmp_path, as_of: str, tickers):
+    lines = ["as_of,ticker,name,source_url,note", *(f"{as_of},{t},,{_SOURCE}," for t in tickers)]
+    (tmp_path / "tw50_anchor.csv").write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_reviews(tmp_path, rows):
+    lines = ["effective_date,n_changes,source_url,note", *(f"{d},{n},{_SOURCE}," for d, n in rows)]
+    (tmp_path / "tw50_reviews.csv").write_text("\n".join(lines), encoding="utf-8")
+
+
+def _anchored(tmp_path, anchor=None, reviews=None):
+    """2026-03 換 1000→9999、2026-06（端午節提前到 6/18）換 1001→8888、2026-09 沒有異動，錨點 2026-09-30。"""
+    path = _write_events(
+        tmp_path,
+        [
+            ("2026-03-20", "1000.TW", "drop"),
+            ("2026-03-20", "9999.TW", "add"),
+            ("2026-06-18", "1001.TW", "drop"),
+            ("2026-06-18", "8888.TW", "add"),
+        ],
+        review="定期審核",
+    )
+    current = [t for t in FIFTY if t not in ("1000.TW", "1001.TW")] + ["9999.TW", "8888.TW"]
+    _write_anchor(tmp_path, "2026-09-30", current if anchor is None else anchor)
+    _write_reviews(tmp_path, reviews if reviews is not None else [("2026-03-20", 1), ("2026-06-18", 1), ("2026-09-18", 0)])
+    return path
+
+
+def test_seed_is_derived_backward_from_the_anchor(tmp_path):
+    path = _anchored(tmp_path)
+
+    assert members_asof(date(2026, 3, 20), path) == set(FIFTY)  # 審核當天仍是推回去的起點名單
+    after = members_asof(date(2026, 3, 23), path)
+    assert "9999.TW" in after and "1000.TW" not in after
+
+
+def test_forward_replay_reproduces_the_anchor(tmp_path):
+    path = _anchored(tmp_path)
+
+    assert members_asof(date(2026, 9, 30), path) == set(load_anchor(path).members)
+
+
+def test_anchored_table_with_a_holiday_friday_validates(tmp_path):
+    assert validate(_anchored(tmp_path), sessions=SESSIONS) == []
+
+
+def test_holiday_friday_review_moves_to_previous_session(tmp_path):
+    """2026-06-19 端午節休市，審核提前到 6/18；沒有交易日曆時無從得知，只能照第三個星期五判。"""
+    path = _anchored(tmp_path)
+
+    assert validate(path, sessions=SESSIONS) == []
+    assert any("2026-06-18" in p and "2026-06-19" in p for p in validate(path, sessions=()))
+
+
+def test_regular_review_must_be_the_friday(tmp_path):
+    path = _write_events(tmp_path, [*_initial_fifty(), ("2026-03-19", "1000.TW", "drop"), ("2026-03-19", "9999.TW", "add")], review="定期審核")
+
+    assert any("2026-03-19" in p and "2026-03-20" in p for p in validate(path, sessions=SESSIONS))
+
+
+def test_ad_hoc_change_must_be_a_session(tmp_path):
+    path = _write_events(tmp_path, [*_initial_fifty("2026-01-02"), ("2026-05-02", "1000.TW", "drop"), ("2026-05-02", "9999.TW", "add")])
+
+    assert any("2026-05-02" in p and "不是交易日" in p for p in validate(path, sessions=SESSIONS))
+
+
+def test_anchor_conflict_is_reported(tmp_path):
+    """錨點沒有 2026-03 納入的 9999.TW：往回推時矛盾，必須說出來。"""
+    anchor = [t for t in FIFTY if t != "1001.TW"] + ["8888.TW"]
+    path = _anchored(tmp_path, anchor=anchor)
+
+    assert any("錨點矛盾" in p for p in validate(path, sessions=SESSIONS))
+
+
+def test_missing_review_is_reported(tmp_path):
+    """漏列 2026-06 那一次：清單跳季，而且事件表有這一次的異動。"""
+    path = _anchored(tmp_path, reviews=[("2026-03-20", 1), ("2026-09-18", 0)])
+
+    problems = validate(path, sessions=SESSIONS)
+    assert any("漏列" in p for p in problems)
+    assert any("2026-06-18" in p and "沒有列" in p for p in problems)
+
+
+def test_review_counts_must_match_the_events(tmp_path):
+    path = _anchored(tmp_path, reviews=[("2026-03-20", 2), ("2026-06-18", 1), ("2026-09-18", 0)])
+
+    assert any("2026-03-20" in p and "納入 1、剔除 1" in p for p in validate(path, sessions=SESSIONS))
+
+
+def test_anchored_members_before_coverage_raise(tmp_path):
+    with pytest.raises(UniverseError, match="早於"):
+        members_asof(date(2026, 3, 19), _anchored(tmp_path))
+
+
+def test_the_anchor_file_matches_the_configured_pool():
+    """錨點檔與 config.STOCK_POOL 是同一份核對結果，不能各改各的。"""
+    anchor = load_anchor(EVENTS_PATH)
+
+    assert anchor.members == frozenset(STOCK_POOL)
+    assert anchor.as_of == date.fromisoformat(STOCK_POOL_ASOF)
+
+
+_TWII = DATA_CACHE_DIR / f"{MARKET_INDEX_TICKER.lstrip('^')}.parquet"
+
+
+@pytest.mark.skipif(not _TWII.exists(), reason="需要本機的大盤快取當交易日曆（CI 沒有）")
+def test_real_event_table_is_consistent():
+    assert validate() == []
+    start = coverage_start()
+    for day in (start, date.fromisoformat(STOCK_POOL_ASOF), date.fromisoformat(STOCK_POOL_ASOF) + timedelta(days=21)):
+        assert len(members_asof(day)) == INDEX_SIZE
