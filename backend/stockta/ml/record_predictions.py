@@ -13,26 +13,21 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
-from datetime import date, timedelta
+from datetime import date
 
 from stockta.config import (
-    INDICATOR_WARMUP_DAYS,
     LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
     PREDICTIONS_DB_PATH,
     PRODUCTION_MODEL,
     STOCK_POOL,
     STOCK_POOL_EFFECTIVE,
-    WINDOW_LENGTH_DAYS,
 )
-from stockta.data.calendar import backfill_sessions, calendar_lookback_days, last_completed_trading_day
+from stockta.data.calendar import backfill_sessions, feature_fetch_start, last_completed_trading_day, record_fetch_start
 from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
 from stockta.inference.store import PredictionStore
-
-# context 的 rolling 暖機（20+5 日）餘裕
-_CONTEXT_EXTRA_DAYS = 60
 
 
 def _recorded_pairs(db_path, version: str) -> set[tuple[str, str]]:
@@ -76,9 +71,8 @@ def main() -> int:
     print(f"模型：{predictor.version}；標的 {len(args.tickers)} 檔；回補視窗 {args.days} 交易日")
 
     end = last_completed_trading_day()
-    lookback = calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS)
-    start = end - timedelta(days=lookback)
-    ctx_start = end - timedelta(days=lookback + _CONTEXT_EXTRA_DAYS)
+    start = feature_fetch_start(end)
+    ctx_start = record_fetch_start(end)
 
     # 先抓全池（含未指定 --tickers 的成分股）——市場寬度需要全池資料
     pool_ohlcv = {}

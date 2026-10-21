@@ -7,27 +7,23 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 import numpy as np
 import pandas as pd
 
 from stockta.config import (
-    INDICATOR_WARMUP_DAYS,
     LABEL_CLASSES,
     LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
     STOCK_POOL,
     WINDOW_LENGTH_DAYS,
 )
-from stockta.data.calendar import calendar_lookback_days
 from stockta.data.provider import DataProvider, DataProviderError
 from stockta.features.market import build_market_context
 from stockta.features.pipeline import build_features
 from stockta.inference.decision import resolve_signal
 from stockta.inference.predictor import Predictor
-
-_CONTEXT_EXTRA_DAYS = 40
 
 
 def load_pool_context(
@@ -42,13 +38,6 @@ def load_pool_context(
             continue
     market = provider.get_ohlcv(MARKET_INDEX_TICKER, fetch_start, end)
     return pool_ohlcv, build_market_context(market, pool_ohlcv)
-
-
-def context_fetch_start(as_of: date) -> date:
-    """歷史查詢時，涵蓋一個視窗 + 暖機所需回溯的抓取起日。"""
-    return as_of - timedelta(
-        days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS) + _CONTEXT_EXTRA_DAYS
-    )
 
 
 def scan_asof(

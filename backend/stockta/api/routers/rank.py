@@ -10,7 +10,7 @@ GET /api/rank/summary 回傳回測摘要供前端策略卡。唯讀分析端點�
 import json
 import sqlite3
 from collections.abc import Sequence
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Query, Request
@@ -23,16 +23,14 @@ from stockta.config import (
     ARTIFACTS_CS_DIR,
     CS_TOP_FRACTION,
     DATA_CACHE_DIR,
-    INDICATOR_WARMUP_DAYS,
     PREDICTIONS_DB_PATH,
     STOCK_POOL,
     stock_name,
-    WINDOW_LENGTH_DAYS,
 )
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day, market_sessions
+from stockta.data.calendar import feature_fetch_start, last_completed_trading_day, market_sessions, replay_fetch_start
 from stockta.data.provider import CACHE_FIRST, DataProvider, DataProviderError, make_provider
-from stockta.inference.replay import context_fetch_start, load_pool_context
+from stockta.inference.replay import load_pool_context
 from stockta.ml.cross_sectional import score_asof
 from stockta.ml.online import cs_production_version
 
@@ -101,7 +99,7 @@ def rank(
     base_seen = end
     if not historical:
         provider: DataProvider = request.app.state.data_provider
-        start = end - timedelta(days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS))
+        start = feature_fetch_start(end)
         try:
             context = request.app.state.market_context.get(end)
         except DataProviderError as exc:
@@ -119,7 +117,7 @@ def rank(
         cache = ParquetCache(DATA_CACHE_DIR)
         provider = make_provider(CACHE_FIRST, cache=cache)
         try:
-            pool_ohlcv, context = load_pool_context(provider, context_fetch_start(as_of), as_of)
+            pool_ohlcv, context = load_pool_context(provider, replay_fetch_start(as_of), as_of)
         except DataProviderError as exc:
             raise DataSourceUnavailableError(str(exc)) from exc
         for ticker, df in pool_ohlcv.items():

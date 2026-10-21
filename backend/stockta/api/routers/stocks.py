@@ -24,20 +24,23 @@ from stockta.api.schemas import (
 )
 from stockta.config import (
     DATA_CACHE_DIR,
-    INDICATOR_WARMUP_DAYS,
     LABEL_CLASSES,
     PREDICTIONS_DB_PATH,
     TWSE_DATA_DIR,
-    WINDOW_LENGTH_DAYS,
 )
 from stockta.chips import build_chips
 from stockta.data.cache import ParquetCache
 from stockta.data.twse import load_candles as load_twse_candles
-from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
+from stockta.data.calendar import (
+    HISTORY_FETCH_AHEAD_DAYS,
+    feature_fetch_start,
+    last_completed_trading_day,
+    replay_fetch_start,
+)
 from stockta.data.provider import CACHE_FIRST, DataProvider, DataProviderError, make_provider
 from stockta.features.pipeline import build_features
 from stockta.inference.predictor import InsufficientDataError, Predictor
-from stockta.inference.replay import context_fetch_start, history_series, load_pool_context
+from stockta.inference.replay import history_series, load_pool_context
 from stockta.inference.risk import annualized_volatility, risk_level
 from stockta.ml.online import actual_signal
 
@@ -109,7 +112,7 @@ def get_prediction(
 
     provider: DataProvider = request.app.state.data_provider
     end = last_completed_trading_day()
-    start = end - timedelta(days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS))
+    start = feature_fetch_start(end)
 
     try:
         df = provider.get_ohlcv(ticker, start, end)
@@ -150,7 +153,7 @@ def get_indicators(
     """當前技術指標快照——與模型走同一條 build_features 路徑，展示值與模型輸入一致。"""
     provider: DataProvider = request.app.state.data_provider
     end = last_completed_trading_day()
-    start = end - timedelta(days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS))
+    start = feature_fetch_start(end)
 
     try:
         df = provider.get_ohlcv(ticker, start, end)
@@ -235,9 +238,9 @@ def get_history(
 
     # 歷史回放優先讀本機快取（CACHE_FIRST：檔案缺漏或區間內沒有資料時仍會下載）
     provider = make_provider(CACHE_FIRST)
-    fetch_start = context_fetch_start(start_d)
+    fetch_start = replay_fetch_start(start_d)
     # 多抓 end 之後約 3 週：邊界附近的預測才算得出實際 5 日走勢（否則末幾日誤判為未到期）
-    fetch_end = end_d + timedelta(days=21)
+    fetch_end = end_d + timedelta(days=HISTORY_FETCH_AHEAD_DAYS)
     try:
         pool_ohlcv, context = load_pool_context(provider, fetch_start, fetch_end)
     except DataProviderError as exc:

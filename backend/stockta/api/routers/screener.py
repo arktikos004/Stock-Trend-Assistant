@@ -5,14 +5,13 @@
 只提供即時（最近一個已收盤交易日）：開放資料自 2026-10 才開始累積，沒有可重算的歷史。
 """
 
-from datetime import timedelta
 
 from fastapi import APIRouter, Request
 
 from stockta.api.routers.rank import rank as rank_endpoint
 from stockta.api.schemas import ScreenerResponse
-from stockta.config import INDICATOR_WARMUP_DAYS, STOCK_POOL, TWSE_DATA_DIR, WINDOW_LENGTH_DAYS
-from stockta.data.calendar import calendar_lookback_days
+from stockta.config import STOCK_POOL, TWSE_DATA_DIR
+from stockta.data.calendar import feature_fetch_start
 from stockta.data.provider import DataProvider, DataProviderError
 from stockta.screener import build_screener
 
@@ -24,7 +23,7 @@ def screener(request: Request) -> ScreenerResponse:
     ranked = rank_endpoint(request, date_param=None)
     as_of = ranked.base_date
     provider: DataProvider = request.app.state.data_provider
-    start = as_of - timedelta(days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS))
+    start = feature_fetch_start(as_of)
     closes = {}
     for ticker in STOCK_POOL:
         try:

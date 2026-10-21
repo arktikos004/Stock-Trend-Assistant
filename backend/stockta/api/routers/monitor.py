@@ -39,7 +39,7 @@ from stockta.api.schemas import (
 )
 from stockta.config import ARTIFACTS_CS_DIR, CS_PRODUCTION_MODEL, DATA_CACHE_DIR, LEDGER_CHAIN_PATH, PREDICTIONS_DB_PATH, STOCK_POOL, stock_name
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import last_completed_trading_day, market_sessions
+from stockta.data.calendar import WEEK52_FETCH_DAYS, last_completed_trading_day, market_sessions
 from stockta.data.provider import DataProvider, DataProviderError
 from stockta.ml.online import collect_matured, cs_production_version, daily_ic
 from stockta.monitor import MIGRATION_SESSIONS, RULES_DOC, RULES_VERSION, model_health, quintile_moves, week52
@@ -205,7 +205,7 @@ def get_monitor(request: Request) -> MonitorResponse:
     lows: list[Week52Extreme] = []
     for ticker, name in STOCK_POOL.items():
         try:
-            close = provider.get_ohlcv(ticker, as_of - timedelta(days=400), as_of)["close"]
+            close = provider.get_ohlcv(ticker, as_of - timedelta(days=WEEK52_FETCH_DAYS), as_of)["close"]
         except DataProviderError:
             continue
         w = week52(close, as_of)

@@ -23,7 +23,7 @@ from stockta.config import (
     SPLIT_VAL_END,
     STOCK_POOL,
 )
-from stockta.data.calendar import last_completed_trading_day
+from stockta.data.calendar import REPORT_WARMUP_DAYS, last_completed_trading_day
 from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference import decision
@@ -62,7 +62,7 @@ def main() -> int:
     predictor = Predictor.from_registry(PRODUCTION_MODEL)
     train_end = pd.Timestamp(SPLIT_TRAIN_END)
     val_end = np.datetime64(pd.Timestamp(SPLIT_VAL_END))
-    fetch_start = train_end.date() - timedelta(days=730)
+    fetch_start = train_end.date() - timedelta(days=REPORT_WARMUP_DAYS)
     end = last_completed_trading_day()
     print(f"模型：{predictor.version}；驗證期 {SPLIT_TRAIN_END} ~ {SPLIT_VAL_END}")
 

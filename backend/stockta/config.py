@@ -73,6 +73,9 @@ WINDOW_LENGTH_DAYS = 60
 # 推論（短序列）與訓練（全序列）的特徵才會一致；120 個交易日可讓 EMA(26)
 # 殘差降到 1e-4 量級，test_feature_parity.py 依此容忍度把關。
 INDICATOR_WARMUP_DAYS = 120
+# 市場狀態（regime）欄位所需的最長回溯（交易日）：推論端必須提供至少這麼長的大盤資料，
+# 否則 rolling 尚無值、整段 context 會被 dropna 清空（data/calendar.py 的 SERVICE_LOOKBACK_DAYS 依此加長）。
+MARKET_REGIME_WINDOW_DAYS = 200
 LABEL_HORIZON_DAYS = 5
 LABEL_UP_THRESHOLD = 0.02
 LABEL_DOWN_THRESHOLD = -0.02

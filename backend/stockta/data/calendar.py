@@ -7,7 +7,16 @@ last_completed_trading_day() 的回傳值為錨點，不可直接用 date.today(
 
 from datetime import date, datetime, time, timedelta
 
-from stockta.config import MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE, MARKET_INDEX_TICKER, TAIPEI_TZ
+from stockta.config import (
+    HISTORY_YEARS,
+    INDICATOR_WARMUP_DAYS,
+    MARKET_CLOSE_HOUR,
+    MARKET_CLOSE_MINUTE,
+    MARKET_INDEX_TICKER,
+    MARKET_REGIME_WINDOW_DAYS,
+    TAIPEI_TZ,
+    WINDOW_LENGTH_DAYS,
+)
 from stockta.data.cache import ParquetCache
 
 
@@ -55,6 +64,50 @@ def calendar_lookback_days(
     """推論抓取起日的回溯「日曆天數」（get_ohlcv 以日曆日期指定區間）。"""
     trading_days = warmup_lookback_days(window_length_days, indicator_warmup_days, buffer_days)
     return int(trading_days * _TRADING_TO_CALENDAR_RATIO) + 1
+
+
+# ── 抓取視窗（日曆天）：每個價格載入入口往前抓多少、往後多抓多少，都在這裡 ──
+
+# 一個視窗加指標暖機：即時推論（/prediction、/indicators、即時排序、篩選器）
+FEATURE_LOOKBACK_DAYS = calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS)
+# 歷史重算（?date=、history、排序回補）為市場情境 rolling 多抓的暖機
+REPLAY_CONTEXT_EXTRA_DAYS = 40
+# 每日紀錄為市場情境 rolling 多抓的暖機
+RECORD_CONTEXT_EXTRA_DAYS = 60
+# 市場情境服務：regime 欄位的暖機（MARKET_REGIME_WINDOW_DAYS）再加 rolling 餘裕
+SERVICE_CONTEXT_EXTRA_DAYS = 60
+SERVICE_LOOKBACK_DAYS = (
+    calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS + MARKET_REGIME_WINDOW_DAYS) + SERVICE_CONTEXT_EXTRA_DAYS
+)
+# 歷史查詢在迄日之後多抓：邊界附近的預測才算得出實際 5 日走勢（否則末幾日被當成未到期）
+SCAN_FETCH_AHEAD_DAYS = 20
+HISTORY_FETCH_AHEAD_DAYS = 21
+# 回測與門檻校準：在起點之前多抓的歷史（特徵暖機加一個視窗）
+REPORT_WARMUP_DAYS = 730
+# 52 週新高新低
+WEEK52_FETCH_DAYS = 400
+# 訓練、walk-forward 與資料擷取：近 HISTORY_YEARS 年
+HISTORY_DAYS = HISTORY_YEARS * 365
+
+
+def feature_fetch_start(end: date) -> date:
+    """即時推論的抓取起日：一個視窗加指標暖機。"""
+    return end - timedelta(days=FEATURE_LOOKBACK_DAYS)
+
+
+def replay_fetch_start(as_of: date) -> date:
+    """歷史重算的抓取起日：一個視窗、指標暖機，再加市場情境的暖機。"""
+    return as_of - timedelta(days=FEATURE_LOOKBACK_DAYS + REPLAY_CONTEXT_EXTRA_DAYS)
+
+
+def record_fetch_start(end: date) -> date:
+    """每日紀錄的抓取起日（全池與大盤）。"""
+    return end - timedelta(days=FEATURE_LOOKBACK_DAYS + RECORD_CONTEXT_EXTRA_DAYS)
+
+
+def history_fetch_start(end: date) -> date:
+    """訓練與資料擷取的抓取起日：近 HISTORY_YEARS 年。"""
+    return end - timedelta(days=HISTORY_DAYS)
 
 
 def backfill_sessions(sessions, days: int, not_before: date) -> list:

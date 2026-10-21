@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from stockta.config import BREADTH_MIN_TICKERS, MARKET_INCLUDE_REGIME
+from stockta.config import BREADTH_MIN_TICKERS, MARKET_INCLUDE_REGIME, MARKET_REGIME_WINDOW_DAYS
 
 # 短期情境欄位（正式管線一律使用）
 MARKET_CONTEXT_BASE_COLUMNS = [
@@ -47,10 +47,6 @@ MARKET_CONTEXT_COLUMNS = [
     *MARKET_CONTEXT_BASE_COLUMNS,
     *(MARKET_REGIME_COLUMNS if MARKET_INCLUDE_REGIME else []),
 ]
-
-# regime 欄位所需的最長回溯（交易日）——推論端必須提供至少這麼長的大盤資料，
-# 否則 rolling 尚無值、整段 context 會被 dropna 清空。inference/market_context.py 依此加長回溯。
-MARKET_REGIME_WINDOW_DAYS = 200
 
 # 每個 context 欄位的「最早可用時間」。新增欄位而忘了標註，
 # test_feature_availability.py 會紅燈——這是刻意的。

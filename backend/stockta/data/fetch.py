@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import time
-from datetime import timedelta
 
 from stockta.config import (
     AUTO_ADJUST,
@@ -20,7 +19,7 @@ from stockta.config import (
     MARKET_INDEX_TICKER,
     STOCK_POOL,
 )
-from stockta.data.calendar import last_completed_trading_day
+from stockta.data.calendar import history_fetch_start, last_completed_trading_day
 from stockta.data.provider import CACHE_REFRESH, DataProviderError, make_provider
 from stockta.ml.labeling import make_labels
 
@@ -31,7 +30,7 @@ PAUSE_SECONDS = 0.6  # 對 Yahoo 溫柔一點，避免整批抓取被限流
 def main() -> None:
     provider = make_provider(CACHE_REFRESH)
     end = last_completed_trading_day()
-    start = end - timedelta(days=HISTORY_YEARS * 365)
+    start = history_fetch_start(end)
 
     rows = []
     label_totals = {"跌": 0, "觀望": 0, "漲": 0}

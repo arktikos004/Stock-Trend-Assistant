@@ -33,7 +33,7 @@ from stockta.config import (
     STOCK_POOL,
     WINDOW_LENGTH_DAYS,
 )
-from stockta.data.calendar import last_completed_trading_day
+from stockta.data.calendar import REPORT_WARMUP_DAYS, last_completed_trading_day
 from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.features.pipeline import build_features
@@ -97,7 +97,7 @@ def main() -> int:
     provider = make_provider(CACHE_LIVE)
     predictor = Predictor.from_registry(PRODUCTION_MODEL)
     end = last_completed_trading_day()
-    fetch_start = start.date() - timedelta(days=730)  # 特徵暖機 + 視窗所需的前置歷史
+    fetch_start = start.date() - timedelta(days=REPORT_WARMUP_DAYS)
     print(f"模型：{predictor.version}；回測期間 {args.start} 之後 ~ {end}")
 
     pool_ohlcv: dict[str, pd.DataFrame] = {}

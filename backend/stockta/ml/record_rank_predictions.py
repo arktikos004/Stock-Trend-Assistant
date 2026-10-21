@@ -17,28 +17,23 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
-from datetime import date, timedelta
+from datetime import date
 
 from stockta.config import (
     CS_PRODUCTION_MODEL,
-    INDICATOR_WARMUP_DAYS,
     LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
     PREDICTIONS_DB_PATH,
     STOCK_POOL,
     STOCK_POOL_EFFECTIVE,
-    WINDOW_LENGTH_DAYS,
 )
-from stockta.data.calendar import backfill_sessions, calendar_lookback_days, last_completed_trading_day
+from stockta.data.calendar import backfill_sessions, last_completed_trading_day, record_fetch_start, replay_fetch_start
 from stockta.data.provider import CACHE_FIRST, CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
-from stockta.inference.replay import context_fetch_start, load_pool_context
+from stockta.inference.replay import load_pool_context
 from stockta.inference.store import RankPredictionStore
 from stockta.ml.cross_sectional import load_cs_model, score_asof
 from stockta.ml.online import cs_production_version
-
-# context 的 rolling 暖機餘裕（與 record_predictions 一致）
-_CONTEXT_EXTRA_DAYS = 60
 
 
 def _recorded_rank_pairs(db_path, version: str) -> set[tuple[str, str]]:
@@ -62,8 +57,7 @@ def run_live(
     因資料延遲而回補的較舊交易日記 source=pit（分數對固定權重逐位元一致，僅記錄時點不同）。"""
     provider = make_provider(CACHE_LIVE)
     end = last_completed_trading_day()
-    lookback = calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS)
-    ctx_start = end - timedelta(days=lookback + _CONTEXT_EXTRA_DAYS)
+    ctx_start = record_fetch_start(end)
 
     pool_ohlcv: dict = {}
     for ticker in STOCK_POOL:
@@ -136,7 +130,7 @@ def run_backfill(store: RankPredictionStore, model, scaler, version: str) -> int
     for bd in base_dates:
         as_of = date.fromisoformat(bd)
         try:
-            pool_ohlcv, context = load_pool_context(provider, context_fetch_start(as_of), as_of)
+            pool_ohlcv, context = load_pool_context(provider, replay_fetch_start(as_of), as_of)
         except DataProviderError as exc:
             print(f"[略過] {bd}: {exc}")
             continue

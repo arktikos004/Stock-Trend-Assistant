@@ -10,18 +10,16 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from datetime import timedelta
 
 import pandas as pd
 
 from stockta.config import (
-    HISTORY_YEARS,
     MARKET_INDEX_TICKER,
     SPLIT_TRAIN_END,
     SPLIT_VAL_END,
     STOCK_POOL,
 )
-from stockta.data.calendar import last_completed_trading_day
+from stockta.data.calendar import history_fetch_start, last_completed_trading_day
 from stockta.data.provider import CACHE_TRAINING, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.ml.dataset import build_dataset
@@ -45,7 +43,7 @@ def create_model(name: str, **hyperparams):
 def load_pool_ohlcv(tickers: list[str] | None = None) -> dict[str, pd.DataFrame]:
     provider = make_provider(CACHE_TRAINING)
     end = last_completed_trading_day()
-    start = end - timedelta(days=HISTORY_YEARS * 365)
+    start = history_fetch_start(end)
     out: dict[str, pd.DataFrame] = {}
     for ticker in tickers or list(STOCK_POOL):
         try:
@@ -61,7 +59,7 @@ def load_market_context(ohlcv_by_ticker: dict[str, pd.DataFrame]) -> pd.DataFram
     """抓大盤指數並建出市場情境 context（訓練/調參/回測共用）。"""
     provider = make_provider(CACHE_TRAINING)
     end = last_completed_trading_day()
-    start = end - timedelta(days=HISTORY_YEARS * 365)
+    start = history_fetch_start(end)
     market = provider.get_ohlcv(MARKET_INDEX_TICKER, start, end)
     return build_market_context(market, ohlcv_by_ticker)
 

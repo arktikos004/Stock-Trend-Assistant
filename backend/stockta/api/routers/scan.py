@@ -18,14 +18,17 @@ from stockta.api.params import parse_iso_date
 from stockta.api.schemas import ScanResponse, ScanResult
 from stockta.config import (
     DATA_CACHE_DIR,
-    INDICATOR_WARMUP_DAYS,
     LABEL_CLASSES,
     MARKET_INDEX_TICKER,
     STOCK_POOL,
-    WINDOW_LENGTH_DAYS,
 )
 from stockta.data.cache import ParquetCache
-from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
+from stockta.data.calendar import (
+    SCAN_FETCH_AHEAD_DAYS,
+    feature_fetch_start,
+    last_completed_trading_day,
+    replay_fetch_start,
+)
 from stockta.data.provider import CACHE_FIRST, DataProvider, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
@@ -38,7 +41,7 @@ router = APIRouter(tags=["scan"])
 
 def _live_scan(request: Request, predictor: Predictor, end: date) -> ScanResponse:
     provider: DataProvider = request.app.state.data_provider
-    start = end - timedelta(days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS))
+    start = feature_fetch_start(end)
     try:
         context = request.app.state.market_context.get(end)
     except DataProviderError as exc:
@@ -69,17 +72,17 @@ def _live_scan(request: Request, predictor: Predictor, end: date) -> ScanRespons
 def _historical_scan(predictor: Predictor, as_of: date) -> ScanResponse:
     # 歷史回放：以本機快取的全歷史重算（CACHE_FIRST：檔案缺漏或區間內沒有資料時仍會下載）
     cache = ParquetCache(DATA_CACHE_DIR)
-    fetch_start = as_of - timedelta(days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS) + 40)
+    fetch_start = replay_fetch_start(as_of)
     provider = make_provider(CACHE_FIRST, cache=cache)
 
     pool_ohlcv = {}
     for ticker in STOCK_POOL:
         try:
-            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, fetch_start, as_of + timedelta(days=20))
+            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, fetch_start, as_of + timedelta(days=SCAN_FETCH_AHEAD_DAYS))
         except DataProviderError:
             continue
     try:
-        market = provider.get_ohlcv(MARKET_INDEX_TICKER, fetch_start, as_of + timedelta(days=20))
+        market = provider.get_ohlcv(MARKET_INDEX_TICKER, fetch_start, as_of + timedelta(days=SCAN_FETCH_AHEAD_DAYS))
     except DataProviderError as exc:
         raise DataSourceUnavailableError(f"歷史大盤資料不足：{exc}") from exc
     context = build_market_context(market, pool_ohlcv)
