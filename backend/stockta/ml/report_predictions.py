@@ -133,7 +133,8 @@ def main() -> None:
         lines.append("")
 
     # 各版本對照（含已淘汰）——透明呈現，但不與現行版本混算
-    all_versions = sorted(set(matured) | set(pending), key=lambda v: first_date.get(v, ""))
+    # 起始基準日相同時依版本字串排：集合的走訪順序每次執行都不同
+    all_versions = sorted(set(matured) | set(pending), key=lambda v: (first_date.get(v, ""), v))
     lines += [
         "## 各版本命中率對照（含已淘汰，僅供透明對照，勿混算）",
         "",
