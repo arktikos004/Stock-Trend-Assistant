@@ -94,6 +94,21 @@ def test_describe_summarises_content(random_walk_ohlcv):
     assert summary["na_rows"] == 0
 
 
+def test_describe_keeps_prices_out(random_walk_ohlcv):
+    """manifest 進版控：只放雜湊、列數與日期，不放價格。"""
+    summary = describe(random_walk_ohlcv)
+
+    assert set(summary) == {"sha256", "rows", "first_date", "last_date", "na_rows"}
+
+
+def test_diff_reads_manifests_that_still_hold_prices():
+    old = {"files": {"2330.TW": {"sha256": "a", "rows": 10, "first_date": "2004-01-02", "last_date": "2026-08-14", "first_close": 1.0, "last_close": 2.0}}}
+    new = {"files": {"2330.TW": {"sha256": "b", "rows": 12, "first_date": "2004-01-02", "last_date": "2026-08-18"}}}
+
+    (message,) = diff(old, new)
+    assert "rows 10 → 12" in message and "last_date 2026-08-14 → 2026-08-18" in message
+
+
 def test_verify_without_manifest_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         verify(tmp_path)

@@ -43,15 +43,12 @@ def content_sha(df: pd.DataFrame) -> str:
 
 
 def describe(df: pd.DataFrame) -> dict:
-    """單一標的的內容摘要——雜湊對不上時，靠這些欄位一眼看出差在哪。"""
-    close = df["close"].astype("float64")
+    """單一標的的內容摘要——雜湊對不上時，靠這些欄位一眼看出差在哪。不放價格：這個檔進版控，Yahoo 的資料不轉載。"""
     return {
         "sha256": content_sha(df),
         "rows": int(len(df)),
         "first_date": str(df.index.min().date()),
         "last_date": str(df.index.max().date()),
-        "first_close": round(float(close.iloc[0]), _ROUND_DP),
-        "last_close": round(float(close.iloc[-1]), _ROUND_DP),
         "na_rows": int(df.isna().any(axis=1).sum()),
     }
 
@@ -98,7 +95,7 @@ def write(manifest: dict, cache_dir: Path = DATA_CACHE_DIR) -> Path:
     path = manifest_path(cache_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8"
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8", newline="\n"
     )
     return path
 
@@ -135,11 +132,11 @@ def diff(old: dict, new: dict) -> list[str]:
         if a["sha256"] == b["sha256"]:
             continue
         changes = [
-            f"{key} {a[key]} → {b[key]}"
-            for key in ("rows", "first_date", "last_date", "first_close", "last_close")
-            if a[key] != b[key]
+            f"{key} {a.get(key)} → {b.get(key)}"
+            for key in ("rows", "first_date", "last_date")
+            if a.get(key) != b.get(key)
         ]
-        detail = "；".join(changes) if changes else "列數與起訖值相同，但中間有數值被改寫"
+        detail = "；".join(changes) if changes else "列數與起訖日相同，但有數值被改寫"
         messages.append(f"{ticker}：內容雜湊改變（{detail}）")
 
     return messages
