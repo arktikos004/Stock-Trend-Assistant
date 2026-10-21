@@ -72,12 +72,13 @@ def build_market_context(
     ohlcv_by_ticker: dict[str, pd.DataFrame],
     min_tickers: int = BREADTH_MIN_TICKERS,
     include_regime: bool | None = None,
+    members: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """由大盤 OHLCV 與股票池 OHLCV 建出日期索引的市場情境特徵。
 
     暖機期不足的前段列（rolling 尚無值）會被丟棄。include_regime 預設跟隨
     config.MARKET_INCLUDE_REGIME；顯式傳 True/False 可強制切換，供實驗 #9
-    做「有無 regime 欄位」的成對消融。
+    做「有無 regime 欄位」的成對消融。members（逐日成分股寬表）給了時，上漲家數比只算當天的成分股。
     """
     if include_regime is None:
         include_regime = MARKET_INCLUDE_REGIME
@@ -93,6 +94,8 @@ def build_market_context(
     rets = pd.DataFrame(
         {t: df["close"].astype("float64").pct_change() for t, df in ohlcv_by_ticker.items()}
     )
+    if members is not None:
+        rets = rets.where(members.reindex(index=rets.index, columns=rets.columns, fill_value=False))
     available = rets.notna().sum(axis=1)
     breadth = (rets > 0).sum(axis=1) / available.replace(0, np.nan)
     breadth[available < min_tickers] = np.nan

@@ -5,6 +5,7 @@
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from stockta.features.market import build_market_context
@@ -87,3 +88,17 @@ def test_future_market_data_does_not_change_past_context(market_ohlcv, random_wa
     b = tampered.loc[:cutoff_date]
     assert len(a) == len(b) > 0
     np.testing.assert_allclose(a.to_numpy(), b.to_numpy(), rtol=1e-12, atol=1e-12)
+
+
+def test_member_breadth_ignores_non_members(market_ohlcv, random_walk_ohlcv):
+    """上漲家數比的分母只算當天的成分股：非成分股的漲跌不能影響寬度。"""
+    up = random_walk_ohlcv.copy()
+    up["close"] = up["close"].cummax() * 1.001  # 天天上漲的一檔
+    pool = {"2330.TW": random_walk_ohlcv, "2317.TW": random_walk_ohlcv.iloc[::-1].set_axis(random_walk_ohlcv.index), "9999.TW": up}
+    members = pd.DataFrame(True, index=random_walk_ohlcv.index, columns=list(pool))
+    members["9999.TW"] = False
+
+    with_outsider = build_market_context(market_ohlcv, pool, min_tickers=2, members=members)
+    without = build_market_context(market_ohlcv, {k: v for k, v in pool.items() if k != "9999.TW"}, min_tickers=2)
+
+    pd.testing.assert_series_equal(with_outsider["breadth_up"], without["breadth_up"])
