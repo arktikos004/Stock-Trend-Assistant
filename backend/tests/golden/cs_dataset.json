@@ -1,0 +1,107 @@
+{
+ "arrays": {
+  "X": {
+   "dtype": "float32",
+   "sha256": "cd92f36c2b683cdd7141d2f7c9987e0990aaa66ee55e3a3b90bc6c943bfcdf19",
+   "shape": [
+    5724,
+    1500
+   ]
+  },
+  "dates": {
+   "dtype": "datetime64[us]",
+   "sha256": "506c87b2f7acef1f4161070785ff4b273ef0e75632d99a0cc2974dcff1c8fb55",
+   "shape": [
+    5724
+   ]
+  },
+  "is_test": {
+   "dtype": "bool",
+   "sha256": "864e2af41814128ea5ec90f774a0ead25dc38846c57da53d93cd050016f38dff",
+   "shape": [
+    5724
+   ]
+  },
+  "is_train": {
+   "dtype": "bool",
+   "sha256": "b8a30b20b45931e1433c561d3290ef9afee466f6fe07546a5281181381c9e75c",
+   "shape": [
+    5724
+   ]
+  },
+  "is_val": {
+   "dtype": "bool",
+   "sha256": "dc72301483fdc55d1b6ff2e9618b61cdf6fea76a9f0770afeeecb1455c078006",
+   "shape": [
+    5724
+   ]
+  },
+  "ret_10": {
+   "dtype": "float64",
+   "sha256": "4a40fd74aede029364a70ace7a8ffbcea5b42c432ddd1de3808fb30d5a79334d",
+   "shape": [
+    5724
+   ]
+  },
+  "ret_20": {
+   "dtype": "float64",
+   "sha256": "1af6b42814349545f707de4c768dc2a7b645385b4078bb2a9464b1cdd9800711",
+   "shape": [
+    5724
+   ]
+  },
+  "ret_5": {
+   "dtype": "float64",
+   "sha256": "d3ef59e82308d9f9af1e9a9a47910a727d33906fdc1ab45ab0afbec81d21a315",
+   "shape": [
+    5724
+   ]
+  },
+  "ret_label": {
+   "dtype": "float64",
+   "sha256": "d3ef59e82308d9f9af1e9a9a47910a727d33906fdc1ab45ab0afbec81d21a315",
+   "shape": [
+    5724
+   ]
+  },
+  "tickers": {
+   "dtype": "<U7",
+   "sha256": "b3455a7fa92233abb97a926c44f3fffa759bca4a2808bddf2684effdfec18777",
+   "shape": [
+    5724
+   ]
+  },
+  "y": {
+   "dtype": "int64",
+   "sha256": "1e284b694ac8305f5ecad3c674b8fc0abcd501adc31071131a5184157545ed8a",
+   "shape": [
+    5724
+   ]
+  }
+ },
+ "probe": [
+  0.2980910539627075,
+  0.7125953435897827,
+  0.42683061957359314,
+  0.8508651256561279,
+  0.7816687822341919,
+  0.9588266015052795,
+  0.7207270860671997,
+  0.7836520671844482,
+  0.7502416968345642,
+  0.3097313940525055,
+  0.6376273036003113,
+  0.6945873498916626,
+  0.8459730744361877,
+  0.39787909388542175,
+  0.7626581788063049,
+  0.25334757566452026,
+  0.9274406433105469,
+  0.4409066140651703,
+  0.77721107006073,
+  0.5182172060012817
+ ],
+ "scaler_mean": "1758d17ccc520eb71b1799a25449d9880a12c69302eb21b042af01ed1cb64438",
+ "scaler_scale": "3884f1a1d1ad12264648bfed59b036ab78d33cb09dd1fd57cd0c98a7e961905b",
+ "train_rows": "6b73d9ab430f2b0319e2a53e54b1942b1fc2e3a8ce5b99b82c8a595047d6b648"
+}
