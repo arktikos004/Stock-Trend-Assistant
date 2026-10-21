@@ -76,6 +76,22 @@ class YFinanceProvider(DataProvider):
         return sliced
 
 
+class CacheOnlyProvider(DataProvider):
+    """只讀本機快取、絕不下載：研究用，結果才能用同一份快取（記下雜湊）重現。
+
+    檔案不存在或區間內沒有資料時拋 DataProviderError，交給呼叫端略過那一檔。"""
+
+    def __init__(self, cache: ParquetCache | None = None):
+        self._cache = cache if cache is not None else ParquetCache(DATA_CACHE_DIR)
+
+    def get_ohlcv(self, ticker: str, start: date, end: date) -> pd.DataFrame:
+        cached = self._cache.read(ticker)
+        sliced = _slice(cached, start, end) if cached is not None else None
+        if sliced is None:
+            raise DataProviderError(f"本機快取沒有 {ticker} 在 {start}–{end} 的資料")
+        return sliced
+
+
 # 快取多新就直接用（天）
 CACHE_LIVE = 1.0  # 即時 API 與每日紀錄：超過一天就重新下載
 CACHE_TRAINING = 3.0  # 訓練、調參與 walk-forward

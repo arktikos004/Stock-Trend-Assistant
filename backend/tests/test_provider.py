@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 
 from stockta.data.cache import ParquetCache
-from stockta.data.provider import DataProviderError, YFinanceProvider, _download
+from stockta.data import provider as provider_module
+from stockta.data.provider import CacheOnlyProvider, DataProviderError, YFinanceProvider, _download
 
 NAN = float("nan")
 GOOD_1008 = ("2026-10-08", 2550.0, 2575.0, 2550.0, 2550.0, 20325120)
@@ -129,3 +130,23 @@ def test_missing_day_is_added_from_official_prices(monkeypatch, tmp_path):
 
     assert list(df.index.date) == [date(2026, 10, 8), date(2026, 10, 12), date(2026, 10, 13)]
     assert df.loc["2026-10-12", "close"] == 2540.0
+
+
+def test_cache_only_provider_never_downloads(tmp_path, monkeypatch):
+    def refuse(*args, **kwargs):
+        raise AssertionError("CacheOnlyProvider 不得下載")
+
+    monkeypatch.setattr(provider_module, "_download", refuse)
+    cache = ParquetCache(tmp_path)
+    frame = pd.DataFrame(
+        {"open": [1.0, 2.0], "high": [1.0, 2.0], "low": [1.0, 2.0], "close": [1.0, 2.0], "volume": [10.0, 20.0]},
+        index=pd.DatetimeIndex(["2026-01-05", "2026-01-06"]),
+    )
+    cache.write("2330.TW", frame)
+    provider = CacheOnlyProvider(cache)
+
+    assert len(provider.get_ohlcv("2330.TW", date(2026, 1, 1), date(2026, 1, 31))) == 2
+    with pytest.raises(DataProviderError):
+        provider.get_ohlcv("2317.TW", date(2026, 1, 1), date(2026, 1, 31))  # 沒有快取檔
+    with pytest.raises(DataProviderError):
+        provider.get_ohlcv("2330.TW", date(2025, 1, 1), date(2025, 1, 31))  # 區間內沒有資料
