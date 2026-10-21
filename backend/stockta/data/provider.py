@@ -13,6 +13,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 
+from stockta.config import AUTO_ADJUST, DATA_CACHE_DIR
 from stockta.data.cache import ParquetCache
 
 _OHLCV_COLUMNS = ["open", "high", "low", "close", "volume"]
@@ -73,6 +74,22 @@ class YFinanceProvider(DataProvider):
         if sliced is None:
             raise DataProviderError(f"{ticker} 在 {start}–{end} 區間內無資料")
         return sliced
+
+
+# 快取多新就直接用（天）
+CACHE_LIVE = 1.0  # 即時 API 與每日紀錄：超過一天就重新下載
+CACHE_TRAINING = 3.0  # 訓練、調參與 walk-forward
+CACHE_REFRESH = 0.0  # 資料擷取 CLI：每次都重新下載後合併
+CACHE_FIRST = 9999  # 歷史查詢與靜態匯出：快取有就用；檔案缺漏或區間內沒有資料時仍會下載
+
+
+def make_provider(max_cache_age_days: float = CACHE_LIVE, *, cache: ParquetCache | None = None) -> YFinanceProvider:
+    """用 config 的快取目錄與還原權值設定建 YFinanceProvider；要和別處共用同一個快取物件時傳 cache。"""
+    return YFinanceProvider(
+        cache=cache if cache is not None else ParquetCache(DATA_CACHE_DIR),
+        auto_adjust=AUTO_ADJUST,
+        max_cache_age_days=max_cache_age_days,
+    )
 
 
 def _download(ticker: str, start: date, end: date, auto_adjust: bool) -> pd.DataFrame:

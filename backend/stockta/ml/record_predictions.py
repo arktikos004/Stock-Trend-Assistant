@@ -16,8 +16,6 @@ import sqlite3
 from datetime import date, timedelta
 
 from stockta.config import (
-    AUTO_ADJUST,
-    DATA_CACHE_DIR,
     INDICATOR_WARMUP_DAYS,
     LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
@@ -27,9 +25,8 @@ from stockta.config import (
     STOCK_POOL_EFFECTIVE,
     WINDOW_LENGTH_DAYS,
 )
-from stockta.data.cache import ParquetCache
 from stockta.data.calendar import backfill_sessions, calendar_lookback_days, last_completed_trading_day
-from stockta.data.provider import DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
 from stockta.inference.store import PredictionStore
@@ -73,7 +70,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    provider = YFinanceProvider(cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST)
+    provider = make_provider(CACHE_LIVE)
     predictor = Predictor.from_registry(PRODUCTION_MODEL)
     store = PredictionStore(PREDICTIONS_DB_PATH)
     print(f"模型：{predictor.version}；標的 {len(args.tickers)} 檔；回補視窗 {args.days} 交易日")

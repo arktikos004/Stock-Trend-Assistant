@@ -21,7 +21,6 @@ from stockta.api.params import parse_iso_date
 from stockta.api.schemas import RankResponse, RankResult, RankSummaryResponse
 from stockta.config import (
     ARTIFACTS_CS_DIR,
-    AUTO_ADJUST,
     CS_TOP_FRACTION,
     DATA_CACHE_DIR,
     INDICATOR_WARMUP_DAYS,
@@ -32,7 +31,7 @@ from stockta.config import (
 )
 from stockta.data.cache import ParquetCache
 from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day, market_sessions
-from stockta.data.provider import DataProvider, DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_FIRST, DataProvider, DataProviderError, make_provider
 from stockta.inference.replay import context_fetch_start, load_pool_context
 from stockta.ml.cross_sectional import score_asof
 from stockta.ml.online import cs_production_version
@@ -118,7 +117,7 @@ def rank(
                 base_seen = r[1]
     else:
         cache = ParquetCache(DATA_CACHE_DIR)
-        provider = YFinanceProvider(cache=cache, auto_adjust=AUTO_ADJUST, max_cache_age_days=9999)
+        provider = make_provider(CACHE_FIRST, cache=cache)
         try:
             pool_ohlcv, context = load_pool_context(provider, context_fetch_start(as_of), as_of)
         except DataProviderError as exc:

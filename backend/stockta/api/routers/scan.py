@@ -17,7 +17,6 @@ from stockta.api.errors import DataSourceUnavailableError, InvalidDateRangeError
 from stockta.api.params import parse_iso_date
 from stockta.api.schemas import ScanResponse, ScanResult
 from stockta.config import (
-    AUTO_ADJUST,
     DATA_CACHE_DIR,
     INDICATOR_WARMUP_DAYS,
     LABEL_CLASSES,
@@ -27,7 +26,7 @@ from stockta.config import (
 )
 from stockta.data.cache import ParquetCache
 from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
-from stockta.data.provider import DataProvider, DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_FIRST, DataProvider, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
 from stockta.inference.risk import annualized_volatility, risk_level
@@ -68,10 +67,10 @@ def _live_scan(request: Request, predictor: Predictor, end: date) -> ScanRespons
 
 
 def _historical_scan(predictor: Predictor, as_of: date) -> ScanResponse:
-    # 歷史回放：以本地快取全歷史重算，不打網路
+    # 歷史回放：以本機快取的全歷史重算（CACHE_FIRST：檔案缺漏或區間內沒有資料時仍會下載）
     cache = ParquetCache(DATA_CACHE_DIR)
     fetch_start = as_of - timedelta(days=calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS) + 40)
-    provider = YFinanceProvider(cache=cache, auto_adjust=AUTO_ADJUST, max_cache_age_days=9999)
+    provider = make_provider(CACHE_FIRST, cache=cache)
 
     pool_ohlcv = {}
     for ticker in STOCK_POOL:

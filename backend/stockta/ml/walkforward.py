@@ -33,17 +33,14 @@ import numpy as np
 import pandas as pd
 
 from stockta.config import (
-    AUTO_ADJUST,
     BACKEND_ROOT,
-    DATA_CACHE_DIR,
     HISTORY_YEARS,
     LABEL_CLASSES,
     MARKET_INDEX_TICKER,
     STOCK_POOL,
 )
-from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day
-from stockta.data.provider import DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_TRAINING, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.ml.calibrate import apply_thresholds, best_thresholds
 from stockta.ml.dataset import build_dataset
@@ -80,9 +77,7 @@ class FoldResult:
 
 
 def _load_inputs() -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
-    provider = YFinanceProvider(
-        cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST, max_cache_age_days=3.0
-    )
+    provider = make_provider(CACHE_TRAINING)
     end = last_completed_trading_day()
     start = end - timedelta(days=HISTORY_YEARS * 365)
 

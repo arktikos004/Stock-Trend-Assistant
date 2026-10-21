@@ -12,7 +12,6 @@ from slowapi.util import get_remote_address
 from stockta.api.errors import ApiError, api_error_handler
 from stockta.api.routers import ledger, meta, monitor, rank, scan, screener, stocks
 from stockta.config import (
-    AUTO_ADJUST,
     DATA_CACHE_DIR,
     PREDICTIONS_DB_PATH,
     PRODUCTION_MODEL,
@@ -20,7 +19,7 @@ from stockta.config import (
     TWSE_DATA_DIR,
 )
 from stockta.data.cache import ParquetCache
-from stockta.data.provider import YFinanceProvider
+from stockta.data.provider import CACHE_LIVE, make_provider
 from stockta.inference.market_context import MarketContextService
 from stockta.inference.predictor import Predictor
 from stockta.inference.store import PredictionStore
@@ -38,7 +37,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     cache = ParquetCache(DATA_CACHE_DIR)
-    app.state.data_provider = YFinanceProvider(cache=cache, auto_adjust=AUTO_ADJUST)
+    app.state.data_provider = make_provider(CACHE_LIVE, cache=cache)
     app.state.twse_dir = TWSE_DATA_DIR  # 網站 K 線只用證交所開放資料（見 config.TWSE_DATA_DIR）
     app.state.market_context = MarketContextService(
         app.state.data_provider, cache, list(STOCK_POOL)

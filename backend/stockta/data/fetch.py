@@ -15,15 +15,13 @@ from datetime import timedelta
 from stockta.config import (
     AUTO_ADJUST,
     BACKEND_ROOT,
-    DATA_CACHE_DIR,
     HISTORY_YEARS,
     LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
     STOCK_POOL,
 )
-from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day
-from stockta.data.provider import DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_REFRESH, DataProviderError, make_provider
 from stockta.ml.labeling import make_labels
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
@@ -31,9 +29,7 @@ PAUSE_SECONDS = 0.6  # 對 Yahoo 溫柔一點，避免整批抓取被限流
 
 
 def main() -> None:
-    provider = YFinanceProvider(
-        cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST, max_cache_age_days=0.0
-    )
+    provider = make_provider(CACHE_REFRESH)
     end = last_completed_trading_day()
     start = end - timedelta(days=HISTORY_YEARS * 365)
 

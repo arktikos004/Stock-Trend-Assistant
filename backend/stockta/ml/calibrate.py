@@ -17,17 +17,14 @@ import numpy as np
 import pandas as pd
 
 from stockta.config import (
-    AUTO_ADJUST,
-    DATA_CACHE_DIR,
     MARKET_INDEX_TICKER,
     PRODUCTION_MODEL,
     SPLIT_TRAIN_END,
     SPLIT_VAL_END,
     STOCK_POOL,
 )
-from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day
-from stockta.data.provider import DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference import decision
 from stockta.inference.predictor import Predictor
@@ -61,7 +58,7 @@ def best_thresholds(
 
 
 def main() -> int:
-    provider = YFinanceProvider(cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST)
+    provider = make_provider(CACHE_LIVE)
     predictor = Predictor.from_registry(PRODUCTION_MODEL)
     train_end = pd.Timestamp(SPLIT_TRAIN_END)
     val_end = np.datetime64(pd.Timestamp(SPLIT_VAL_END))

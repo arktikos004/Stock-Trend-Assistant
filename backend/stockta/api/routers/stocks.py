@@ -23,7 +23,6 @@ from stockta.api.schemas import (
     StockHistoryResponse,
 )
 from stockta.config import (
-    AUTO_ADJUST,
     DATA_CACHE_DIR,
     INDICATOR_WARMUP_DAYS,
     LABEL_CLASSES,
@@ -35,7 +34,7 @@ from stockta.chips import build_chips
 from stockta.data.cache import ParquetCache
 from stockta.data.twse import load_candles as load_twse_candles
 from stockta.data.calendar import calendar_lookback_days, last_completed_trading_day
-from stockta.data.provider import DataProvider, DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_FIRST, DataProvider, DataProviderError, make_provider
 from stockta.features.pipeline import build_features
 from stockta.inference.predictor import InsufficientDataError, Predictor
 from stockta.inference.replay import context_fetch_start, history_series, load_pool_context
@@ -234,10 +233,8 @@ def get_history(
             ticker=ticker, start=start_d, end=end_d, count=0, hits=0, records=[]
         )
 
-    # 歷史回放讀本地全歷史快取，不打網路
-    provider = YFinanceProvider(
-        cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST, max_cache_age_days=9999
-    )
+    # 歷史回放優先讀本機快取（CACHE_FIRST：檔案缺漏或區間內沒有資料時仍會下載）
+    provider = make_provider(CACHE_FIRST)
     fetch_start = context_fetch_start(start_d)
     # 多抓 end 之後約 3 週：邊界附近的預測才算得出實際 5 日走勢（否則末幾日誤判為未到期）
     fetch_end = end_d + timedelta(days=21)

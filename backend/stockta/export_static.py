@@ -11,7 +11,7 @@
 - history：匯出近 HISTORY_EXPORT_DAYS 天，前端依 (start, end] 篩選並重算命中率
 - scan / rank：匯出即時 + 最近 SCAN_HISTORY_SESSIONS 個交易日，其餘日期前端回報超出範圍
 
-匯出期間資料源換成「只讀快取」的 provider：匯出內容＝record 步驟當下看到的資料，
+匯出期間資料源換成優先讀快取的 provider（CACHE_FIRST，快取有就不下載）：匯出內容＝record 步驟當下看到的資料，
 不會在匯出途中又抓到一根新 K 棒。/prediction 的落地副作用也關掉——線上實證只由
 record_predictions 寫入（與 /scan 的設計原則一致）。
 
@@ -253,10 +253,10 @@ def main(argv: list[str] | None = None) -> int:
     from fastapi.testclient import TestClient
 
     from stockta.api import main as api_main
-    from stockta.config import AUTO_ADJUST, DATA_CACHE_DIR, STOCK_POOL
+    from stockta.config import DATA_CACHE_DIR, STOCK_POOL
     from stockta.data.cache import ParquetCache
     from stockta.data.calendar import last_completed_trading_day
-    from stockta.data.provider import YFinanceProvider
+    from stockta.data.provider import CACHE_FIRST, make_provider
     from stockta.inference.market_context import MarketContextService
 
     prev_meta = None
@@ -270,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
             state = api_main.app.state
             state.limiter.enabled = False  # 同一個 "testclient" IP 連打數百次，會誤觸每分鐘限流
             cache = ParquetCache(DATA_CACHE_DIR)
-            offline = YFinanceProvider(cache=cache, auto_adjust=AUTO_ADJUST, max_cache_age_days=9999)
+            offline = make_provider(CACHE_FIRST, cache=cache)
             state.data_provider = offline
             state.market_context = MarketContextService(offline, cache, list(STOCK_POOL))
             state.prediction_store = None

@@ -20,9 +20,7 @@ import sqlite3
 from datetime import date, timedelta
 
 from stockta.config import (
-    AUTO_ADJUST,
     CS_PRODUCTION_MODEL,
-    DATA_CACHE_DIR,
     INDICATOR_WARMUP_DAYS,
     LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
@@ -31,9 +29,8 @@ from stockta.config import (
     STOCK_POOL_EFFECTIVE,
     WINDOW_LENGTH_DAYS,
 )
-from stockta.data.cache import ParquetCache
 from stockta.data.calendar import backfill_sessions, calendar_lookback_days, last_completed_trading_day
-from stockta.data.provider import DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_FIRST, CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.replay import context_fetch_start, load_pool_context
 from stockta.inference.store import RankPredictionStore
@@ -63,7 +60,7 @@ def run_live(
 ) -> int:
     """即時評分全池並記錄最近 N 個交易日（冪等自癒漏記）。當日最新交易日記 source=live，
     因資料延遲而回補的較舊交易日記 source=pit（分數對固定權重逐位元一致，僅記錄時點不同）。"""
-    provider = YFinanceProvider(cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST)
+    provider = make_provider(CACHE_LIVE)
     end = last_completed_trading_day()
     lookback = calendar_lookback_days(WINDOW_LENGTH_DAYS, INDICATOR_WARMUP_DAYS)
     ctx_start = end - timedelta(days=lookback + _CONTEXT_EXTRA_DAYS)
@@ -134,9 +131,7 @@ def run_backfill(store: RankPredictionStore, model, scaler, version: str) -> int
     ]
     conn.close()
 
-    provider = YFinanceProvider(
-        cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST, max_cache_age_days=9999
-    )
+    provider = make_provider(CACHE_FIRST)
     total = 0
     for bd in base_dates:
         as_of = date.fromisoformat(bd)

@@ -20,9 +20,7 @@ import pandas as pd
 from numpy.lib.stride_tricks import sliding_window_view
 
 from stockta.config import (
-    AUTO_ADJUST,
     BACKEND_ROOT,
-    DATA_CACHE_DIR,
     LABEL_CLASSES,
     LABEL_DOWN_THRESHOLD,
     LABEL_HORIZON_DAYS,
@@ -35,9 +33,8 @@ from stockta.config import (
     STOCK_POOL,
     WINDOW_LENGTH_DAYS,
 )
-from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day
-from stockta.data.provider import DataProviderError, YFinanceProvider
+from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.features.pipeline import build_features
 from stockta.inference.decision import apply_thresholds
@@ -97,7 +94,7 @@ def main() -> int:
     args = parser.parse_args()
     start = pd.Timestamp(args.start)
 
-    provider = YFinanceProvider(cache=ParquetCache(DATA_CACHE_DIR), auto_adjust=AUTO_ADJUST)
+    provider = make_provider(CACHE_LIVE)
     predictor = Predictor.from_registry(PRODUCTION_MODEL)
     end = last_completed_trading_day()
     fetch_start = start.date() - timedelta(days=730)  # 特徵暖機 + 視窗所需的前置歷史
