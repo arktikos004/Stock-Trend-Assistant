@@ -1,15 +1,17 @@
-"""資料擷取 CLI：python -m stockta.data.fetch
+"""資料擷取 CLI：python -m stockta.data.fetch [--start YYYY-MM-DD] [--tickers ...] [--no-report]
 
-依 config.STOCK_POOL 抓取近 HISTORY_YEARS 年日線 OHLCV 進 parquet 快取，
+依 config.STOCK_POOL（或 --tickers）抓取近 HISTORY_YEARS 年（或自 --start 起）日線 OHLCV 進 parquet 快取，
 並產出 docs/data_exploration.md（資料範圍、缺值、標籤三類分佈——
-決定 ±2% 門檻與 class weight 時的依據）。
+決定 ±2% 門檻與 class weight 時的依據）；只想補快取時加 --no-report，不改寫這份文件。
 
 快取更新策略：增量合併——每次執行下載最新區間並與既有 parquet 以日期去重合併（keep=last），不整包重抓。
 """
 
 from __future__ import annotations
 
+import argparse
 import time
+from datetime import date
 
 from stockta.config import (
     AUTO_ADJUST,
@@ -18,6 +20,7 @@ from stockta.config import (
     LABEL_HORIZON_DAYS,
     MARKET_INDEX_TICKER,
     STOCK_POOL,
+    stock_name,
 )
 from stockta.data.calendar import history_fetch_start, last_completed_trading_day
 from stockta.data.provider import CACHE_REFRESH, DataProviderError, make_provider
@@ -27,19 +30,26 @@ DOCS_DIR = BACKEND_ROOT.parent / "docs"
 PAUSE_SECONDS = 0.6  # 對 Yahoo 溫柔一點，避免整批抓取被限流
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="抓日線 OHLCV 進 parquet 快取")
+    parser.add_argument("--start", type=date.fromisoformat, help=f"起日 YYYY-MM-DD，預設近 {HISTORY_YEARS} 年")
+    parser.add_argument("--tickers", nargs="+", help="預設為股票池全部標的")
+    parser.add_argument("--no-report", action="store_true", help="只補快取，不改寫 docs/data_exploration.md")
+    args = parser.parse_args(argv)
+
     provider = make_provider(CACHE_REFRESH)
     end = last_completed_trading_day()
-    start = history_fetch_start(end)
+    start = history_fetch_start(end, args.start)
+    pool = {t: stock_name(t) or t for t in args.tickers} if args.tickers else dict(STOCK_POOL)
 
     rows = []
     label_totals = {"跌": 0, "觀望": 0, "漲": 0}
     failed: list[str] = []
-    for i, (ticker, name) in enumerate(STOCK_POOL.items(), 1):
+    for i, (ticker, name) in enumerate(pool.items(), 1):
         try:
             df = provider.get_ohlcv(ticker, start, end)
         except DataProviderError as exc:
-            print(f"[{i}/{len(STOCK_POOL)}] {ticker} {name} 失敗: {exc}")
+            print(f"[{i}/{len(pool)}] {ticker} {name} 失敗: {exc}")
             failed.append(f"{ticker} {name}")
             continue
 
@@ -61,7 +71,7 @@ def main() -> None:
                 "漲": dist["漲"],
             }
         )
-        print(f"[{i}/{len(STOCK_POOL)}] {ticker} {name}: {len(df)} 個交易日")
+        print(f"[{i}/{len(pool)}] {ticker} {name}: {len(df)} 個交易日")
         time.sleep(PAUSE_SECONDS)
 
     # 大盤指數（市場情境特徵用）——不列入個股標籤統計
@@ -72,6 +82,9 @@ def main() -> None:
         print(f"{MARKET_INDEX_TICKER} 加權指數 失敗: {exc}")
         failed.append(f"{MARKET_INDEX_TICKER} 加權指數")
 
+    if args.no_report:
+        print("--no-report：未改寫 docs/data_exploration.md")
+        return
     _write_report(rows, label_totals, failed, str(start), str(end))
 
 
@@ -107,7 +120,7 @@ def _write_report(rows, label_totals, failed, start, end) -> None:
     ]
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
     out = DOCS_DIR / "data_exploration.md"
-    out.write_text("\n".join(lines), encoding="utf-8")
+    out.write_text("\n".join(lines), encoding="utf-8", newline="\n")
     print(f"\n標籤分佈：{dist_line}")
     print(f"報告已寫入 {out}")
 

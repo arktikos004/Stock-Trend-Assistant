@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from datetime import date
 
 import pandas as pd
 
@@ -40,22 +41,21 @@ def create_model(name: str, **hyperparams):
     return MODEL_FACTORIES[name](**hyperparams)
 
 
-def load_pool_ohlcv(tickers: list[str] | None = None) -> dict[str, pd.DataFrame]:
+def load_pool_ohlcv(tickers: list[str] | None = None, start: date | None = None) -> dict[str, pd.DataFrame]:
+    """全池（或 tickers）的日線，從 start（預設近 HISTORY_YEARS 年）到最後交易日。"""
     provider = make_provider(CACHE_TRAINING)
     end = last_completed_trading_day()
-    start = history_fetch_start(end)
-    out = load_pool(provider, start, end, tickers=tickers or None, on_skip=print_skip)
+    out = load_pool(provider, history_fetch_start(end, start), end, tickers=tickers or None, on_skip=print_skip)
     if not out:
         raise SystemExit("沒有任何可用資料，請先執行 python -m stockta.data.fetch")
     return out
 
 
-def load_market_context(ohlcv_by_ticker: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """抓大盤指數並建出市場情境 context（訓練/調參/回測共用）。"""
+def load_market_context(ohlcv_by_ticker: dict[str, pd.DataFrame], start: date | None = None) -> pd.DataFrame:
+    """抓大盤指數並建出市場情境 context（訓練/調參/回測共用）；start 同 load_pool_ohlcv。"""
     provider = make_provider(CACHE_TRAINING)
     end = last_completed_trading_day()
-    start = history_fetch_start(end)
-    return build_market_context(load_market(provider, start, end), ohlcv_by_ticker)
+    return build_market_context(load_market(provider, history_fetch_start(end, start), end), ohlcv_by_ticker)
 
 
 def main() -> None:

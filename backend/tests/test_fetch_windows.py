@@ -328,10 +328,30 @@ def test_fetch_cli(calls, monkeypatch, tmp_path):
     monkeypatch.setattr(fetch, "DOCS_DIR", tmp_path)
     monkeypatch.setattr(fetch, "PAUSE_SECONDS", 0)
     end = last_completed_trading_day()
-    fetch.main()
+    fetch.main([])
     assert calls.ages == [0.0]
     assert calls.yf == _window([*POOL, MKT], end - _days(7300), end)
     assert (tmp_path / "data_exploration.md").exists()
+
+
+def test_fetch_cli_from_a_fixed_start_without_the_report(calls, monkeypatch, tmp_path):
+    from stockta.data import fetch
+
+    monkeypatch.setattr(fetch, "DOCS_DIR", tmp_path)
+    monkeypatch.setattr(fetch, "PAUSE_SECONDS", 0)
+    end = last_completed_trading_day()
+    fetch.main(["--start", "2004-01-01", "--tickers", "2330.TW", "2317.TW", "--no-report"])
+    assert calls.ages == [0.0]
+    assert calls.yf == _window(["2330.TW", "2317.TW", MKT], date(2004, 1, 1), end)
+    assert not (tmp_path / "data_exploration.md").exists()
+
+
+def test_training_loaders_from_a_fixed_start(calls):
+    from stockta.ml.train import load_market_context, load_pool_ohlcv
+
+    end = last_completed_trading_day()
+    load_market_context(load_pool_ohlcv(start=date(2004, 1, 1)), start=date(2004, 1, 1))
+    assert calls.yf == _window([*POOL, MKT], date(2004, 1, 1), end)
 
 
 def test_market_context_service(calls):

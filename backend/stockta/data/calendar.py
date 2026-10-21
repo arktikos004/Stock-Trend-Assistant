@@ -105,9 +105,9 @@ def record_fetch_start(end: date) -> date:
     return end - timedelta(days=FEATURE_LOOKBACK_DAYS + RECORD_CONTEXT_EXTRA_DAYS)
 
 
-def history_fetch_start(end: date) -> date:
-    """訓練與資料擷取的抓取起日：近 HISTORY_YEARS 年。"""
-    return end - timedelta(days=HISTORY_DAYS)
+def history_fetch_start(end: date, start: date | None = None) -> date:
+    """訓練與資料擷取的抓取起日：給了 start 就用它（研究用的固定起點），否則近 HISTORY_YEARS 年。"""
+    return start if start is not None else end - timedelta(days=HISTORY_DAYS)
 
 
 def backfill_sessions(sessions, days: int, not_before: date) -> list:
