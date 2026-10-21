@@ -20,7 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import joblib
 import numpy as np
@@ -58,6 +58,7 @@ class CSData:
     is_train: np.ndarray
     is_val: np.ndarray
     is_test: np.ndarray
+    label_end: np.ndarray  # 標籤日：第 t+LABEL_HORIZON_DAYS 個特徵列的日期（purge 用）
 
 
 def split_masks(
@@ -92,10 +93,24 @@ def split_masks(
     return is_train, is_val, is_test
 
 
-def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataFrame) -> CSData:
-    Xs, dates, tkrs, ret_label = [], [], [], []
+def build_cs_dataset(
+    ohlcv_by_ticker: dict[str, pd.DataFrame],
+    context: pd.DataFrame,
+    *,
+    members: pd.DataFrame | None = None,
+    listed: dict[str, date] | None = None,
+) -> CSData:
+    """全池的 cross-sectional 資料集。
+
+    members：逐日成分股寬表（universe.membership_frame）；給了就只留基準日當天是成分股的列，
+    當日中位數也只在這些列之間算。listed：各檔的上市日；給了就先丟掉上市日之前的價格再算特徵
+    （Yahoo 會把換股上市前的歷史接上來，例如 3711 接了 2311 的價格）。
+    """
+    Xs, dates, tkrs, ret_label, label_ends = [], [], [], [], []
     rets_h: dict[int, list] = {h: [] for h in _HORIZONS}
     for t, ohlcv in ohlcv_by_ticker.items():
+        if listed is not None and t in listed:
+            ohlcv = ohlcv.loc[ohlcv.index >= pd.Timestamp(listed[t])]
         feats = build_features(ohlcv, context)
         if len(feats) < WINDOW_LENGTH_DAYS:
             continue
@@ -109,10 +124,14 @@ def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataF
         # 標籤 horizon 的報酬決定樣本有效性；各持有期報酬缺資料處為 NaN（回測時該期跳過）
         lab_fwd = pos + LABEL_HORIZON_DAYS
         ok = lab_fwd < len(close)
+        if members is not None:
+            member = members[t] if t in members.columns else pd.Series(False, index=members.index)
+            ok &= member.reindex(end_dates, fill_value=False).to_numpy(dtype=bool)
         if not ok.any():
             continue
         Xs.append(w[ok]); dates.append(end_dates[ok].values); tkrs.append(np.array([t] * ok.sum()))
         ret_label.append(close[lab_fwd[ok]] / close[pos[ok]] - 1)
+        label_ends.append(feats.index[lab_fwd[ok]].values)
         for h in _HORIZONS:
             fwd = pos[ok] + h
             r = np.full(ok.sum(), np.nan)
@@ -131,7 +150,7 @@ def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataF
     y = (rl > med).astype(int)
 
     is_train, is_val, is_test = split_masks(dts.values, None, CS_SPLIT_TRAIN_END, CS_SPLIT_VAL_END)
-    return CSData(X, y, dts.values, tkr, rl, rets_by_h, is_train, is_val, is_test)
+    return CSData(X, y, dts.values, tkr, rl, rets_by_h, is_train, is_val, is_test, np.concatenate(label_ends))
 
 
 def _make_model(name: str, **overrides):

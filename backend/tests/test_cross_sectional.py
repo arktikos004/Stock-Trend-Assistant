@@ -143,3 +143,58 @@ def test_purge_drops_rows_whose_label_crosses_the_cut():
     assert (label_end[is_val] <= pd.Timestamp("2025-01-15")).all()
     assert days[is_train].max() == pd.Timestamp("2024-12-24")  # 最後 5 個訓練日被清掉
     assert is_test.sum() == ((days > pd.Timestamp("2025-01-15")).sum())  # 測試列不清除
+
+
+def _pool(n=12, periods=400):
+    pool = {f"{2000 + i}.TW": _rand_walk(i, periods=periods) for i in range(n)}
+    return pool, build_market_context(_rand_walk(99, periods=periods), pool, min_tickers=3)
+
+
+def test_label_end_is_five_feature_rows_later():
+    pool, context = _pool()
+    ds = build_cs_dataset(pool, context)
+    one = ds.tickers == "2000.TW"
+    days = pd.DatetimeIndex(ds.dates[one])
+
+    assert (pd.DatetimeIndex(ds.label_end[one])[:-5] >= days[:-5]).all()
+    assert (pd.DatetimeIndex(ds.label_end[one])[:-5] == days[5:]).all()  # 連續的特徵列：標籤日就是 5 列之後的基準日
+
+
+@pytest.mark.leakage
+def test_members_restrict_rows_and_label_median():
+    """只留當天是成分股的列，中位數也只在成分股之間算。"""
+    pool, context = _pool()
+    full = build_cs_dataset(pool, context)
+    days = pd.DatetimeIndex(np.unique(full.dates))
+    members = pd.DataFrame(True, index=days, columns=list(pool))
+    members.loc[days[len(days) // 2]:, "2000.TW"] = False  # 後半段不在成分股內
+    ds = build_cs_dataset(pool, context, members=members)
+
+    cut = days[len(days) // 2]
+    assert not ((ds.tickers == "2000.TW") & (pd.DatetimeIndex(ds.dates) >= cut)).any()
+    median = pd.Series(ds.ret_label).groupby(ds.dates).transform("median").to_numpy()
+    assert (ds.y == (ds.ret_label > median)).all()
+
+
+@pytest.mark.leakage
+def test_listing_gate_drops_prices_before_listing():
+    """上市日之前的價格不能進特徵：那一檔的第一列至少要等上市後一個視窗加暖機。"""
+    pool, context = _pool(periods=500)
+    listing = pd.DatetimeIndex(pool["2000.TW"].index)[200].date()
+    ds = build_cs_dataset(pool, context, listed={"2000.TW": listing})
+    first = pd.DatetimeIndex(ds.dates[ds.tickers == "2000.TW"]).min()
+    gated = build_cs_dataset({"2000.TW": pool["2000.TW"].loc[pd.Timestamp(listing):]}, context)
+
+    assert first > pd.Timestamp(listing)
+    assert first == pd.DatetimeIndex(gated.dates).min()
+
+
+@pytest.mark.leakage
+def test_purged_split_keeps_labels_inside_each_segment():
+    pool, context = _pool(periods=700)
+    ds = build_cs_dataset(pool, context)
+    is_train, is_val, _ = split_masks(ds.dates, ds.label_end, CS_SPLIT_TRAIN_END, CS_SPLIT_VAL_END, purge=True)
+
+    assert (pd.DatetimeIndex(ds.label_end[is_train]) <= pd.Timestamp(CS_SPLIT_TRAIN_END)).all()
+    assert (pd.DatetimeIndex(ds.label_end[is_val]) <= pd.Timestamp(CS_SPLIT_VAL_END)).all()
+    assert is_train.sum() < ds.is_train.sum()  # 切點前最後幾天的列被清掉
