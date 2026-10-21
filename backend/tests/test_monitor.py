@@ -10,7 +10,8 @@ import pandas as pd
 import pytest
 
 from stockta import monitor
-from stockta.monitor import model_health, newey_west, quintile, quintile_moves, week52
+from stockta.monitor import model_health, quintile, quintile_moves, week52
+from stockta.stats import newey_west
 
 AS_OF = date(2026, 10, 6)
 

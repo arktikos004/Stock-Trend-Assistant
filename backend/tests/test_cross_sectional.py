@@ -8,7 +8,7 @@ from stockta.config import CS_SPLIT_TRAIN_END, CS_SPLIT_VAL_END
 from stockta.features.market import build_market_context
 from stockta.ml.cross_sectional import build_cs_dataset
 from stockta.ml.cs_metrics import NW_LAGS, daily_rank_ic, portfolio_backtest, quantile_spread, rank_ic
-from stockta.monitor import newey_west
+from stockta.stats import newey_west
 
 
 def _two_days(n=20):

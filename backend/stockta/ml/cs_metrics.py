@@ -12,23 +12,17 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
 
-from stockta.config import LABEL_HORIZON_DAYS
-from stockta.monitor import newey_west
-
-NW_LAGS = LABEL_HORIZON_DAYS - 1  # 相鄰基準日的未來報酬重疊 LABEL_HORIZON_DAYS − 1 天
+from stockta.stats import MIN_STOCKS_PER_DAY, NW_LAGS, day_rank_ic, newey_west
 
 
 def daily_rank_ic(dates: np.ndarray, scores: np.ndarray, rets: np.ndarray) -> pd.Series:
-    """逐日 Spearman(分數, 未來報酬)，依日期排序；當日少於 10 檔、或分數與報酬沒有變異的日子略過。"""
+    """逐日 Spearman(分數, 未來報酬)，依日期排序；當日少於 10 檔、分數與報酬沒有變異、或 IC 為 NaN 的日子略過。"""
     df = pd.DataFrame({"date": pd.DatetimeIndex(dates), "s": scores, "r": rets})
     daily = {}
     for d, g in df.groupby("date"):
-        if len(g) < 10 or g["s"].nunique() < 2 or g["r"].nunique() < 2:
-            continue
-        ic, _ = spearmanr(g["s"], g["r"])
-        if not np.isnan(ic):
+        ic = day_rank_ic(g["s"], g["r"])
+        if ic is not None and not np.isnan(ic):
             daily[d] = ic
     return pd.Series(daily, dtype=float)
 
@@ -52,7 +46,7 @@ def quantile_spread(
     df = pd.DataFrame({"date": pd.DatetimeIndex(dates), "s": scores, "r": rets})
     spreads = []
     for _d, g in df.groupby("date"):
-        if len(g) < 10:
+        if len(g) < MIN_STOCKS_PER_DAY:
             continue
         k = max(3, int(len(g) * top_fraction))
         gg = g.sort_values("s")
@@ -87,7 +81,7 @@ def portfolio_backtest(
     turnovers = []
     for d in rebal:
         g = df[df["date"] == d].dropna(subset=["r"])  # 未來報酬不足者剔除（資料末端）
-        if len(g) < 10:
+        if len(g) < MIN_STOCKS_PER_DAY:
             continue
         k = max(3, int(len(g) * top_fraction))
         top = g.sort_values("s").iloc[-k:]

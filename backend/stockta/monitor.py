@@ -15,31 +15,22 @@ import statistics
 from collections.abc import Sequence
 from datetime import date
 
-import numpy as np
 import pandas as pd
+
+from stockta import stats
+from stockta.stats import newey_west
 
 RULES_VERSION = "v1"
 RULES_DOC = "docs/monitor_prereg.md"
 
-NW_LAGS = 4  # 預測期 5 日 − 1
-MIN_DAYS = 20  # 已到期交易日少於此數不判定
+NW_LAGS = stats.NW_LAGS  # 預測期 5 日 − 1
+MIN_DAYS = stats.MIN_DAYS  # 已到期交易日少於此數不判定
 BREAKDOWN_T = -1.645  # 單尾 5%
 RECENT_DAYS = 20  # 描述性提示：最近 20 日平均
 SKILL_T = (2.0, 3.0)  # 慣例顯著門檻；Harvey, Liu & Zhu (2016) 的新因子門檻
 QUINTILES = 5
 MIGRATION_SESSIONS = 5  # 與模型的預測期一致
 WEEK52 = 250  # 交易日
-
-
-def newey_west(x: Sequence[float], lags: int = NW_LAGS) -> tuple[float, float]:
-    """平均與其 Newey–West HAC 標準誤（Bartlett kernel：權重 1 − l／(lags + 1)）。"""
-    a = np.asarray(x, dtype=float)
-    n = len(a)
-    e = a - a.mean()
-    s = float(e @ e) / n
-    for lag in range(1, min(lags, n - 1) + 1):
-        s += 2 * (1 - lag / (lags + 1)) * float(e[lag:] @ e[:-lag]) / n
-    return float(a.mean()), float(np.sqrt(max(s, 0.0) / n))
 
 
 def model_health(days: Sequence[tuple[date, float]], backtest_ic: float | None) -> dict:

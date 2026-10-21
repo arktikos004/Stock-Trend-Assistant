@@ -18,17 +18,19 @@ from dataclasses import dataclass
 from datetime import date
 
 import numpy as np
-from scipy.stats import rankdata, spearmanr
+from scipy.stats import rankdata
 
 from stockta.config import LABEL_HORIZON_DAYS
 from stockta.evidence import ic_group
-from stockta.monitor import newey_west, quintile, rank_order
+from stockta import stats
+from stockta.monitor import quintile, rank_order
+from stockta.stats import day_rank_ic, newey_west
 
 RULES_VERSION = "v1"
 RULES_DOC = "docs/baseline_prereg.md"
 
-MIN_NAMES = 10  # 每日至少幾檔才計入（與線上 Rank IC 相同）
-MIN_DAYS = 20  # 中和後 IC 計入不足 20 天不判讀
+MIN_NAMES = stats.MIN_STOCKS_PER_DAY  # 每日至少幾檔才計入（與線上 Rank IC 相同）
+MIN_DAYS = stats.MIN_DAYS  # 中和後 IC 計入不足 20 天不判讀
 VERDICT_T = 2.0
 HLZ_T = 3.0  # Harvey, Liu & Zhu (2016) 的新因子門檻，只列出供參考
 TARGET_T = 2.0  # 「還要多久」以 t 的期望值到 2 推算
@@ -110,10 +112,7 @@ def neutralize(scores: Sequence[float], factors: Sequence[Sequence[float]]) -> n
 
 def spearman(a: Sequence[float], b: Sequence[float]) -> float | None:
     """至少 MIN_NAMES 檔、兩邊都有變異才算；否則 None。"""
-    x, y = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
-    if len(x) < MIN_NAMES or len(np.unique(x)) < 2 or len(np.unique(y)) < 2:
-        return None
-    return float(spearmanr(x, y)[0])
+    return day_rank_ic(np.asarray(a, dtype=float), np.asarray(b, dtype=float))
 
 
 def _stat(values: Sequence[float]) -> dict:

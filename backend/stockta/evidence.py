@@ -19,7 +19,7 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import numpy as np
 
-from stockta.monitor import newey_west
+from stockta.stats import newey_west
 
 TAIPEI = timezone(timedelta(hours=8))
 MARKET_OPEN = time(9, 0)

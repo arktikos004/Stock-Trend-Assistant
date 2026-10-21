@@ -18,7 +18,6 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
 
 from stockta.config import (
     ARTIFACTS_CS_DIR,
@@ -32,9 +31,9 @@ from stockta.config import (
 from stockta.data.cache import ParquetCache
 from stockta.ml.cs_metrics import NW_LAGS, quantile_spread, rank_ic
 from stockta.ml.report_predictions import actual_signal
+from stockta.stats import MIN_DAYS, day_rank_ic
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
-_MIN_NAMES = 10  # 與 cs_metrics.rank_ic 的每日最少名數一致
 
 
 def cs_production_version() -> str | None:
@@ -79,7 +78,7 @@ def _backtest_ic_text(days_unit: str = "個交易日") -> str:
 def _indistinguishable_from_zero(ic: dict) -> bool:
     """線上 Rank IC 與 0 無法區分：Newey–West |t| < 2，或到期日少於 20 天（天數太少時 t 值也不可盡信）。"""
     t = ic["t_nw"]
-    return ic["n_days"] < 20 or np.isnan(t) or abs(t) < 2
+    return ic["n_days"] < MIN_DAYS or np.isnan(t) or abs(t) < 2
 
 
 def _ic_range_text(per_day: list[tuple]) -> str:
@@ -136,11 +135,7 @@ def daily_ic(dates: list, scores: list, rets: list, sources: list) -> list[tuple
     df = pd.DataFrame({"date": np.array(dates), "s": np.array(scores, dtype=float), "r": np.array(rets, dtype=float), "src": sources})
     for d, g in df.groupby("date"):
         src = "live" if (g["src"] == "live").any() else "pit"
-        if len(g) < _MIN_NAMES or g["s"].nunique() < 2 or g["r"].nunique() < 2:
-            per_day.append((d, len(g), None, src))
-        else:
-            di, _ = spearmanr(g["s"], g["r"])
-            per_day.append((d, len(g), float(di), src))
+        per_day.append((d, len(g), day_rank_ic(g["s"], g["r"]), src))
     return per_day
 
 
