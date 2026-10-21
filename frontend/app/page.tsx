@@ -124,7 +124,7 @@ export default function OverviewPage() {
               </Link>
             </p>
           </Panel>
-          <MarketPanel className="order-5" market={market.data} />
+          <MarketPanel className="order-5" market={market.data} error={market.error} />
           <RankEndsPanel className="order-6" rank={rank.data} error={rank.error} />
         </div>
 
@@ -138,8 +138,8 @@ export default function OverviewPage() {
               <Skeleton className="aspect-square w-full sm:aspect-[4/3]" />
             )}
           </Panel>
-          <LedgerPanel className="order-3" snapshot={snapshot} fallback={monitor.data?.ledger} />
-          <MaturedPanel className="order-4" model={monitor.data?.model} />
+          <LedgerPanel className="order-3" snapshot={snapshot} fallback={monitor.data?.ledger} error={monitor.error} />
+          <MaturedPanel className="order-4" model={monitor.data?.model} error={monitor.error} />
         </div>
       </div>
     </>

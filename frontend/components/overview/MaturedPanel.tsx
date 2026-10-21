@@ -1,17 +1,26 @@
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
-import { Skeleton } from "@/components/ui/Feedback";
+import { Notice, Skeleton } from "@/components/ui/Feedback";
 import Hint from "@/components/ui/Hint";
 import Panel from "@/components/ui/Panel";
 import type { MonitorResponse } from "@/lib/api";
 import { fixed } from "@/lib/format";
 import { MODEL_STATUS } from "@/lib/status";
+import { errorText } from "@/lib/useAsync";
 
 /**
  * 到期成績：主數字是即時記錄（前瞻）的平均 Rank IC 與 Newey–West t；含事後重建或補寫的全部到期日、回測平均與最新到期的那一天另列。
  * t 未達門檻時直接寫「未達顯著」，不讓正的平均值看起來像已經證實。狀態依預先聲明用全部到期日判定。
  */
-export default function MaturedPanel({ model, className }: { model: MonitorResponse["model"] | undefined; className?: string }) {
+export default function MaturedPanel({
+  model,
+  error,
+  className,
+}: {
+  model: MonitorResponse["model"] | undefined;
+  error?: unknown;
+  className?: string;
+}) {
   const status = model ? MODEL_STATUS[model.status] : null;
   const latest = model ? [...model.daily].reverse().find((d) => d.ic != null) : undefined;
   const skillT = model?.thresholds.skill_t[0] ?? 2;
@@ -38,7 +47,9 @@ export default function MaturedPanel({ model, className }: { model: MonitorRespo
         )
       }
     >
-      {!model || !lead ? (
+      {error ? (
+        <Notice tone="error">{errorText(error, "到期成績還沒有產生。")}</Notice>
+      ) : !model || !lead ? (
         <div className="space-y-2">
           <Skeleton className="h-9 w-1/3" />
           <Skeleton className="h-4 w-2/3" />

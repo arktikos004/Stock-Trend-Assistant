@@ -1,16 +1,25 @@
 import Badge from "@/components/ui/Badge";
-import { Skeleton } from "@/components/ui/Feedback";
+import { Notice, Skeleton } from "@/components/ui/Feedback";
 import Hint from "@/components/ui/Hint";
 import Panel from "@/components/ui/Panel";
 import type { MarketResponse } from "@/lib/api";
 import { pct, share, toneVar } from "@/lib/format";
 import { MARKET_BIAS_TONE, marketBias } from "@/lib/market";
+import { errorText } from "@/lib/useAsync";
 
 /**
  * 大盤：加權指數漲跌、上漲家數比、均線乖離與波動。這些也是模型的市場特徵。
  * 標題旁的偏多／中性／偏空只描述最近的狀態（規則在 lib/market.ts）；缺值時不標，規則收在提示裡。
  */
-export default function MarketPanel({ market, className }: { market: MarketResponse | undefined; className?: string }) {
+export default function MarketPanel({
+  market,
+  error,
+  className,
+}: {
+  market: MarketResponse | undefined;
+  error?: unknown;
+  className?: string;
+}) {
   const bias = market ? marketBias(market) : null;
   return (
     <Panel
@@ -28,7 +37,9 @@ export default function MarketPanel({ market, className }: { market: MarketRespo
         )
       }
     >
-      {!market ? (
+      {error ? (
+        <Notice tone="error">{errorText(error, "大盤資料還沒有產生。")}</Notice>
+      ) : !market ? (
         <div className="space-y-2">
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-4 w-1/2" />

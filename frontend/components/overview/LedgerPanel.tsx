@@ -10,13 +10,14 @@ import { ExternalLink, ShieldCheck, ShieldX } from "lucide-react";
 import { Fragment } from "react";
 import Badge from "@/components/ui/Badge";
 import CopyButton from "@/components/ui/CopyButton";
-import { Skeleton } from "@/components/ui/Feedback";
+import { Notice, Skeleton } from "@/components/ui/Feedback";
 import Panel from "@/components/ui/Panel";
 import type { LedgerSnapshot, MonitorResponse } from "@/lib/api";
 import LedgerStars from "@/components/overview/LedgerStars";
 import Hint from "@/components/ui/Hint";
 import { taipeiTime } from "@/lib/format";
 import { LINKS, REPO_URL } from "@/lib/links";
+import { errorText } from "@/lib/useAsync";
 
 // 指令只在參數之間換行，不在「--chain」這類參數中間斷開
 const VERIFY_PARTS = ["python ledger.py verify", "--db predictions.db", "--chain chain.jsonl"];
@@ -57,10 +58,12 @@ export function pendingDays(days: string[]): string {
 export default function LedgerPanel({
   snapshot,
   fallback,
+  error,
   className,
 }: {
   snapshot: LedgerSnapshot | null | undefined; // undefined＝讀取中；null＝這一版網站資料沒有快照
   fallback: MonitorResponse["ledger"] | undefined;
+  error?: unknown; // 摘要的來源（monitor.json）讀取失敗
   className?: string;
 }) {
   const ok = snapshot ? snapshot.ok : fallback?.ok;
@@ -76,6 +79,14 @@ export default function LedgerPanel({
       </Badge>
     )
   ) : undefined;
+
+  if (snapshot === null && !fallback && error) {
+    return (
+      <Panel className={className} title="存證">
+        <Notice tone="error">{errorText(error, "存證的資料還沒有產生。")}</Notice>
+      </Panel>
+    );
+  }
 
   if (snapshot === undefined || (snapshot === null && !fallback)) {
     return (
