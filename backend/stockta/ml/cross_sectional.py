@@ -134,20 +134,21 @@ def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataF
     return CSData(X, y, dts.values, tkr, rl, rets_by_h, is_train, is_val, is_test)
 
 
-def _make_model(name: str):
+def _make_model(name: str, **overrides):
+    """現行設定的模型；overrides 覆寫個別超參數（逐年驗證的格點與種子）。"""
     if name == "rf":
         from sklearn.ensemble import RandomForestClassifier
 
-        return RandomForestClassifier(
-            n_estimators=200, max_depth=12, class_weight="balanced", n_jobs=-1, random_state=42
-        )
+        params = {"n_estimators": 200, "max_depth": 12, "class_weight": "balanced", "n_jobs": -1, "random_state": 42}
+        return RandomForestClassifier(**{**params, **overrides})
     if name == "xgb":
         from xgboost import XGBClassifier
 
-        return XGBClassifier(
-            n_estimators=300, max_depth=5, learning_rate=0.05, subsample=0.8,
-            objective="binary:logistic", tree_method="hist", n_jobs=-1, random_state=42
-        )
+        params = {
+            "n_estimators": 300, "max_depth": 5, "learning_rate": 0.05, "subsample": 0.8,
+            "objective": "binary:logistic", "tree_method": "hist", "n_jobs": -1, "random_state": 42,
+        }
+        return XGBClassifier(**{**params, **overrides})
     raise SystemExit(f"未知模型 {name!r}（rf|xgb）")
 
 
@@ -157,15 +158,34 @@ def _artifact_dir(name: str):
     return d
 
 
+def fit_cs(
+    X: np.ndarray,
+    y: np.ndarray,
+    train_mask: np.ndarray,
+    *,
+    model_name: str = "xgb",
+    stride: int = 2,
+    params: dict | None = None,
+    scale: bool = True,
+):
+    """在 train_mask 的列上訓練，不寫任何檔案。回傳 (模型, 標準化器或 None, 訓練列索引)。
+
+    訓練列依資料集的列序每隔 stride 列取一列（中位數標籤已用全體算）；標準化器只用這些列 fit。
+    """
+    tr = np.where(train_mask)[0][::stride]
+    scaler = StandardScaler().fit(X[tr]) if scale else None
+    features = scaler.transform(X[tr]) if scaler is not None else X[tr]
+    model = _make_model(model_name, **(params or {}))
+    model.fit(features.astype(np.float32), y[tr])
+    return model, scaler, tr
+
+
 def train(model_name: str, stride: int = 2) -> None:
     ohlcv = load_pool_ohlcv()
     context = load_market_context(ohlcv)
     ds = build_cs_dataset(ohlcv, context)
-    tr = np.where(ds.is_train)[0][::stride]  # 訓練集子取樣（中位數已用全體算）
-    scaler = StandardScaler().fit(ds.X[tr])
-    model = _make_model(model_name)
-    print(f"訓練 cross-sectional {model_name}：train {len(tr):,}（stride {stride}）…")
-    model.fit(scaler.transform(ds.X[tr]).astype(np.float32), ds.y[tr])
+    print(f"訓練 cross-sectional {model_name}：train {len(np.where(ds.is_train)[0][::stride]):,}（stride {stride}）…")
+    model, scaler, tr = fit_cs(ds.X, ds.y, ds.is_train, model_name=model_name, stride=stride)
 
     # 驗證期 Rank IC（選型依據）
     va = ds.is_val

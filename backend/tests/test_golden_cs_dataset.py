@@ -17,7 +17,7 @@ import pytest
 from sklearn.preprocessing import StandardScaler
 
 from stockta.features.market import build_market_context
-from stockta.ml.cross_sectional import _make_model, build_cs_dataset
+from stockta.ml.cross_sectional import _make_model, build_cs_dataset, fit_cs
 
 GOLDEN_PATH = Path(__file__).parent / "golden" / "cs_dataset.json"
 N_TICKERS = 12
@@ -99,3 +99,14 @@ def test_cs_training_rows_and_scaler_match_golden(actual, golden):
 
 def test_cs_model_probe_matches_golden(actual, golden):
     np.testing.assert_allclose(actual["probe"], golden["probe"], rtol=1e-6)
+
+
+def test_fit_cs_matches_the_training_path(golden):
+    """fit_cs 與 train() 走同一條路：同樣的訓練列、同樣的標準化、同樣的機率。"""
+    pool, context = _inputs()
+    ds = build_cs_dataset(pool, context)
+    model, scaler, tr = fit_cs(ds.X, ds.y, ds.is_train)
+
+    assert _digest(tr) == golden["train_rows"]
+    probe = model.predict_proba(scaler.transform(ds.X[ds.is_val][:20]).astype(np.float32))[:, 1]
+    np.testing.assert_allclose(probe, golden["probe"], rtol=1e-6)
