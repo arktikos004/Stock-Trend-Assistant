@@ -6,7 +6,7 @@ import pytest
 
 from stockta.config import CS_SPLIT_TRAIN_END, CS_SPLIT_VAL_END
 from stockta.features.market import build_market_context
-from stockta.ml.cross_sectional import build_cs_dataset
+from stockta.ml.cross_sectional import build_cs_dataset, split_masks
 from stockta.ml.cs_metrics import NW_LAGS, daily_rank_ic, portfolio_backtest, quantile_spread, rank_ic
 from stockta.stats import newey_west
 
@@ -119,3 +119,27 @@ def test_cs_split_stays_on_experiment_8_dates():
     assert ds.is_train.any() and ds.is_val.any() and ds.is_test.any()
     assert dates[ds.is_train].max() <= pd.Timestamp(CS_SPLIT_TRAIN_END) < dates[ds.is_val].min()
     assert dates[ds.is_val].max() <= pd.Timestamp(CS_SPLIT_VAL_END) < dates[ds.is_test].min()
+
+
+def test_split_masks_cut_on_base_dates():
+    dates = pd.bdate_range("2024-12-26", "2025-01-10").values
+    is_train, is_val, is_test = split_masks(dates, None, "2024-12-31", "2025-01-06")
+    days = pd.DatetimeIndex(dates)
+
+    assert days[is_train].max() == pd.Timestamp("2024-12-31")
+    assert days[is_val].min() == pd.Timestamp("2025-01-01") and days[is_val].max() == pd.Timestamp("2025-01-06")
+    assert days[is_test].min() == pd.Timestamp("2025-01-07")
+    assert not (is_train & is_val).any() and not (is_val & is_test).any()
+
+
+@pytest.mark.leakage
+def test_purge_drops_rows_whose_label_crosses_the_cut():
+    """標籤是 5 日報酬：訓練列與驗證列的標籤日不能落在切點之後。"""
+    days = pd.bdate_range("2024-12-16", "2025-01-24")
+    label_end = days.shift(5, freq="B")
+    is_train, is_val, is_test = split_masks(days.values, label_end.values, "2024-12-31", "2025-01-15", purge=True)
+
+    assert (label_end[is_train] <= pd.Timestamp("2024-12-31")).all()
+    assert (label_end[is_val] <= pd.Timestamp("2025-01-15")).all()
+    assert days[is_train].max() == pd.Timestamp("2024-12-24")  # 最後 5 個訓練日被清掉
+    assert is_test.sum() == ((days > pd.Timestamp("2025-01-15")).sum())  # 測試列不清除

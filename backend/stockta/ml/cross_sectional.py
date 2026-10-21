@@ -60,10 +60,39 @@ class CSData:
     is_test: np.ndarray
 
 
-def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataFrame) -> CSData:
-    train_end = pd.Timestamp(CS_SPLIT_TRAIN_END)
-    val_end = pd.Timestamp(CS_SPLIT_VAL_END)
+def split_masks(
+    dates: np.ndarray,
+    label_end: np.ndarray | None,
+    train_end,
+    val_end,
+    *,
+    train_start=None,
+    test_end=None,
+    purge: bool = False,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """依基準日切成訓練（≤ train_end）、驗證（≤ val_end）與測試三段的列遮罩。
 
+    purge=True 時，標籤日（該檔自己的第 t+LABEL_HORIZON_DAYS 個交易日）晚於該段最後一天的訓練列、驗證列不用，
+    標籤就不會跨過切點。train_start、test_end 再把訓練期的起點、測試期的終點收窄。"""
+    d = pd.DatetimeIndex(dates)
+    train_end, val_end = pd.Timestamp(train_end), pd.Timestamp(val_end)
+    is_train = np.asarray(d <= train_end)
+    is_val = np.asarray((d > train_end) & (d <= val_end))
+    is_test = np.asarray(d > val_end)
+    if train_start is not None:
+        is_train &= np.asarray(d >= pd.Timestamp(train_start))
+    if test_end is not None:
+        is_test &= np.asarray(d <= pd.Timestamp(test_end))
+    if purge:
+        if label_end is None:
+            raise ValueError("purge 需要每一列的標籤日")
+        ends = pd.DatetimeIndex(label_end)
+        is_train &= np.asarray(ends <= train_end)
+        is_val &= np.asarray(ends <= val_end)
+    return is_train, is_val, is_test
+
+
+def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataFrame) -> CSData:
     Xs, dates, tkrs, ret_label = [], [], [], []
     rets_h: dict[int, list] = {h: [] for h in _HORIZONS}
     for t, ohlcv in ohlcv_by_ticker.items():
@@ -101,9 +130,7 @@ def build_cs_dataset(ohlcv_by_ticker: dict[str, pd.DataFrame], context: pd.DataF
     med = pd.DataFrame({"r": rl, "d": dts}).groupby("d")["r"].transform("median").to_numpy()
     y = (rl > med).astype(int)
 
-    is_train = np.asarray(dts <= train_end)
-    is_val = np.asarray((dts > train_end) & (dts <= val_end))
-    is_test = np.asarray(dts > val_end)
+    is_train, is_val, is_test = split_masks(dts.values, None, CS_SPLIT_TRAIN_END, CS_SPLIT_VAL_END)
     return CSData(X, y, dts.values, tkr, rl, rets_by_h, is_train, is_val, is_test)
 
 
