@@ -33,6 +33,11 @@ python -m stockta.data.universe validate
 某一天收盤時完整的 50 檔名單：`as_of`、`ticker`、`name`、`source_url`。
 與 `config.STOCK_POOL` 是同一份核對結果，測試會比對兩者。
 
+### `listing_dates.csv`（上市日）
+
+曾在名單裡的每一檔的上市日，取自證交所開放資料「上市公司基本資料」（t187ap03_L）。
+研究用的資料集據此丟掉上市前的價格，避免用到換股上市前接上來的前身歷史。
+
 ### `tw50_reviews.csv`（定期審核清單）
 
 每一次定期審核一列：`effective_date`、`n_changes`（納入檔數，等於剔除檔數，可以是 0）、`source_url`。
