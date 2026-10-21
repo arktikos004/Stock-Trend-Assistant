@@ -12,7 +12,7 @@ import { SearchX, Star } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import CandleChart from "@/components/CandleChart";
+import CandleChart, { ChartSkeleton } from "@/components/CandleChart";
 import ChipsPanel from "@/components/ChipsPanel";
 import HistoryReplayCard from "@/components/HistoryReplayCard";
 import IndicatorPanel from "@/components/IndicatorPanel";
@@ -254,7 +254,7 @@ function StockView() {
           </form>
 
           {candles.loading ? (
-            <Skeleton className="h-[620px] w-full" />
+            <ChartSkeleton />
           ) : candles.error ? (
             <Notice>{errorText(candles.error, "這一檔的 K 線還沒有資料。")}</Notice>
           ) : candles.data && candles.data.candles.length > 0 ? (

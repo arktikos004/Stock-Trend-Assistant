@@ -30,6 +30,7 @@ import {
   type SeriesType,
   type Time,
 } from "lightweight-charts";
+import { Skeleton } from "@/components/ui/Feedback";
 import Segmented from "@/components/ui/Segmented";
 import type { Candle } from "@/lib/api";
 import { fixed, pct, toneVar } from "@/lib/format";
@@ -86,9 +87,14 @@ const PANE_TITLE: Record<IndicatorKind, string> = {
   bias: "乖離率（5,10,20）",
 };
 
-/** 整張圖的高度：窄的容器（手機）矮一些；三個窗格（主圖、成交量、副圖）依比例分配 */
+/** 整張圖的高度：窄的容器（手機）矮一些；三個窗格（主圖、成交量、副圖）依比例分配。改這裡要一起改 ChartSkeleton */
 const autoHeight = (width: number) => (width < 640 ? 460 : 540);
 const PANE_STRETCH = [5.4, 1.5, 2.6];
+
+/** 載入中的佔位：高度同 autoHeight（窄螢幕 460、其餘 540），圖表出現時版面不跳動 */
+export function ChartSkeleton() {
+  return <Skeleton className="h-[460px] w-full sm:h-[540px]" />;
+}
 
 interface ChartParts {
   mas: ISeriesApi<"Line">[];
@@ -173,7 +179,8 @@ export default function CandleChart({ candles, history, height }: { candles: Can
       },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
       timeScale: { borderColor: c.border, fixLeftEdge: true, fixRightEdge: true },
-      rightPriceScale: { borderColor: c.border },
+      // 只畫完整的價格標籤：貼在窗格最上緣的那一格會被切掉一半
+      rightPriceScale: { borderColor: c.border, entireTextOnly: true },
     });
     const line = { lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false } as const;
     const refLine = (s: ISeriesApi<SeriesType>, price: number) =>
