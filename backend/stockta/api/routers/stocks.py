@@ -40,7 +40,7 @@ from stockta.features.pipeline import build_features
 from stockta.inference.predictor import InsufficientDataError, Predictor
 from stockta.inference.replay import context_fetch_start, history_series, load_pool_context
 from stockta.inference.risk import annualized_volatility, risk_level
-from stockta.ml.report_predictions import actual_signal
+from stockta.ml.online import actual_signal
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 

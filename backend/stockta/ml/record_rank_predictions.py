@@ -38,7 +38,7 @@ from stockta.features.market import build_market_context
 from stockta.inference.replay import context_fetch_start, load_pool_context
 from stockta.inference.store import RankPredictionStore
 from stockta.ml.cross_sectional import load_cs_model, score_asof
-from stockta.ml.report_rank_predictions import cs_production_version
+from stockta.ml.online import cs_production_version
 
 # context 的 rolling 暖機餘裕（與 record_predictions 一致）
 _CONTEXT_EXTRA_DAYS = 60

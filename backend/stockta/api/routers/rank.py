@@ -35,7 +35,7 @@ from stockta.data.calendar import calendar_lookback_days, last_completed_trading
 from stockta.data.provider import DataProvider, DataProviderError, YFinanceProvider
 from stockta.inference.replay import context_fetch_start, load_pool_context
 from stockta.ml.cross_sectional import score_asof
-from stockta.ml.report_rank_predictions import cs_production_version
+from stockta.ml.online import cs_production_version
 
 router = APIRouter(tags=["rank"])
 

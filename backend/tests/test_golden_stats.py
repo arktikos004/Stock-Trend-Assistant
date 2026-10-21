@@ -28,7 +28,7 @@ from stockta.baselines import (
 )
 from stockta.evidence import ic_group
 from stockta.ml.cs_metrics import daily_rank_ic, portfolio_backtest, quantile_spread, rank_ic
-from stockta.ml.report_rank_predictions import collect_matured, daily_ic
+from stockta.ml.online import collect_matured, daily_ic
 from stockta.monitor import model_health, newey_west
 
 GOLDEN_PATH = Path(__file__).parent / "golden" / "stats.json"

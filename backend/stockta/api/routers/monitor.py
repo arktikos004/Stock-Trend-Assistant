@@ -41,7 +41,7 @@ from stockta.config import ARTIFACTS_CS_DIR, CS_PRODUCTION_MODEL, DATA_CACHE_DIR
 from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day, market_sessions
 from stockta.data.provider import DataProvider, DataProviderError
-from stockta.ml.report_rank_predictions import collect_matured, cs_production_version, daily_ic
+from stockta.ml.online import collect_matured, cs_production_version, daily_ic
 from stockta.monitor import MIGRATION_SESSIONS, RULES_DOC, RULES_VERSION, model_health, quintile_moves, week52
 
 router = APIRouter(tags=["monitor"])

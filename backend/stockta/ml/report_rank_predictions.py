@@ -17,12 +17,10 @@ import sqlite3
 from datetime import date
 
 import numpy as np
-import pandas as pd
 
 from stockta.config import (
     ARTIFACTS_CS_DIR,
     BACKEND_ROOT,
-    CS_PRODUCTION_MODEL,
     CS_TOP_FRACTION,
     DATA_CACHE_DIR,
     LABEL_HORIZON_DAYS,
@@ -30,19 +28,10 @@ from stockta.config import (
 )
 from stockta.data.cache import ParquetCache
 from stockta.ml.cs_metrics import NW_LAGS, quantile_spread, rank_ic
-from stockta.ml.report_predictions import actual_signal
-from stockta.stats import MIN_DAYS, day_rank_ic
+from stockta.ml.online import collect_matured, cs_production_version, daily_ic
+from stockta.stats import MIN_DAYS
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
-
-
-def cs_production_version() -> str | None:
-    """現行 cross-sectional production 模型版本字串（讀 metadata.json，不載權重）。"""
-    meta_path = ARTIFACTS_CS_DIR / CS_PRODUCTION_MODEL / "metadata.json"
-    if not meta_path.exists():
-        return None
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    return f"{meta['model_name']}-cs-{meta['trained_at'][:10]}"
 
 
 def _load_rows(version: str | None) -> list[tuple]:
@@ -101,42 +90,6 @@ def _interpret(ic: dict) -> str:
     if mean > 0:
         return f"線上 Rank IC 為正且顯著（Newey–West t={t:.2f}），與回測方向一致，開始佐證選股技能。"
     return f"線上 Rank IC 為負且顯著（Newey–West t={t:.2f}），與回測相左，需檢視模型是否失效或市況反轉。"
-
-
-def collect_matured(rows: list[tuple], cache) -> tuple[list, list, list, list, int]:
-    """rows=[(ticker, base_date, score, source)] → (dates, scores, rets, sources, n_pending)。
-
-    以 actual_signal 取基準日後 LABEL_HORIZON_DAYS 日實際 close-to-close 報酬（重用絕對
-    方向的到期判定）；尚未到期者計入 pending，不進入 Rank IC 計算。
-    """
-    dates, scores, rets, sources = [], [], [], []
-    pending = 0
-    for ticker, bd, score, source in rows:
-        _sig, ret = actual_signal(cache, ticker, bd)
-        if ret is None:
-            pending += 1
-            continue
-        dates.append(pd.Timestamp(bd))
-        scores.append(score)
-        rets.append(ret)
-        sources.append(source)
-    return dates, scores, rets, sources, pending
-
-
-def daily_ic(dates: list, scores: list, rets: list, sources: list) -> list[tuple]:
-    """逐日 Rank IC：[(基準日, 名數, IC 或 None, 'live'／'pit')]，依基準日排序。
-
-    與 rank_ic 同一過濾條件（每日 ≥10 名、分數與報酬皆有變異；不符合時 IC 為 None）。
-    線上報告與模型監控（stockta/monitor.py）共用這一份定義。
-    """
-    per_day: list[tuple] = []
-    if not dates:
-        return per_day
-    df = pd.DataFrame({"date": np.array(dates), "s": np.array(scores, dtype=float), "r": np.array(rets, dtype=float), "src": sources})
-    for d, g in df.groupby("date"):
-        src = "live" if (g["src"] == "live").any() else "pit"
-        per_day.append((d, len(g), day_rank_ic(g["s"], g["r"]), src))
-    return per_day
 
 
 def main() -> int:

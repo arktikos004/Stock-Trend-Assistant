@@ -6,7 +6,7 @@ import numpy as np
 
 from stockta.config import LABEL_CLASSES, PRODUCTION_MODEL, SIGNAL_CONFIDENCE_THRESHOLDS
 from stockta.inference.predictor import Predictor, resolve_signal
-from stockta.ml.report_predictions import current_production_version
+from stockta.ml.online import current_production_version
 
 DOWN, HOLD, UP = 0, 1, 2
 

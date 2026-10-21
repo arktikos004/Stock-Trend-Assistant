@@ -11,16 +11,12 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from collections import Counter, defaultdict
 from datetime import date
-from pathlib import Path
 
-import pandas as pd
 
 from stockta.config import (
-    ARTIFACTS_DIR,
     BACKEND_ROOT,
     DATA_CACHE_DIR,
     LABEL_CLASSES,
@@ -28,41 +24,12 @@ from stockta.config import (
     LABEL_HORIZON_DAYS,
     LABEL_UP_THRESHOLD,
     PREDICTIONS_DB_PATH,
-    PRODUCTION_MODEL,
     stock_name,
 )
 from stockta.data.cache import ParquetCache
-from stockta.inference.predictor import model_version
+from stockta.ml.online import actual_signal, current_production_version
 
 DOCS_DIR = BACKEND_ROOT.parent / "docs"
-
-
-def actual_signal(cache: ParquetCache, ticker: str, base_date: str) -> tuple[str | None, float | None]:
-    """回傳 (實際訊號, 實際 5 日累積報酬)；資料尚不足時回 (None, None)。"""
-    df = cache.read(ticker)
-    if df is None:
-        return None, None
-    ts = pd.Timestamp(base_date)
-    if ts not in df.index:
-        return None, None
-    pos = df.index.get_loc(ts)
-    target = pos + LABEL_HORIZON_DAYS
-    if target >= len(df):
-        return None, None  # 尚未到期
-    ret = float(df["close"].iloc[target] / df["close"].iloc[pos] - 1)
-    if ret > LABEL_UP_THRESHOLD:
-        return "漲", ret
-    if ret < LABEL_DOWN_THRESHOLD:
-        return "跌", ret
-    return "觀望", ret
-
-
-def current_production_version(artifacts_dir: Path = ARTIFACTS_DIR) -> str | None:
-    """現行 production 模型的版本字串（與 Predictor.version 同一個 model_version；不載入權重，只讀 metadata.json）。"""
-    meta_path = artifacts_dir / PRODUCTION_MODEL / "metadata.json"
-    if not meta_path.exists():
-        return None
-    return model_version(json.loads(meta_path.read_text(encoding="utf-8")))
 
 
 def main() -> None:

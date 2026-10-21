@@ -32,7 +32,7 @@ from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
 from stockta.inference.risk import annualized_volatility, risk_level
 from stockta.inference.replay import scan_asof, signal_of
-from stockta.ml.report_predictions import actual_signal
+from stockta.ml.online import actual_signal
 
 router = APIRouter(tags=["scan"])
 

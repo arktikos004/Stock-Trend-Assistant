@@ -18,7 +18,7 @@ from stockta.config import DATA_CACHE_DIR, PREDICTIONS_DB_PATH, STOCK_POOL
 from stockta.data.cache import ParquetCache
 from stockta.data.calendar import last_completed_trading_day, market_sessions
 from stockta.data.provider import DataProviderError
-from stockta.ml.report_predictions import actual_signal, current_production_version
+from stockta.ml.online import actual_signal, current_production_version
 
 router = APIRouter(tags=["meta"])
 
