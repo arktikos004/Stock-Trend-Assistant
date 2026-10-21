@@ -17,14 +17,13 @@ import numpy as np
 import pandas as pd
 
 from stockta.config import (
-    MARKET_INDEX_TICKER,
     PRODUCTION_MODEL,
     SPLIT_TRAIN_END,
     SPLIT_VAL_END,
-    STOCK_POOL,
 )
 from stockta.data.calendar import REPORT_WARMUP_DAYS, last_completed_trading_day
-from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
+from stockta.data.pool import load_market, load_pool, print_skip
+from stockta.data.provider import CACHE_LIVE, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference import decision
 from stockta.inference.predictor import Predictor
@@ -66,14 +65,8 @@ def main() -> int:
     end = last_completed_trading_day()
     print(f"模型：{predictor.version}；驗證期 {SPLIT_TRAIN_END} ~ {SPLIT_VAL_END}")
 
-    pool_ohlcv = {}
-    for ticker in STOCK_POOL:
-        try:
-            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, fetch_start, end)
-        except DataProviderError as exc:
-            print(f"[略過] {ticker}: {exc}")
-    market = provider.get_ohlcv(MARKET_INDEX_TICKER, fetch_start, end)
-    context = build_market_context(market, pool_ohlcv)
+    pool_ohlcv = load_pool(provider, fetch_start, end, on_skip=print_skip)
+    context = build_market_context(load_market(provider, fetch_start, end), pool_ohlcv)
 
     probas, ys = [], []
     for df in pool_ohlcv.values():

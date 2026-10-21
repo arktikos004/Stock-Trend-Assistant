@@ -28,6 +28,7 @@ from stockta.config import (
     STOCK_POOL_EFFECTIVE,
 )
 from stockta.data.calendar import backfill_sessions, last_completed_trading_day, record_fetch_start, replay_fetch_start
+from stockta.data.pool import load_market, load_pool, print_skip
 from stockta.data.provider import CACHE_FIRST, CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.replay import load_pool_context
@@ -59,14 +60,9 @@ def run_live(
     end = last_completed_trading_day()
     ctx_start = record_fetch_start(end)
 
-    pool_ohlcv: dict = {}
-    for ticker in STOCK_POOL:
-        try:
-            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, ctx_start, end)
-        except DataProviderError as exc:
-            print(f"[略過] {ticker}: {exc}")
+    pool_ohlcv = load_pool(provider, ctx_start, end, on_skip=print_skip)
     try:
-        market = provider.get_ohlcv(MARKET_INDEX_TICKER, ctx_start, end)
+        market = load_market(provider, ctx_start, end)
     except DataProviderError as exc:
         print(f"無法取得大盤指數 {MARKET_INDEX_TICKER}: {exc}")
         return 1

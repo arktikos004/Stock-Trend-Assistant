@@ -34,11 +34,11 @@ import pandas as pd
 from stockta.config import (
     BACKEND_ROOT,
     LABEL_CLASSES,
-    MARKET_INDEX_TICKER,
     STOCK_POOL,
 )
 from stockta.data.calendar import history_fetch_start, last_completed_trading_day
-from stockta.data.provider import CACHE_TRAINING, DataProviderError, make_provider
+from stockta.data.pool import load_market, load_pool, print_skip
+from stockta.data.provider import CACHE_TRAINING, make_provider
 from stockta.features.market import build_market_context
 from stockta.ml.calibrate import apply_thresholds, best_thresholds
 from stockta.ml.dataset import build_dataset
@@ -79,16 +79,10 @@ def _load_inputs() -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
     end = last_completed_trading_day()
     start = history_fetch_start(end)
 
-    pool: dict[str, pd.DataFrame] = {}
-    for ticker in STOCK_POOL:
-        try:
-            pool[ticker] = provider.get_ohlcv(ticker, start, end)
-        except DataProviderError as exc:
-            print(f"[略過] {ticker}: {exc}")
+    pool = load_pool(provider, start, end, on_skip=print_skip)
     if not pool:
         raise SystemExit("沒有任何可用資料，請先執行 python -m stockta.data.fetch")
-    market = provider.get_ohlcv(MARKET_INDEX_TICKER, start, end)
-    return pool, market
+    return pool, load_market(provider, start, end)
 
 
 def _score(proba: np.ndarray, y: np.ndarray, down: float, up: float) -> dict[str, float]:

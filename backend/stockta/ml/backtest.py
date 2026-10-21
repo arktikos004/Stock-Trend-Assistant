@@ -25,7 +25,6 @@ from stockta.config import (
     LABEL_DOWN_THRESHOLD,
     LABEL_HORIZON_DAYS,
     LABEL_UP_THRESHOLD,
-    MARKET_INDEX_TICKER,
     PRODUCTION_MODEL,
     SIGNAL_CONFIDENCE_THRESHOLDS,
     SPLIT_TRAIN_END,
@@ -34,7 +33,8 @@ from stockta.config import (
     WINDOW_LENGTH_DAYS,
 )
 from stockta.data.calendar import REPORT_WARMUP_DAYS, last_completed_trading_day
-from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
+from stockta.data.pool import load_market, load_pool, print_skip
+from stockta.data.provider import CACHE_LIVE, make_provider
 from stockta.features.market import build_market_context
 from stockta.features.pipeline import build_features
 from stockta.inference.decision import apply_thresholds
@@ -100,14 +100,8 @@ def main() -> int:
     fetch_start = start.date() - timedelta(days=REPORT_WARMUP_DAYS)
     print(f"模型：{predictor.version}；回測期間 {args.start} 之後 ~ {end}")
 
-    pool_ohlcv: dict[str, pd.DataFrame] = {}
-    for ticker in STOCK_POOL:
-        try:
-            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, fetch_start, end)
-        except DataProviderError as exc:
-            print(f"[略過] {ticker}: {exc}")
-    market = provider.get_ohlcv(MARKET_INDEX_TICKER, fetch_start, end)
-    context = build_market_context(market, pool_ohlcv)
+    pool_ohlcv = load_pool(provider, fetch_start, end, on_skip=print_skip)
+    context = build_market_context(load_market(provider, fetch_start, end), pool_ohlcv)
 
     probas: list[np.ndarray] = []
     actuals: list[np.ndarray] = []

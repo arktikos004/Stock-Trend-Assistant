@@ -15,11 +15,10 @@ import pandas as pd
 from stockta.config import (
     LABEL_CLASSES,
     LABEL_HORIZON_DAYS,
-    MARKET_INDEX_TICKER,
-    STOCK_POOL,
     WINDOW_LENGTH_DAYS,
 )
-from stockta.data.provider import DataProvider, DataProviderError
+from stockta.data.pool import load_market, load_pool
+from stockta.data.provider import DataProvider
 from stockta.features.market import build_market_context
 from stockta.features.pipeline import build_features
 from stockta.inference.decision import resolve_signal
@@ -30,14 +29,8 @@ def load_pool_context(
     provider: DataProvider, fetch_start: date, end: date
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
     """載入全池 OHLCV 並建出市場情境 context（歷史查詢共用）。回傳 (pool_ohlcv, context)。"""
-    pool_ohlcv: dict[str, pd.DataFrame] = {}
-    for ticker in STOCK_POOL:
-        try:
-            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, fetch_start, end)
-        except DataProviderError:
-            continue
-    market = provider.get_ohlcv(MARKET_INDEX_TICKER, fetch_start, end)
-    return pool_ohlcv, build_market_context(market, pool_ohlcv)
+    pool_ohlcv = load_pool(provider, fetch_start, end)
+    return pool_ohlcv, build_market_context(load_market(provider, fetch_start, end), pool_ohlcv)
 
 
 def scan_asof(

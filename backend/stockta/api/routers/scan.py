@@ -19,7 +19,6 @@ from stockta.api.schemas import ScanResponse, ScanResult
 from stockta.config import (
     DATA_CACHE_DIR,
     LABEL_CLASSES,
-    MARKET_INDEX_TICKER,
     STOCK_POOL,
 )
 from stockta.data.cache import ParquetCache
@@ -29,6 +28,7 @@ from stockta.data.calendar import (
     last_completed_trading_day,
     replay_fetch_start,
 )
+from stockta.data.pool import load_market, load_pool
 from stockta.data.provider import CACHE_FIRST, DataProvider, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
@@ -75,14 +75,10 @@ def _historical_scan(predictor: Predictor, as_of: date) -> ScanResponse:
     fetch_start = replay_fetch_start(as_of)
     provider = make_provider(CACHE_FIRST, cache=cache)
 
-    pool_ohlcv = {}
-    for ticker in STOCK_POOL:
-        try:
-            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, fetch_start, as_of + timedelta(days=SCAN_FETCH_AHEAD_DAYS))
-        except DataProviderError:
-            continue
+    fetch_end = as_of + timedelta(days=SCAN_FETCH_AHEAD_DAYS)
+    pool_ohlcv = load_pool(provider, fetch_start, fetch_end)
     try:
-        market = provider.get_ohlcv(MARKET_INDEX_TICKER, fetch_start, as_of + timedelta(days=SCAN_FETCH_AHEAD_DAYS))
+        market = load_market(provider, fetch_start, fetch_end)
     except DataProviderError as exc:
         raise DataSourceUnavailableError(f"歷史大盤資料不足：{exc}") from exc
     context = build_market_context(market, pool_ohlcv)

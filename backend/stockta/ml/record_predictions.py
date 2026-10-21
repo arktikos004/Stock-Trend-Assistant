@@ -24,6 +24,7 @@ from stockta.config import (
     STOCK_POOL_EFFECTIVE,
 )
 from stockta.data.calendar import backfill_sessions, feature_fetch_start, last_completed_trading_day, record_fetch_start
+from stockta.data.pool import load_market, load_pool, print_skip
 from stockta.data.provider import CACHE_LIVE, DataProviderError, make_provider
 from stockta.features.market import build_market_context
 from stockta.inference.predictor import InsufficientDataError, Predictor
@@ -75,15 +76,10 @@ def main() -> int:
     ctx_start = record_fetch_start(end)
 
     # 先抓全池（含未指定 --tickers 的成分股）——市場寬度需要全池資料
-    pool_ohlcv = {}
-    for ticker in STOCK_POOL:
-        try:
-            pool_ohlcv[ticker] = provider.get_ohlcv(ticker, ctx_start, end)
-        except DataProviderError as exc:
-            print(f"[略過] {ticker}: {exc}")
+    pool_ohlcv = load_pool(provider, ctx_start, end, on_skip=print_skip)
 
     try:
-        market = provider.get_ohlcv(MARKET_INDEX_TICKER, ctx_start, end)
+        market = load_market(provider, ctx_start, end)
     except DataProviderError as exc:
         print(f"無法取得大盤指數 {MARKET_INDEX_TICKER}: {exc}")
         return 1

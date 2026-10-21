@@ -14,13 +14,13 @@ import time
 import pandas as pd
 
 from stockta.config import (
-    MARKET_INDEX_TICKER,
     SPLIT_TRAIN_END,
     SPLIT_VAL_END,
     STOCK_POOL,
 )
 from stockta.data.calendar import history_fetch_start, last_completed_trading_day
-from stockta.data.provider import CACHE_TRAINING, DataProviderError, make_provider
+from stockta.data.pool import load_market, load_pool, print_skip
+from stockta.data.provider import CACHE_TRAINING, make_provider
 from stockta.features.market import build_market_context
 from stockta.ml.dataset import build_dataset
 from stockta.ml.evaluate import evaluate
@@ -44,12 +44,7 @@ def load_pool_ohlcv(tickers: list[str] | None = None) -> dict[str, pd.DataFrame]
     provider = make_provider(CACHE_TRAINING)
     end = last_completed_trading_day()
     start = history_fetch_start(end)
-    out: dict[str, pd.DataFrame] = {}
-    for ticker in tickers or list(STOCK_POOL):
-        try:
-            out[ticker] = provider.get_ohlcv(ticker, start, end)
-        except DataProviderError as exc:
-            print(f"[略過] {ticker}: {exc}")
+    out = load_pool(provider, start, end, tickers=tickers or None, on_skip=print_skip)
     if not out:
         raise SystemExit("沒有任何可用資料，請先執行 python -m stockta.data.fetch")
     return out
@@ -60,8 +55,7 @@ def load_market_context(ohlcv_by_ticker: dict[str, pd.DataFrame]) -> pd.DataFram
     provider = make_provider(CACHE_TRAINING)
     end = last_completed_trading_day()
     start = history_fetch_start(end)
-    market = provider.get_ohlcv(MARKET_INDEX_TICKER, start, end)
-    return build_market_context(market, ohlcv_by_ticker)
+    return build_market_context(load_market(provider, start, end), ohlcv_by_ticker)
 
 
 def main() -> None:
