@@ -19,6 +19,7 @@ from stockta.ml.walkforward_yearly import (
     pooled_val_ic,
     record_selection,
     run_test,
+    score_test_years,
     select_variant,
     validate,
     yearly_folds,
@@ -165,6 +166,26 @@ def test_test_years_are_read_once(selected):
         run_test(data, CONFIG, cache, results, "U1", "V0", require_committed=False)
     again = run_test(data, CONFIG, cache, results, "U1", "V0", require_committed=False, rerun_reason="測試")
     assert again["tests"]["U1"]["V0"]["previous_reads"] == 1
+
+
+def test_test_scores_average_every_seed_of_the_selected_setting(tmp_path):
+    """測試年的分數＝選出的超參數下，每個種子各自訓練的模型取平均；每組超參數與種子各存一份。"""
+    data = _data()
+    config = replace(CONFIG, folds=(CONFIG.folds[0],), grid=((2, 0.05), (2, 0.1)))
+    cache = tmp_path / "cache"
+    chosen = validate(data, config, cache)["folds"]["2010"]["selected"]
+    ((mask, scores),) = score_test_years(data, config, cache, {"2010": chosen}).values()
+
+    train, _val, test = fold_masks(data.dates, data.label_end, config.folds[0], config.start)
+    expected = np.zeros(int(test.sum()))
+    for seed in config.seeds:
+        params = {"max_depth": chosen["depth"], "learning_rate": chosen["learning_rate"], "n_estimators": config.n_estimators, "random_state": seed, "n_jobs": config.n_jobs}
+        model, scaler, _rows = fit_cs(data.X, data.y, train, params=params)
+        expected += model.predict_proba(scaler.transform(data.X[test]).astype(np.float32))[:, 1] / len(config.seeds)
+
+    assert len(list((cache / "models" / "2010").glob("*.ubj"))) == len(config.grid) * len(config.seeds)
+    np.testing.assert_array_equal(mask, test)
+    np.testing.assert_allclose(scores, expected, rtol=0, atol=1e-9)
 
 
 def _lists(value) -> list:

@@ -104,8 +104,10 @@ def _params(config: WFConfig, depth: int, lr: float, seed: int) -> dict:
     return {"max_depth": depth, "learning_rate": lr, "n_estimators": config.n_estimators, "random_state": seed, "n_jobs": config.n_jobs}
 
 
-def _model_path(cache: Path, fold: Fold, depth: int, lr: float, seed: int) -> Path:
-    return cache / "models" / str(fold.test_year) / f"d{depth}_lr{lr}_s{seed}"
+def _model_files(cache: Path, fold: Fold, depth: int, lr: float, seed: int) -> tuple[Path, Path]:
+    """(模型, 標準化參數) 的檔案。副檔名直接接在檔名後：學習率有小數點，with_suffix 會把「.05_s42」當成副檔名。"""
+    folder, stem = cache / "models" / str(fold.test_year), f"d{depth}_lr{lr}_s{seed}"
+    return folder / f"{stem}.ubj", folder / f"{stem}.npz"
 
 
 def _daily(dates: np.ndarray, scores: np.ndarray, rets: np.ndarray) -> dict[str, float]:
@@ -128,10 +130,10 @@ def validate(data: WFData, config: WFConfig, cache: Path) -> dict:
             per_seed = []
             for seed in config.seeds:
                 model, scaler, rows = fit_cs(data.X, data.y, train, params=_params(config, depth, lr, seed))
-                path = _model_path(cache, fold, depth, lr, seed)
-                path.parent.mkdir(parents=True, exist_ok=True)
-                model.save_model(str(path.with_suffix(".ubj")))
-                np.savez(path.with_suffix(".npz"), mean=scaler.mean_, scale=scaler.scale_, n_train=len(rows))
+                model_file, scaler_file = _model_files(cache, fold, depth, lr, seed)
+                model_file.parent.mkdir(parents=True, exist_ok=True)
+                model.save_model(str(model_file))
+                np.savez(scaler_file, mean=scaler.mean_, scale=scaler.scale_, n_train=len(rows))
                 probs = model.predict_proba(scaler.transform(data.X[val]).astype(np.float32))[:, 1]
                 per_seed.append(rank_ic(data.dates[val], probs, data.ret_label[val])["mean"])
                 averaged += probs / len(config.seeds)
@@ -185,10 +187,10 @@ def _load_model(cache: Path, fold: Fold, depth: int, lr: float, seed: int):
     from sklearn.preprocessing import StandardScaler
     from xgboost import XGBClassifier
 
-    path = _model_path(cache, fold, depth, lr, seed)
+    model_file, scaler_file = _model_files(cache, fold, depth, lr, seed)
     model = XGBClassifier()
-    model.load_model(str(path.with_suffix(".ubj")))
-    saved = np.load(path.with_suffix(".npz"))
+    model.load_model(str(model_file))
+    saved = np.load(scaler_file)
     scaler = StandardScaler()
     scaler.mean_, scaler.scale_ = saved["mean"], saved["scale"]
     scaler.var_ = scaler.scale_**2
