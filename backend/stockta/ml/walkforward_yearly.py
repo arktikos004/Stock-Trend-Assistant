@@ -33,7 +33,15 @@ import numpy as np
 import pandas as pd
 from scipy.stats import kurtosis, skew
 
-from stockta.config import BACKEND_ROOT, MARKET_INDEX_TICKER, STOCK_POOL
+from stockta.config import (
+    BACKEND_ROOT,
+    CS_COST_BPS,
+    CS_TOP_FRACTION,
+    LABEL_HORIZON_DAYS,
+    MARKET_INDEX_TICKER,
+    STOCK_POOL,
+    STOCK_POOL_ASOF,
+)
 from stockta.data.manifest import content_sha
 from stockta.data.pool import load_market, load_pool, print_skip
 from stockta.data.provider import CacheOnlyProvider
@@ -475,21 +483,113 @@ def _load_dataset(path: Path) -> WFData:
                   baselines={k[5:]: z[k] for k in z.files if k.startswith("base_")})
 
 
+BASELINE_NAMES = {"reversal_5d": "5 日反轉", "momentum_20d": "20 日動量"}
+
+
+def _num(x, fmt: str) -> str:
+    return "—" if x is None else format(x, fmt)
+
+
+def _pct(x) -> str:
+    return "—" if x is None else f"{x:+.2%}"
+
+
+def _short(sha: str | None) -> str:
+    return sha[:7] if sha else "—"
+
+
+def _diff(d: dict | None) -> str:
+    """IC 差與它的 t，例如「+0.0164（3.53）」。"""
+    return "—" if not d or d.get("mean") is None else f"{d['mean']:+.4f}（{_num(d.get('t'), '.2f')}）"
+
+
+def _notes(results: dict) -> list[str]:
+    tested = {(u, v) for u, variants in results.get("tests", {}).items() for v in variants}
+    lines = [
+        "## 閱讀前",
+        "",
+        f"- U1 是 {STOCK_POOL_ASOF} 的台灣 50 套到所有年份，有倖存者偏誤，只作對照；判定以 U2（每天當時的成分股）為準。",
+        "- 2025 那一折是實驗 #8 的驗證期，V0 的設定參考過它的結果。",
+        f"- 多空與只做多：分數前、後 {CS_TOP_FRACTION:.0%} 等權，每 {LABEL_HORIZON_DAYS} 個交易日換股一次（整個測試期一份日曆、不重疊），"
+        f"每次換股的成本＝換掉的比例 × {CS_COST_BPS} bp。",
+        "- 同一種作業系統、同版本套件與相同執行緒數下可以逐位元重現；XGBoost 的 subsample 用 C++ 標準函式庫的亂數分布抽列，"
+        "Windows 與 Linux 抽到的列不同。",
+    ]
+    if len(tested) < len(VARIANTS) * len(UNIVERSES):
+        lines.append("- Deflated Sharpe ratio 與 PBO 要等每個變體、每個股票池都有測試結果才算。")
+    return lines
+
+
+def _year_table(res: dict) -> list[str]:
+    first = next(iter(res["per_year"].values()), {})
+    names = [b for b in BASELINE_NAMES if b in first.get("vs_baselines", {})]
+    head = ["年", "Rank IC", "Newey–West t", "天數", "多空 Sharpe（年化、扣成本）", "只做多（每期、扣成本）", "全池（每期）"]
+    head += [f"對 {BASELINE_NAMES[b]}的 IC 差（t）" for b in names]
+    rows = ["| " + " | ".join(head) + " |", "|" + " --- |" * len(head)]
+    for year, r in sorted(res["per_year"].items()):
+        ic, ls = r["rank_ic"], r["ls_sharpe"] or {}
+        cells = [year, _num(ic["mean"], "+.4f"), _num(ic["t"], ".2f"), f"{ic['n']:,}", _num(ls.get("annualized"), "+.2f"),
+                 _pct(r["lo_net_mean"]), _pct(r["pool_mean"])]
+        rows.append("| " + " | ".join(cells + [_diff(r["vs_baselines"].get(b)) for b in names]) + " |")
+    return rows
+
+
+def _pooled_lines(res: dict) -> list[str]:
+    p, years = res["pooled"], sorted(res["per_year"])
+    ic, ls, moments, seeds = p["rank_ic"], p["ls_sharpe"] or {}, p.get("ls_moments") or {}, p.get("seed_rank_ic") or {}
+    base, diffs = p.get("baseline_rank_ic", {}), p.get("vs_baselines", {})
+    names = [b for b in BASELINE_NAMES if b in base]
+    lines = [f"### {years[0]}–{years[-1]} 合計", "", f"- Rank IC {_num(ic['mean'], '+.4f')}，Newey–West t {_num(ic['t'], '.2f')}（{ic['n']:,} 天）。"]
+    if names:
+        lines.append("- 簡單因子的 Rank IC：" + "、".join(
+            f"{BASELINE_NAMES[b]} {_num(base[b]['mean'], '+.4f')}（t {_num(base[b]['t'], '.2f')}）" for b in names) + "。")
+        lines.append("- 模型減簡單因子的逐日 IC 差（Diebold–Mariano）：" + "、".join(
+            f"對 {BASELINE_NAMES[b]} {_num(diffs[b]['mean'], '+.4f')}（t {_num(diffs[b]['t'], '.2f')}）" for b in names if b in diffs) + "。")
+    lines.append(f"- 多空扣成本：每期 Sharpe {_num(ls.get('per_period'), '+.3f')}，年化 {_num(ls.get('annualized'), '+.2f')}"
+                 f"（{ls.get('n', 0):,} 期；偏態 {_num(moments.get('skew'), '+.2f')}、峰態 {_num(moments.get('kurtosis'), '.2f')}）。")
+    lines.append(f"- 只做多扣成本每期 {_pct(p.get('lo_net_mean'))}，全池等權每期 {_pct(p.get('pool_mean'))}。")
+    if seeds.get("n_seeds"):
+        lines.append(f"- 單一種子的 Rank IC：平均 {_num(seeds['mean'], '+.4f')}、標準差 {_num(seeds['sd'], '.4f')}（{seeds['n_seeds']} 個種子）；"
+                     "上面的結果都用種子平均後的分數。")
+    return lines
+
+
+def _selection_lines(sel: dict | None) -> list[str]:
+    if not sel:
+        return []
+    lines = ["### 選出的超參數", "", "各折只用驗證年（測試年的前一年）選定，寫進結果檔並 commit 之後才讀測試年。", "",
+             "| 測試年 | 深度 | 學習率 |", "| --- | --- | --- |"]
+    lines += [f"| {year} | {f['depth']} | {f['learning_rate']} |" for year, f in sorted(sel["folds"].items())]
+    return lines + ["", f"驗證年合計的 Rank IC：{_num(sel.get('pooled_val_ic'), '+.4f')}。"]
+
+
+def _provenance_lines(sel: dict | None, res: dict) -> list[str]:
+    sel = sel or {}
+    lines = ["### 重現用的紀錄", "",
+             f"- 資料集與選擇：程式 `{_short(sel.get('code_commit'))}`、預先聲明 blob `{_short(sel.get('prereg_blob'))}`、"
+             f"價格快取雜湊摘要 `{_short(sel.get('prices_digest'))}`、上市日表 `{_short(sel.get('listing_dates_sha256'))}`。"]
+    if sel.get("packages"):
+        lines.append("- 套件：" + "、".join(f"{k} {v}" for k, v in sel["packages"].items())
+                     + f"；{str(sel.get('device', '—')).upper()}、{sel.get('n_jobs', '—')} 個執行緒。")
+    lines.append(f"- 測試年：{res.get('read_at', '—')} 讀取，程式 `{_short(res.get('code_commit'))}`，平台 {res.get('platform', '—')}，"
+                 f"先前讀過 {res.get('previous_reads', 0)} 次。")
+    if res.get("rerun_reason"):
+        lines.append(f"- 重讀原因：{res['rerun_reason']}")
+    return lines
+
+
 def write_report(results: dict, path: Path = RESULTS_MD) -> None:
-    """結果檔的可讀版本：逐年與合計的 Rank IC、多空 Sharpe 與和基準的比較。"""
-    lines = ["# 逐年樣本外驗證結果", "", "規則見 `docs/walkforward_prereg.md`；機器可讀的完整結果在 `docs/walkforward_yearly.json`。", ""]
+    """結果檔的可讀版本：閱讀前的說明，各股票池與變體的逐年與合計統計、選出的超參數與重現用的紀錄。"""
+    lines = ["# 逐年樣本外驗證結果", "",
+             "規則見 `docs/walkforward_prereg.md`；機器可讀的完整結果在 `docs/walkforward_yearly.json`。只有統計量，不含價格、逐檔報酬與逐日分數。",
+             ""]
+    lines += _notes(results)
     for universe, variants in sorted(results.get("tests", {}).items()):
         for variant, res in sorted(variants.items()):
-            lines += [f"## {universe} · {variant}", "", "| 年 | Rank IC | Newey–West t | 天數 | 多空 Sharpe（年化、扣成本） |", "| --- | --- | --- | --- | --- |"]
-            for year, r in sorted(res["per_year"].items()):
-                ic, ls = r["rank_ic"], r["ls_sharpe"] or {}
-                lines.append(
-                    f"| {year} | {ic['mean']:+.4f} | {ic['t']:.2f} | {ic['n']} | {ls.get('annualized') or float('nan'):+.2f} |"
-                    if ic["mean"] is not None and ic["t"] is not None else f"| {year} | — | — | {ic['n']} | — |"
-                )
-            pooled = res["pooled"]["rank_ic"]
-            lines += ["", f"2010–2025 合計：Rank IC {pooled['mean']:+.4f}，Newey–West t {pooled['t']:.2f}（{pooled['n']} 天）。", ""]
-    path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+            sel = results.get("selection", {}).get(universe, {}).get(variant)
+            lines += ["", f"## {universe} · {variant}", "", "### 逐年", "", *_year_table(res), "", *_pooled_lines(res)]
+            lines += ["", *_selection_lines(sel), "", *_provenance_lines(sel, res)]
+    path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8", newline="\n")
 
 
 def main(argv: list[str] | None = None) -> None:

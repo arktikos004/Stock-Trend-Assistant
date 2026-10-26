@@ -27,6 +27,7 @@ from stockta.ml.walkforward_yearly import (
     score_test_years,
     select_variant,
     validate,
+    write_report,
     yearly_folds,
 )
 
@@ -260,6 +261,21 @@ def test_test_phase_refuses_uncommitted_code(selected, monkeypatch):
 
     with pytest.raises(SystemExit, match="未 commit"):
         run_test(data, CONFIG, cache, results, "U1", "V0", is_committed=lambda path: True)
+
+
+def test_report_has_caveats_tables_and_provenance(selected, tmp_path):
+    data, cache, results = selected
+    out = run_test(data, CONFIG, cache, results, "U1", "V0", require_committed=False)
+    report = tmp_path / "walkforward_yearly.md"
+
+    write_report(out, report)
+    text = report.read_bytes().decode("utf-8")
+
+    assert "倖存者偏誤" in text and "Deflated Sharpe ratio" in text  # 只跑了 U1 · V0，DSR 與 PBO 還不能算
+    assert "## U1 · V0" in text and "### 選出的超參數" in text and "### 重現用的紀錄" in text
+    for fold in CONFIG.folds:
+        assert text.count(f"| {fold.test_year} | ") == 2  # 逐年表與超參數表各一列
+    assert "對 5 日反轉的 IC 差（t）" in text and "\r" not in text
 
 
 def _lists(value) -> list:
