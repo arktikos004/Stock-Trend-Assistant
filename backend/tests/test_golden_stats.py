@@ -1,14 +1,17 @@
-"""黃金測試：Rank IC、Newey–West 與組合回測在固定輸入上的輸出逐位元固定。
+"""黃金測試：Rank IC、Newey–West 與組合回測在固定輸入上的輸出固定。
 
 預期值在整併這些函式之前，從當時的實作擷取（golden/stats.json），之後不重新產生：
 這裡失敗，代表改到了已公開數字背後的算法。
-- 輸入只用均勻亂數與四則運算（不用常態亂數、exp、log），浮點數以 float.hex 儲存，跨平台逐位元可比。
+- 輸入只用均勻亂數與四則運算（不用常態亂數、exp、log），浮點數以 float.hex 儲存。
+- 浮點數容許 1e-12 的相對誤差：Newey–West 的內積經過 BLAS，不同 CPU 的結果最後幾個位元不同；
+  整數、字串、日期、NaN 的位置與陣列長度必須完全相同。
 - 前後段選股（quantile_spread、portfolio_backtest）的輸入沒有同分：同分時的順序取決於排序實作，不屬於要固定的行為。
 """
 
 from __future__ import annotations
 
 import json
+import math
 from datetime import date, datetime
 from pathlib import Path
 
@@ -33,6 +36,9 @@ from stockta.monitor import model_health, newey_west
 
 GOLDEN_PATH = Path(__file__).parent / "golden" / "stats.json"
 START = "2025-01-02"
+# Newey–West 的內積經過 BLAS：不同 CPU 選到的核心不同，最後幾個位元會不一樣（約 1e-15）
+REL_TOL = 1e-12
+ABS_TOL = 1e-15
 
 
 def encode(value):
@@ -246,6 +252,36 @@ def test_every_case_has_a_golden_value(golden):
     assert sorted(CASES) == sorted(golden)
 
 
+def first_difference(actual, expected, path: str = "") -> str | None:
+    """第一個不同的位置；都相同時回 None。浮點數容許 REL_TOL 的相對誤差（NaN 只等於 NaN），其餘必須完全相同。"""
+    if isinstance(expected, str) and expected.startswith("f:"):
+        if not (isinstance(actual, str) and actual.startswith("f:")):
+            return f"{path}: {actual!r} != {expected!r}"
+        a, e = float.fromhex(actual[2:]), float.fromhex(expected[2:])
+        if (math.isnan(a) and math.isnan(e)) or math.isclose(a, e, rel_tol=REL_TOL, abs_tol=ABS_TOL):
+            return None
+        return f"{path}: {a!r} != {e!r}"
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict) or actual.keys() != expected.keys():
+            return f"{path}: 欄位不同"
+        return next((d for k in expected if (d := first_difference(actual[k], expected[k], f"{path}.{k}"))), None)
+    if isinstance(expected, list):
+        if not isinstance(actual, list) or len(actual) != len(expected):
+            return f"{path}: 長度不同"
+        return next((d for i, (a, e) in enumerate(zip(actual, expected)) if (d := first_difference(a, e, f"{path}[{i}]"))), None)
+    return None if actual == expected else f"{path}: {actual!r} != {expected!r}"
+
+
+def test_comparison_tolerates_only_the_last_bits():
+    one = encode(0.015704804359702215)
+    assert first_difference(encode(0.015704804359702222), one) is None  # 差幾個 ULP：BLAS 核心不同
+    assert first_difference(encode(0.015704804359702215 * (1 + 1e-9)), one) is not None
+    assert first_difference(encode(float("nan")), encode(float("nan"))) is None
+    assert first_difference(encode(float("nan")), one) is not None
+    assert first_difference({"dtype": "float64"}, {"dtype": "float32"}) is not None
+    assert first_difference([encode(1.0)], [encode(1.0), encode(2.0)]) is not None
+
+
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_golden_stats_cases(name, golden):
-    assert encode(CASES[name]()) == golden[name]
+    assert first_difference(encode(CASES[name]()), golden[name], name) is None
