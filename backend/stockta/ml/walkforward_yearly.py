@@ -22,6 +22,7 @@ import argparse
 import csv
 import hashlib
 import json
+import platform
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -367,6 +368,7 @@ def run_test(
         **evaluate(data, scored),
         "read_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "code_commit": _git("rev-parse", "HEAD"),
+        "platform": platform.platform(),
         "rerun_reason": rerun_reason,
         "previous_reads": tests.get(variant, {}).get("previous_reads", 0) + (1 if variant in tests else 0),
     }
@@ -413,7 +415,10 @@ def _git(*args: str) -> str:
 
 
 def provenance(pool: dict[str, pd.DataFrame], market: pd.DataFrame) -> dict:
-    """重現用的紀錄：價格內容雜湊（不含價格本身）、套件版本、程式與預先聲明的版本、運算設定。"""
+    """重現用的紀錄：價格內容雜湊（不含價格本身）、套件版本、程式與預先聲明的版本、運算設定與作業系統。
+
+    XGBoost 的 subsample 用 C++ 標準函式庫的亂數分布抽列，模型只在同一種作業系統上逐位元重現。
+    """
     from importlib.metadata import version
 
     prices = {t: content_sha(df) for t, df in sorted(pool.items())}
@@ -427,6 +432,7 @@ def provenance(pool: dict[str, pd.DataFrame], market: pd.DataFrame) -> dict:
         "packages": {p: version(p) for p in ("numpy", "pandas", "scipy", "scikit-learn", "xgboost")},
         "device": "cpu",
         "n_jobs": N_JOBS,
+        "platform": platform.platform(),
     }
 
 

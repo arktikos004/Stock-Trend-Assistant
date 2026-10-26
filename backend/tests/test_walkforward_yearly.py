@@ -250,7 +250,8 @@ def test_test_phase_keeps_scores_locally_and_records_the_commit(selected):
 
     saved = np.load(cache / "test_scores.npz")
     assert saved["per_seed"].shape == (len(CONFIG.seeds), len(saved["rows"])) == (len(CONFIG.seeds), len(saved["scores"]))
-    assert "code_commit" in out["tests"]["U1"]["V0"]
+    record = out["tests"]["U1"]["V0"]
+    assert "code_commit" in record and record["platform"]
 
 
 def test_test_phase_refuses_uncommitted_code(selected, monkeypatch):
