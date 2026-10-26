@@ -2,13 +2,16 @@
 
 預期值在加入切分、purge 與當時成分股的選項之前擷取（golden/cs_dataset.json），之後不重新產生：
 預設參數下的資料集必須和現在一模一樣，現行模型的訓練才不受影響。
-輸入只用均勻亂數與四則運算；XGBoost 的機率跨平台不保證逐位元相同，只比到相對誤差 1e-6。
+輸入只用均勻亂數與四則運算，資料集、訓練列與標準化參數在各平台逐位元相同。
+XGBoost 的機率只在錄下預期值的 Windows 上比：subsample 用 C++ 標準函式庫的亂數分布抽列，
+Linux 與 Windows 抽到的列不同；同一台機器上，fit_cs 與訓練流程的機率必須完全相同。
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -97,16 +100,18 @@ def test_cs_training_rows_and_scaler_match_golden(actual, golden):
     assert actual["scaler_scale"] == golden["scaler_scale"]
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="預期的機率在 Windows 上錄下；subsample 在其他平台抽到不同的列")
 def test_cs_model_probe_matches_golden(actual, golden):
     np.testing.assert_allclose(actual["probe"], golden["probe"], rtol=1e-6)
 
 
-def test_fit_cs_matches_the_training_path(golden):
-    """fit_cs 與 train() 走同一條路：同樣的訓練列、同樣的標準化、同樣的機率。"""
+def test_fit_cs_matches_the_training_path(actual, golden):
+    """fit_cs 與 train() 走同一條路：同樣的訓練列、同樣的標準化，同一台機器上同樣的機率。"""
     pool, context = _inputs()
     ds = build_cs_dataset(pool, context)
     model, scaler, tr = fit_cs(ds.X, ds.y, ds.is_train)
 
     assert _digest(tr) == golden["train_rows"]
+    assert (_digest(scaler.mean_), _digest(scaler.scale_)) == (golden["scaler_mean"], golden["scaler_scale"])
     probe = model.predict_proba(scaler.transform(ds.X[ds.is_val][:20]).astype(np.float32))[:, 1]
-    np.testing.assert_allclose(probe, golden["probe"], rtol=1e-6)
+    np.testing.assert_array_equal(probe, actual["probe"])
