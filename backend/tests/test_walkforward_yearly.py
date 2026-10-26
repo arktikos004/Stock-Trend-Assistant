@@ -11,11 +11,16 @@ import pandas as pd
 import pytest
 
 from stockta.config import ARTIFACTS_CS_DIR
+from stockta.ml import walkforward_yearly
 from stockta.ml.cross_sectional import fit_cs
+from stockta.ml.cs_metrics import daily_rank_ic
 from stockta.ml.walkforward_yearly import (
+    Scored,
     WFConfig,
     WFData,
+    evaluate,
     fold_masks,
+    long_short_periods,
     pooled_val_ic,
     record_selection,
     run_test,
@@ -174,7 +179,7 @@ def test_test_scores_average_every_seed_of_the_selected_setting(tmp_path):
     config = replace(CONFIG, folds=(CONFIG.folds[0],), grid=((2, 0.05), (2, 0.1)))
     cache = tmp_path / "cache"
     chosen = validate(data, config, cache)["folds"]["2010"]["selected"]
-    ((mask, scores),) = score_test_years(data, config, cache, {"2010": chosen}).values()
+    (scored,) = score_test_years(data, config, cache, {"2010": chosen}).values()
 
     train, _val, test = fold_masks(data.dates, data.label_end, config.folds[0], config.start)
     expected = np.zeros(int(test.sum()))
@@ -184,8 +189,76 @@ def test_test_scores_average_every_seed_of_the_selected_setting(tmp_path):
         expected += model.predict_proba(scaler.transform(data.X[test]).astype(np.float32))[:, 1] / len(config.seeds)
 
     assert len(list((cache / "models" / "2010").glob("*.ubj"))) == len(config.grid) * len(config.seeds)
-    np.testing.assert_array_equal(mask, test)
-    np.testing.assert_allclose(scores, expected, rtol=0, atol=1e-9)
+    np.testing.assert_array_equal(scored.mask, test)
+    np.testing.assert_allclose(scored.scores, expected, rtol=0, atol=1e-9)
+    assert scored.per_seed.shape == (len(config.seeds), int(test.sum()))
+    np.testing.assert_allclose(scored.per_seed.mean(axis=0), scored.scores, rtol=0, atol=1e-6)
+
+
+def _test_rows(data: WFData, *years: int) -> dict[int, np.ndarray]:
+    return {f.test_year: fold_masks(data.dates, data.label_end, f, CONFIG.start)[2] for f in CONFIG.folds if f.test_year in years}
+
+
+def test_long_short_schedule_runs_across_year_ends():
+    """換股日在整個測試期每 5 個交易日一次，不在年初重來；分數不變時跨年不換股。"""
+    data = _data()
+    by_ticker = np.array([float(t[:4]) for t in data.tickers])  # 每天的排序都一樣
+    scored = {y: Scored(m, by_ticker[m], by_ticker[m][None, :]) for y, m in _test_rows(data, 2010, 2011).items()}
+
+    periods = long_short_periods(data, scored)
+
+    days = pd.DatetimeIndex(np.sort(np.unique(data.dates[scored[2010].mask | scored[2011].mask])))
+    assert list(periods["date"]) == list(days[::5])
+    first_2011 = periods[periods["date"].dt.year == 2011].iloc[0]
+    assert (first_2011["long_turnover"], first_2011["short_turnover"]) == (0.0, 0.0)
+
+
+def test_each_period_counts_in_the_year_it_was_bought():
+    data = _data()
+    rng = np.random.default_rng(3)
+    scored = {}
+    for year, mask in _test_rows(data, 2010, 2011).items():
+        s = rng.random(int(mask.sum()))
+        scored[year] = Scored(mask, s, s[None, :])
+
+    periods = long_short_periods(data, scored)
+    result = evaluate(data, scored)
+
+    for year in (2010, 2011):
+        assert result["per_year"][str(year)]["ls_sharpe"]["n"] == int((periods["date"].dt.year == year).sum())
+    assert result["pooled"]["ls_sharpe"]["n"] == len(periods)
+    assert result["pooled"]["ls_moments"]["n"] == len(periods)
+
+
+def test_seed_spread_comes_from_each_seed_alone():
+    data = _data()
+    test = _test_rows(data, 2010)[2010]
+    rng = np.random.default_rng(5)
+    a, b = rng.random(int(test.sum())), rng.random(int(test.sum()))
+
+    seeds = evaluate(data, {2010: Scored(test, (a + b) / 2, np.stack([a, b]))})["pooled"]["seed_rank_ic"]
+
+    ic = [daily_rank_ic(data.dates[test], s, data.ret_label[test]).mean() for s in (a, b)]
+    assert seeds["n_seeds"] == 2
+    assert seeds["mean"] == pytest.approx(np.mean(ic))
+    assert seeds["sd"] == pytest.approx(np.std(ic, ddof=1))
+
+
+def test_test_phase_keeps_scores_locally_and_records_the_commit(selected):
+    data, cache, results = selected
+    out = run_test(data, CONFIG, cache, results, "U1", "V0", require_committed=False)
+
+    saved = np.load(cache / "test_scores.npz")
+    assert saved["per_seed"].shape == (len(CONFIG.seeds), len(saved["rows"])) == (len(CONFIG.seeds), len(saved["scores"]))
+    assert "code_commit" in out["tests"]["U1"]["V0"]
+
+
+def test_test_phase_refuses_uncommitted_code(selected, monkeypatch):
+    data, cache, results = selected
+    monkeypatch.setattr(walkforward_yearly, "_git", lambda *args: " M backend/stockta/ml/walkforward_yearly.py")
+
+    with pytest.raises(SystemExit, match="未 commit"):
+        run_test(data, CONFIG, cache, results, "U1", "V0", is_committed=lambda path: True)
 
 
 def _lists(value) -> list:

@@ -9,7 +9,8 @@
 - prepare：用本機快取（不下載）建資料集、各列的基準分數與重現用的紀錄。
 - validate：每一折、每組超參數、每個種子訓練一次，只讀驗證年；模型存進快取，測試期不再訓練。
 - select：依驗證年選出的超參數寫進 docs/walkforward_yearly.json。這份選擇 commit 之後，test 才會執行。
-- test：每一折的測試年只讀一次；已讀過的不重跑，除非給 --rerun-reason（會記進結果）。
+- test：選擇紀錄與程式都 commit 之後才讀；每一折的測試年只讀一次，已讀過的不重跑，除非給 --rerun-reason（會記進結果）。
+  各列的分數另存在快取，結果檔記下讀的時間與 commit。
 - report：把結果寫成 docs/walkforward_yearly.md 與 .json，只有統計量，不含價格、逐檔報酬與逐日分數。
 
 中間結果放在 git 忽略的 backend/wf_cache/。
@@ -29,6 +30,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import kurtosis, skew
 
 from stockta.config import BACKEND_ROOT, MARKET_INDEX_TICKER, STOCK_POOL
 from stockta.data.manifest import content_sha
@@ -198,32 +200,87 @@ def _load_model(cache: Path, fold: Fold, depth: int, lr: float, seed: int):
     return model, scaler
 
 
-def score_test_years(data: WFData, config: WFConfig, cache: Path, selected: dict) -> dict[int, tuple[np.ndarray, np.ndarray]]:
-    """每一折用驗證期選出的超參數、5 個種子的平均，對測試年評分。回傳 {測試年: (列遮罩, 分數)}。"""
+@dataclass(frozen=True)
+class Scored:
+    """一折測試年的分數：列遮罩、5 個種子的平均，以及各種子的分數（種子 × 列）。"""
+
+    mask: np.ndarray
+    scores: np.ndarray
+    per_seed: np.ndarray
+
+
+def score_test_years(data: WFData, config: WFConfig, cache: Path, selected: dict) -> dict[int, Scored]:
+    """每一折用驗證期選出的超參數對測試年評分：各種子的分數，以及 5 個種子的平均（加總順序同驗證期）。"""
     out = {}
     for fold in config.folds:
         _train, _val, test = fold_masks(data.dates, data.label_end, fold, config.start)
         chosen = selected[str(fold.test_year)]
         scores = np.zeros(int(test.sum()))
+        per_seed = []
         for seed in config.seeds:
             model, scaler = _load_model(cache, fold, chosen["depth"], chosen["learning_rate"], seed)
-            scores += model.predict_proba(scaler.transform(data.X[test]).astype(np.float32))[:, 1] / len(config.seeds)
-        out[fold.test_year] = (test, scores)
+            probs = model.predict_proba(scaler.transform(data.X[test]).astype(np.float32))[:, 1]
+            per_seed.append(probs)
+            scores += probs / len(config.seeds)
+        out[fold.test_year] = Scored(test, scores, np.stack(per_seed))
     return out
 
 
-def evaluate(data: WFData, scored: dict[int, tuple[np.ndarray, np.ndarray]]) -> dict:
-    """逐年與合計的 Rank IC（Newey–West t）、多空與只做多、和基準的 Diebold–Mariano；只有統計量。"""
-    per_year, all_model, all_base = {}, [], {b: [] for b in data.baselines}
-    periods = []
-    for year, (mask, scores) in sorted(scored.items()):
-        common = np.ones(int(mask.sum()), dtype=bool)
+def _common_rows(data: WFData, scored: dict[int, Scored]) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """每個測試年的共同評估列（每個基準也有分數）：(資料集的列索引, 在該年分數裡的位置)。"""
+    out = {}
+    for year, sc in sorted(scored.items()):
+        idx = np.where(sc.mask)[0]
+        keep = np.ones(len(idx), dtype=bool)
         for b in data.baselines.values():
-            common &= np.isfinite(b[mask])
-        d, r, s = data.dates[mask][common], data.ret_label[mask][common], scores[common]
+            keep &= np.isfinite(b[idx])
+        out[year] = (idx[keep], keep)
+    return out
+
+
+def long_short_periods(data: WFData, scored: dict[int, Scored]) -> pd.DataFrame:
+    """多空與只做多的每一期：整個測試期用同一份交易日曆，每 LABEL_HORIZON_DAYS 日換股一次、不重疊，換手跨年延續。"""
+    common = _common_rows(data, scored)
+    if not common:
+        return pd.DataFrame()
+    rows = np.concatenate([idx for idx, _ in common.values()])
+    scores = np.concatenate([scored[year].scores[keep] for year, (_, keep) in common.items()])
+    return rebalance_returns(data.dates[rows], data.tickers[rows], scores, data.ret_label[rows])
+
+
+def _moments(returns: pd.Series) -> dict:
+    """每期報酬的偏態與峰態（常態＝3），Deflated Sharpe ratio 的輸入。"""
+    r = returns.to_numpy(dtype=float)
+    r = r[np.isfinite(r)]
+    if len(r) < 3 or float(np.std(r)) == 0:
+        return {"n": len(r), "skew": None, "kurtosis": None}
+    return {"n": len(r), "skew": float(skew(r)), "kurtosis": float(kurtosis(r, fisher=False))}
+
+
+def _seed_rank_ic(data: WFData, scored: dict[int, Scored], common: dict) -> dict:
+    """每個種子單獨的合計 Rank IC（共同評估列），種子之間的平均與標準差。"""
+    if not common:
+        return {"n_seeds": 0, "mean": None, "sd": None}
+    rows = np.concatenate([idx for idx, _ in common.values()])
+    per_seed = np.concatenate([scored[year].per_seed[:, keep] for year, (_, keep) in common.items()], axis=1)
+    means = [float(daily_rank_ic(data.dates[rows], s, data.ret_label[rows]).mean()) for s in per_seed]
+    return {"n_seeds": len(means), "mean": float(np.mean(means)), "sd": float(np.std(means, ddof=1)) if len(means) > 1 else None}
+
+
+def evaluate(data: WFData, scored: dict[int, Scored]) -> dict:
+    """逐年與合計的 Rank IC（Newey–West t）、多空與只做多、和基準的 Diebold–Mariano、單一種子的 Rank IC；只有統計量。
+
+    只用共同評估列。多空與只做多的每一期算在換股日所在的年（排程見 long_short_periods）。
+    """
+    common = _common_rows(data, scored)
+    ls_all = long_short_periods(data, scored)
+    ls_year = ls_all["date"].dt.year if len(ls_all) else pd.Series(dtype=int)
+    per_year, all_model, all_base = {}, [], {b: [] for b in data.baselines}
+    for year, (idx, keep) in common.items():
+        d, r, s = data.dates[idx], data.ret_label[idx], scored[year].scores[keep]
         model_ic = daily_rank_ic(d, s, r)
-        base_ic = {name: daily_rank_ic(d, b[mask][common], r) for name, b in data.baselines.items()}
-        ls = rebalance_returns(d, data.tickers[mask][common], s, r)
+        base_ic = {name: daily_rank_ic(d, b[idx], r) for name, b in data.baselines.items()}
+        ls = ls_all[ls_year == year] if len(ls_all) else ls_all
         per_year[str(year)] = {
             "rank_ic": nw_t(model_ic.to_numpy()),
             "ls_sharpe": sharpe(ls["ls_net"]) if len(ls) else None,
@@ -234,16 +291,16 @@ def evaluate(data: WFData, scored: dict[int, tuple[np.ndarray, np.ndarray]]) -> 
         all_model.append(model_ic)
         for name, ic in base_ic.items():
             all_base[name].append(ic)
-        periods.append(ls)
     model_ic = pd.concat(all_model) if all_model else pd.Series(dtype=float)
-    ls_all = pd.concat(periods) if periods else pd.DataFrame()
     pooled = {
         "rank_ic": nw_t(model_ic.to_numpy()),
         "ls_sharpe": sharpe(ls_all["ls_net"]) if len(ls_all) else None,
+        "ls_moments": _moments(ls_all["ls_net"]) if len(ls_all) else None,
         "lo_net_mean": float(ls_all["lo_net"].mean()) if len(ls_all) else None,
         "pool_mean": float(ls_all["pool"].mean()) if len(ls_all) else None,
         "vs_baselines": {name: ic_diff_test(model_ic, pd.concat(ics)) for name, ics in all_base.items() if ics},
         "baseline_rank_ic": {name: nw_t(pd.concat(ics).to_numpy()) for name, ics in all_base.items() if ics},
+        "seed_rank_ic": _seed_rank_ic(data, scored, common),
     }
     return {"per_year": per_year, "pooled": pooled}
 
@@ -299,18 +356,34 @@ def run_test(
         raise SystemExit(f"{path.name} 沒有 {universe}/{variant} 的選擇紀錄：先跑 select，commit 之後才讀測試年")
     if require_committed and not is_committed(path):
         raise SystemExit(f"{path.name} 的選擇紀錄還沒 commit：先 commit（最好也推上去），測試年才會讀")
+    if require_committed and _git("status", "--porcelain", "--untracked-files=no"):
+        raise SystemExit("工作目錄有未 commit 的修改：測試年只用已 commit 的程式讀")
     tests = results.setdefault("tests", {}).setdefault(universe, {})
     if variant in tests and not rerun_reason:
         raise SystemExit(f"{universe}/{variant} 的測試年已經讀過；真的要重跑請給 --rerun-reason")
     scored = score_test_years(data, config, cache, selected["folds"])
+    _save_test_scores(cache, scored)
     tests[variant] = {
         **evaluate(data, scored),
         "read_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "code_commit": _git("rev-parse", "HEAD"),
         "rerun_reason": rerun_reason,
         "previous_reads": tests.get(variant, {}).get("previous_reads", 0) + (1 if variant in tests else 0),
     }
     _write_results(path, results)
     return results
+
+
+def _save_test_scores(cache: Path, scored: dict[int, Scored]) -> None:
+    """測試年各列的分數（含各種子）存進 git 忽略的快取：核對結果或重算統計時不必再載入模型。"""
+    years = sorted(scored)
+    cache.mkdir(parents=True, exist_ok=True)
+    np.savez(
+        cache / "test_scores.npz",
+        rows=np.concatenate([np.where(scored[y].mask)[0] for y in years]),
+        scores=np.concatenate([scored[y].scores for y in years]),
+        per_seed=np.concatenate([scored[y].per_seed for y in years], axis=1),
+    )
 
 
 # ── 真實資料 ─────────────────────────────────────────────────────────
